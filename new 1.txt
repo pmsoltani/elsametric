@@ -1,0 +1,64 @@
+Source
+
+source_id
+prism:publicationName
+**url
+prism:issn
+prism:isbn $
+**subject
+**publisher
+prism:aggregationType
+
+-----------------------
+-----------------------
+
+Paper
+
+dc:identifier
+eid
+dc:title
+subtype
+subtypeDescription
+dc:description
+author-count $
+openaccess
+citedby-count
+link ref=scopus
+article-number
+fund-no
+**retrieval_time
+**create_time
+
+source_id
+
+prism:doi
+prism:volume
+prism:issueIdentifier
+prism:coverDate
+prism:pageRange
+
+-----------------------
+-----------------------
+
+Author
+
+author authid
+author given-name
+author surname
+author initials
+author author-url
+**sex
+**type
+**rank
+**email
+
+
+affiliation afid
+affiliation affilname
+**abbreviation
+affiliation affiliation-city
+affiliation affiliation-country
+affiliation affiliation-url
+**type
+**lat
+**lng
