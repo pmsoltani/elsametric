@@ -22,11 +22,12 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`source` (
   `source_id_scp` BIGINT UNSIGNED NOT NULL COMMENT 'Unique Scopus Source (journal) ID',
   `title` VARCHAR(512) NOT NULL COMMENT 'Source Title',
   `url` VARCHAR(256) NOT NULL COMMENT 'Source url',
+  `type` VARCHAR(45) NULL COMMENT 'Journal, Conference Proceeding, ...',
   `issn` INT(8) UNSIGNED NULL COMMENT 'Source Identifier',
   `e_issn` INT(8) UNSIGNED NULL,
   `isbn` INT(13) UNSIGNED NULL COMMENT 'Source Identifier',
   `publisher` VARCHAR(45) NULL COMMENT 'Source publisher',
-  `type` VARCHAR(45) NULL COMMENT 'Journal, Conference Proceeding, ...',
+  `country` VARCHAR(45) NULL,
   `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Record creation time',
   `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE INDEX `source_id_scp_UNIQUE` (`source_id_scp` ASC) VISIBLE,
@@ -240,6 +241,23 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`department_institution` (
   CONSTRAINT `fk_department_has_institution_institution2`
     FOREIGN KEY (`institution_id`)
     REFERENCES `Scopus`.`institution` (`institution_id`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
+
+
+-- -----------------------------------------------------
+-- Table `Scopus`.`author_profile`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `Scopus`.`author_profile` (
+  `author_id` INT UNSIGNED NOT NULL,
+  `url` VARCHAR(256) NOT NULL COMMENT 'Profile URL',
+  `type` VARCHAR(45) NOT NULL COMMENT 'Scopus, Google Scholar, ResearchGate, Personal Webpage, ...',
+  UNIQUE INDEX `url_UNIQUE` (`url` ASC) VISIBLE,
+  PRIMARY KEY (`author_id`),
+  CONSTRAINT `fk_author_profile_author1`
+    FOREIGN KEY (`author_id`)
+    REFERENCES `Scopus`.`author` (`author_id`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
