@@ -16,6 +16,7 @@ thumbs.db
 .env.development.local
 .env.test.local
 .env.production.local
+.bak
 
 # config
 config.json
