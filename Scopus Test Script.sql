@@ -42,7 +42,6 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`paper` (
   `paper_id` INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'Auto Increment Paper ID',
   `paper_id_scp` BIGINT UNSIGNED NOT NULL COMMENT 'Unique Scopus ID',
   `eid` VARCHAR(45) NOT NULL COMMENT 'Electronic ID',
-  `author_no` SMALLINT UNSIGNED NOT NULL COMMENT 'Position of author among other authors of the paper',
   `title` VARCHAR(256) NOT NULL COMMENT '	\nArticle Title',
   `type` VARCHAR(10) NOT NULL COMMENT 'Document Type code',
   `type_description` VARCHAR(45) NULL COMMENT 'Document Type description',
@@ -185,6 +184,7 @@ ENGINE = InnoDB;
 CREATE TABLE IF NOT EXISTS `Scopus`.`paper_author` (
   `paper_id` INT UNSIGNED NOT NULL,
   `author_id` INT UNSIGNED NOT NULL,
+  `author_no` SMALLINT UNSIGNED NOT NULL COMMENT 'Position of author among other authors of the paper',
   PRIMARY KEY (`paper_id`, `author_id`),
   INDEX `fk_paper_has_author_author2_idx` (`author_id` ASC) VISIBLE,
   INDEX `fk_paper_has_author_paper1_idx` (`paper_id` ASC) VISIBLE,
