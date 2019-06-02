@@ -150,10 +150,7 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`subject` (
   `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`subject_id`),
   UNIQUE INDEX `subject_id_UNIQUE` (`subject_id` ASC) VISIBLE,
-  UNIQUE INDEX `asjc_code_UNIQUE` (`asjc_code` ASC) VISIBLE,
-  UNIQUE INDEX `top_UNIQUE` (`top` ASC) VISIBLE,
-  UNIQUE INDEX `middle_UNIQUE` (`middle` ASC) VISIBLE,
-  UNIQUE INDEX `low_UNIQUE` (`low` ASC) VISIBLE)
+  UNIQUE INDEX `asjc_code_UNIQUE` (`asjc_code` ASC) VISIBLE)
 ENGINE = InnoDB;
 
 
