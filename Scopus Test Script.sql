@@ -246,28 +246,6 @@ ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `Scopus`.`author_department`
--- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `Scopus`.`author_department` (
-  `author_id` INT UNSIGNED NOT NULL,
-  `department_id` INT UNSIGNED NOT NULL,
-  PRIMARY KEY (`author_id`, `department_id`),
-  INDEX `fk_author_has_department_department2_idx` (`department_id` ASC) VISIBLE,
-  INDEX `fk_author_has_department_author2_idx` (`author_id` ASC) VISIBLE,
-  CONSTRAINT `fk_author_has_department_author2`
-    FOREIGN KEY (`author_id`)
-    REFERENCES `Scopus`.`author` (`author_id`)
-    ON DELETE NO ACTION
-    ON UPDATE NO ACTION,
-  CONSTRAINT `fk_author_has_department_department2`
-    FOREIGN KEY (`department_id`)
-    REFERENCES `Scopus`.`department` (`department_id`)
-    ON DELETE NO ACTION
-    ON UPDATE NO ACTION)
-ENGINE = InnoDB;
-
-
--- -----------------------------------------------------
 -- Table `Scopus`.`author_profile`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `Scopus`.`author_profile` (
@@ -313,6 +291,29 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`paper_keyword` (
   CONSTRAINT `fk_paper_has_keyword_keyword1`
     FOREIGN KEY (`keyword_id`)
     REFERENCES `Scopus`.`keyword` (`keyword_id`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
+
+
+-- -----------------------------------------------------
+-- Table `Scopus`.`author_department`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `Scopus`.`author_department` (
+  `author_id` INT UNSIGNED NOT NULL,
+  `department_id` INT UNSIGNED NOT NULL,
+  `institution_id` INT UNSIGNED NOT NULL,
+  PRIMARY KEY (`author_id`, `department_id`, `institution_id`),
+  INDEX `fk_author_has_department_department1_idx` (`department_id` ASC, `institution_id` ASC) VISIBLE,
+  INDEX `fk_author_has_department_author1_idx` (`author_id` ASC) VISIBLE,
+  CONSTRAINT `fk_author_has_department_author1`
+    FOREIGN KEY (`author_id`)
+    REFERENCES `Scopus`.`author` (`author_id`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION,
+  CONSTRAINT `fk_author_has_department_department1`
+    FOREIGN KEY (`department_id` , `institution_id`)
+    REFERENCES `Scopus`.`department` (`department_id` , `institution_id`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
