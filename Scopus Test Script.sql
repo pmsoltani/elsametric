@@ -127,7 +127,6 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`author` (
   `sex` TINYINT(1) UNSIGNED NULL,
   `type` VARCHAR(45) NULL COMMENT 'Type of author (faculty, student, researcher)',
   `rank` VARCHAR(45) NULL COMMENT 'Rank of author (Full, Associate, Assitant Prof.; B.Sc., M.Sc., Ph.D. Student; Postdoc Researcher)',
-  `email` VARCHAR(256) NULL COMMENT 'Email address of the author',
   `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Record creation time',
   `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE INDEX `author_id_scp_UNIQUE` (`author_id_scp` ASC) VISIBLE,
@@ -289,9 +288,9 @@ ENGINE = InnoDB;
 CREATE TABLE IF NOT EXISTS `Scopus`.`author_profile` (
   `profile_id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `author_id` INT UNSIGNED NOT NULL,
-  `url` VARCHAR(256) NOT NULL COMMENT 'Profile URL',
-  `type` VARCHAR(45) NOT NULL COMMENT 'Scopus, Google Scholar, ResearchGate, Personal Webpage, ...',
-  UNIQUE INDEX `url_UNIQUE` (`url` ASC) VISIBLE,
+  `address` VARCHAR(256) NOT NULL COMMENT 'Profile URL',
+  `type` VARCHAR(45) NOT NULL COMMENT 'Scopus, Google Scholar, Personal Webpage, email, ...',
+  UNIQUE INDEX `url_UNIQUE` (`address` ASC) VISIBLE,
   PRIMARY KEY (`profile_id`, `author_id`),
   INDEX `fk_author_profile_author1_idx` (`author_id` ASC) VISIBLE,
   CONSTRAINT `fk_author_profile_author1`
