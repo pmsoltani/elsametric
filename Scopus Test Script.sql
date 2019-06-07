@@ -135,22 +135,6 @@ ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `Scopus`.`department`
--- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `Scopus`.`department` (
-  `department_id` INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'Auto Increment Department ID',
-  `name` VARCHAR(128) NOT NULL COMMENT 'Department name',
-  `abbreviation` VARCHAR(45) NULL COMMENT 'Department abbreviation',
-  `type` VARCHAR(45) NULL COMMENT 'Department, Research Center, Research Institute, Center of Excellence, ...',
-  `lat` DECIMAL(8,6) NULL COMMENT 'Department\'s main building\'s latitute',
-  `lng` DECIMAL(9,6) NULL COMMENT 'Department\'s main building\'s longitude',
-  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Record creation time',
-  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`department_id`))
-ENGINE = InnoDB;
-
-
--- -----------------------------------------------------
 -- Table `Scopus`.`institution`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `Scopus`.`institution` (
@@ -172,6 +156,29 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`institution` (
   CONSTRAINT `fk_institution_country1`
     FOREIGN KEY (`country_id`)
     REFERENCES `Scopus`.`country` (`country_id`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
+
+
+-- -----------------------------------------------------
+-- Table `Scopus`.`department`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `Scopus`.`department` (
+  `department_id` INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'Auto Increment Department ID',
+  `institution_id` INT UNSIGNED NOT NULL,
+  `name` VARCHAR(128) NOT NULL COMMENT 'Department name',
+  `abbreviation` VARCHAR(45) NULL COMMENT 'Department abbreviation',
+  `type` VARCHAR(45) NULL COMMENT 'Department, Research Center, Research Institute, Center of Excellence, ...',
+  `lat` DECIMAL(8,6) NULL COMMENT 'Department\'s main building\'s latitute',
+  `lng` DECIMAL(9,6) NULL COMMENT 'Department\'s main building\'s longitude',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Record creation time',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`department_id`, `institution_id`),
+  INDEX `fk_department_institution1_idx` (`institution_id` ASC) VISIBLE,
+  CONSTRAINT `fk_department_institution1`
+    FOREIGN KEY (`institution_id`)
+    REFERENCES `Scopus`.`institution` (`institution_id`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
@@ -255,28 +262,6 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`author_department` (
   CONSTRAINT `fk_author_has_department_department2`
     FOREIGN KEY (`department_id`)
     REFERENCES `Scopus`.`department` (`department_id`)
-    ON DELETE NO ACTION
-    ON UPDATE NO ACTION)
-ENGINE = InnoDB;
-
-
--- -----------------------------------------------------
--- Table `Scopus`.`department_institution`
--- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `Scopus`.`department_institution` (
-  `department_id` INT UNSIGNED NOT NULL,
-  `institution_id` INT UNSIGNED NOT NULL,
-  PRIMARY KEY (`department_id`, `institution_id`),
-  INDEX `fk_department_has_institution_institution2_idx` (`institution_id` ASC) VISIBLE,
-  INDEX `fk_department_has_institution_department2_idx` (`department_id` ASC) VISIBLE,
-  CONSTRAINT `fk_department_has_institution_department2`
-    FOREIGN KEY (`department_id`)
-    REFERENCES `Scopus`.`department` (`department_id`)
-    ON DELETE NO ACTION
-    ON UPDATE NO ACTION,
-  CONSTRAINT `fk_department_has_institution_institution2`
-    FOREIGN KEY (`institution_id`)
-    REFERENCES `Scopus`.`institution` (`institution_id`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
