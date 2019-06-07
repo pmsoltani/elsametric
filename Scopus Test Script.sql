@@ -24,7 +24,6 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`country` (
   `region` VARCHAR(8) NULL,
   `sub_region` VARCHAR(45) NULL,
   PRIMARY KEY (`country_id`),
-  UNIQUE INDEX `country_id_UNIQUE` (`country_id` ASC) VISIBLE,
   UNIQUE INDEX `name_UNIQUE` (`name` ASC) VISIBLE,
   UNIQUE INDEX `code_UNIQUE` (`code` ASC) VISIBLE)
 ENGINE = InnoDB;
@@ -43,12 +42,11 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`source` (
   `e_issn` VARCHAR(8) NULL,
   `isbn` VARCHAR(13) NULL COMMENT 'Source Identifier',
   `publisher` VARCHAR(45) NULL COMMENT 'Source publisher',
-  `country_id` INT UNSIGNED NOT NULL,
+  `country_id` INT UNSIGNED NULL,
   `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Record creation time',
   `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE INDEX `source_id_scp_UNIQUE` (`source_id_scp` ASC) VISIBLE,
   PRIMARY KEY (`source_id`),
-  UNIQUE INDEX `source_id_UNIQUE` (`source_id` ASC) VISIBLE,
   INDEX `fk_source_country1_idx` (`country_id` ASC) VISIBLE,
   CONSTRAINT `fk_source_country1`
     FOREIGN KEY (`country_id`)
@@ -67,7 +65,6 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`paper_funding` (
   `agency` VARCHAR(256) NULL,
   `agency_acronym` VARCHAR(20) NULL,
   PRIMARY KEY (`agency_id`),
-  UNIQUE INDEX `agency_id_UNIQUE` (`agency_id` ASC) VISIBLE,
   UNIQUE INDEX `agency_id_scp_UNIQUE` (`agency_id_scp` ASC) VISIBLE)
 ENGINE = InnoDB;
 
@@ -88,11 +85,11 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`paper` (
   `cited_cnt` SMALLINT UNSIGNED NOT NULL COMMENT 'Cited-by Count',
   `url` VARCHAR(256) NOT NULL COMMENT 'Scopus abstract detail page URL',
   `article_no` VARCHAR(45) NULL COMMENT '	\nArticle Number',
-  `agency_id` BIGINT UNSIGNED NOT NULL,
+  `agency_id` BIGINT UNSIGNED NULL,
   `retrieval_time` DATETIME NOT NULL COMMENT 'Date & time of accessing the paper info',
   `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Record creation time',
   `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `source_id` INT UNSIGNED NOT NULL,
+  `source_id` INT UNSIGNED NULL,
   `doi` VARCHAR(256) NULL COMMENT 'Document Object Identifier',
   `volume` VARCHAR(45) NULL COMMENT 'Volume',
   `issue` VARCHAR(45) NULL COMMENT 'Issue',
@@ -102,7 +99,6 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`paper` (
   UNIQUE INDEX `eid_UNIQUE` (`eid` ASC) VISIBLE,
   UNIQUE INDEX `url_UNIQUE` (`url` ASC) VISIBLE,
   PRIMARY KEY (`paper_id`),
-  UNIQUE INDEX `paper_id_UNIQUE` (`paper_id` ASC) VISIBLE,
   INDEX `fk_paper_source1_idx` (`source_id` ASC) VISIBLE,
   INDEX `fk_paper_paper_funding1_idx` (`agency_id` ASC) VISIBLE,
   CONSTRAINT `fk_paper_source1`
@@ -135,8 +131,7 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`author` (
   `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Record creation time',
   `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE INDEX `author_id_scp_UNIQUE` (`author_id_scp` ASC) VISIBLE,
-  PRIMARY KEY (`author_id`),
-  UNIQUE INDEX `author_id_UNIQUE` (`author_id` ASC) VISIBLE)
+  PRIMARY KEY (`author_id`))
 ENGINE = InnoDB;
 
 
@@ -152,8 +147,7 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`department` (
   `lng` DECIMAL(9,6) NULL COMMENT 'Department\'s main building\'s longitude',
   `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Record creation time',
   `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`department_id`),
-  UNIQUE INDEX `department_id_UNIQUE` (`department_id` ASC) VISIBLE)
+  PRIMARY KEY (`department_id`))
 ENGINE = InnoDB;
 
 
@@ -166,7 +160,7 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`institution` (
   `name` VARCHAR(128) NOT NULL COMMENT 'Institution name',
   `abbreviation` VARCHAR(45) NULL COMMENT 'Institution abbreviation',
   `city` VARCHAR(45) NULL COMMENT 'Institution city',
-  `country_id` INT UNSIGNED NOT NULL,
+  `country_id` INT UNSIGNED NULL,
   `url` VARCHAR(256) NULL COMMENT 'Scopus affiliation profile page',
   `type` VARCHAR(45) NULL COMMENT 'University, College, Business School, ...',
   `lat` DECIMAL(8,6) NULL COMMENT 'Institution\'s latitute',
@@ -175,7 +169,6 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`institution` (
   `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`institution_id`),
   UNIQUE INDEX `institution_id_scp_UNIQUE` (`institution_id_scp` ASC) VISIBLE,
-  UNIQUE INDEX `institution_id_UNIQUE` (`institution_id` ASC) VISIBLE,
   INDEX `fk_institution_country1_idx` (`country_id` ASC) VISIBLE,
   CONSTRAINT `fk_institution_country1`
     FOREIGN KEY (`country_id`)
@@ -197,7 +190,6 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`subject` (
   `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Record creation time',
   `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`subject_id`),
-  UNIQUE INDEX `subject_id_UNIQUE` (`subject_id` ASC) VISIBLE,
   UNIQUE INDEX `asjc_code_UNIQUE` (`asjc_code` ASC) VISIBLE)
 ENGINE = InnoDB;
 
@@ -295,11 +287,13 @@ ENGINE = InnoDB;
 -- Table `Scopus`.`author_profile`
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `Scopus`.`author_profile` (
+  `profile_id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `author_id` INT UNSIGNED NOT NULL,
   `url` VARCHAR(256) NOT NULL COMMENT 'Profile URL',
   `type` VARCHAR(45) NOT NULL COMMENT 'Scopus, Google Scholar, ResearchGate, Personal Webpage, ...',
   UNIQUE INDEX `url_UNIQUE` (`url` ASC) VISIBLE,
-  PRIMARY KEY (`author_id`),
+  PRIMARY KEY (`profile_id`, `author_id`),
+  INDEX `fk_author_profile_author1_idx` (`author_id` ASC) VISIBLE,
   CONSTRAINT `fk_author_profile_author1`
     FOREIGN KEY (`author_id`)
     REFERENCES `Scopus`.`author` (`author_id`)
@@ -314,8 +308,7 @@ ENGINE = InnoDB;
 CREATE TABLE IF NOT EXISTS `Scopus`.`keyword` (
   `keyword_id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `keyword` VARCHAR(256) NULL,
-  PRIMARY KEY (`keyword_id`),
-  UNIQUE INDEX `keyword_id_UNIQUE` (`keyword_id` ASC) VISIBLE)
+  PRIMARY KEY (`keyword_id`))
 ENGINE = InnoDB;
 
 
