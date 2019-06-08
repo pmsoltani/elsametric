@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`paper` (
   `paper_id` INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'Auto Increment Paper ID',
   `paper_id_scp` BIGINT UNSIGNED NOT NULL COMMENT 'Unique Scopus ID',
   `eid` VARCHAR(45) NOT NULL COMMENT 'Electronic ID',
-  `title` VARCHAR(256) NOT NULL COMMENT '	\nArticle Title',
+  `title` VARCHAR(300) NOT NULL COMMENT '	\nArticle Title',
   `type` VARCHAR(10) NOT NULL COMMENT 'Document Type code',
   `type_description` VARCHAR(45) NULL COMMENT 'Document Type description',
   `abstract` TEXT NULL COMMENT 'Abstract',

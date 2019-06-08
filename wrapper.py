@@ -1,0 +1,470 @@
+import mysql.connector as mysql
+
+def data_inspector(data: dict):
+    warnings = []
+    top_keys = [
+        'source-id', 'prism:publicationName', 'prism:coverDate',
+        'dc:identifier', 'eid', 'dc:title', 'subtype', 'author-count', 'openaccess', 'citedby-count', 'link',
+        'author', 'affiliation',
+    ]
+    author_keys = ['authid', '@seq', 'afid']
+    affiliation_keys = ['afid', 'affilname']
+
+    keys = data.keys()
+    for key in top_keys:
+        if key not in keys:
+            warnings.append(key)
+    if 'link' not in warnings:
+        if all(link['@ref'] != 'scopus' for link in data['link']):
+            warnings.append('paper url')
+    if 'author' not in warnings:
+        for author in data['author']:
+            keys = author.keys()
+            for key in author_keys:
+                if key not in keys:
+                    warnings.append(f'author:{key}')
+    if 'affiliation' not in warnings:
+        for affiliation in data['affiliation']:
+            keys = affiliation.keys()
+            for key in affiliation_keys:
+                if key not in keys:
+                    warnings.append(f'affiliation:{key}')
+    return warnings
+
+
+def key_get(data: dict, keys, key: str, many: bool = False):
+    result = (data[key] if key in keys else None)
+    if type(result) == list:
+        if not many:
+            return result[0]['$']
+        return [int(item['$']) for item in result]
+    if type(result) == dict:
+        return result['$']
+    return result
+
+def strip(data, max_length: int = 8, accepted_chars: str = '0123456789xX', force_strip: bool = True):
+    if not data:
+        return data
+    if not accepted_chars:
+        return data.strip()[:max_length]
+    if force_strip:
+        return ''.join([char for char in data if char in accepted_chars])[:max_length]
+    return ''.join([char for char in data if char in accepted_chars])
+
+def country(name: str):
+    countries = {
+        'Russian Federation': 'Russia',
+        'USA': 'United States',
+        'Great Britain': 'United Kingdom',
+        'Vietnam': 'Viet Nam',
+        'Zweden': 'Sweden',
+        'Czech Republic': 'Czechia',
+    }
+    if name in countries.keys():
+        return countries[name]
+    return name
+
+class Database:
+    
+    table_ids = {
+        'source': {'order': 0, 'id': ['source_id_scp']},
+        'subject': {'order': 0, 'id': ['asjc_code']},
+        'country': {'order': 0, 'id': ['name']},
+        'paper_funding': {'order': 0, 'id': ['agency_id_scp']},
+        
+        'source_subject': {'order': 1, 'id': ['source_id', 'subject_id']},
+        'paper': {'order': 1, 'id': ['paper_id_scp']},
+        
+        'author': {'order': 2, 'id': ['author_id_scp']},
+        'keyword': {'order': 2, 'id': ['keyword_id']},
+        
+        'paper_author': {'order': 3, 'id': ['paper_id', 'author_id']},
+        'paper_keyword': {'order': 3, 'id': ['paper_id', 'keyword_id']},
+        'author_profile': {'order': 3, 'id': ['author_id']},
+        'institution': {'order': 3, 'id': ['institution_id_scp']},
+        
+        'department': {'order': 4, 'id': ['institution_id']},
+        
+        'author_department': {'order': 5, 'id': ['author_id', 'department_id', 'institution_id']},
+    }
+    
+    def __init__(self, config: dict, db_name: str, host: str = 'localhost', port: int = 3306, buffered: bool = True):
+        # print('@ __init__')
+        self._params = {
+            'host': host,
+            'buffered': buffered,
+            'user': config['MySQL User'],
+            'pass': config['MySQL Pass'],
+        }
+        self.db_name = db_name
+        self.db = None
+        self.cursor = None
+        self.tables = []
+        # print('__init__ done!')
+    
+    def _connect(self):
+        # print('@ _connect')
+        if not self.db:
+            self.db = mysql.connect(
+                host = self._params['host'],
+                buffered = self._params['buffered'],
+                user = self._params['user'],
+                password = self._params['pass'],
+                database = self.db_name
+            )
+        # print('_connect done!')
+        return self.db
+    
+    def _cursor(self):
+        # print('@ _cursor')
+        if not self.db:
+            self._connect()
+        if not self.db.is_connected():
+            self.db.reconnect()
+        if not self.cursor:
+            self.cursor = self.db.cursor()
+        # print('_cursor done!')
+        return self.cursor
+    
+    def _execute(self, query, values = [], fetch: bool = False, many: bool = False, close_cursor: bool = False):
+        # print('@ _execute')
+        if many:
+            self._cursor().executemany(query, values)
+        else:
+            self._cursor().execute(query, values)
+        if fetch:
+            server_response = self.cursor.fetchall()
+        else:
+            server_response = self.cursor
+        # print('_execute done!')
+        if close_cursor:
+            self.cursor.close()
+            self.cursor = None
+        return server_response
+    
+    def _close(self):
+        # print('@ _close')
+        if self.db.is_connected():
+            self.db.close()
+        # print('Closed!')
+    
+    def _show_tables(self):
+        # print('@ _show_tables')
+        return [table[0] for table in self._execute(query = 'SHOW TABLES', fetch = True)]
+    
+    def _has_table(self, table_name):
+        # print('@ _has_table')
+        table_names = self._show_tables()
+        if table_name in table_names:
+            # print('_has_table done!')
+            return True
+        # print('_has_table done!')
+        return False
+    
+    def _column_names(self, table_name):
+        # print('@ _column_names')
+        return [col[0] for col in self.describe(table_name)]
+    
+    def describe(self, table_name: str = ''):
+        # print('@ describe')
+        if table_name:
+            query = f'DESCRIBE {table_name}'
+            # print('describe done!')
+            return self._execute(query = query, fetch = True)
+        server_response = self._show_tables()
+        for table in server_response:
+            self.tables.append({table: self.describe(table)})
+        # print('describe done!')
+        return self.tables
+    
+    def _read(self, table_name: str, search: dict, select = '*', result_columns: bool = False):
+        # print('@ _read')
+        if not self._has_table(table_name):
+            return f'Error! "{table_name}" table not found'
+        
+        if search:
+            temp_list = []
+            query = f"SELECT {select} FROM {table_name} WHERE "
+            for k, v in search.items():
+                if type(v["value"]) != int:
+                    temp_list.append(f"{k} {v['operator']} '{v['value']}'")
+                else:
+                    temp_list.append(f"{k} {v['operator']} {v['value']}")
+            query += " AND ".join(temp_list)
+        else:
+            query = f'SELECT {select} FROM {table_name}'
+        # print(f'query: {query}')
+        server_response = self._execute(query = query, fetch = True, close_cursor = True)
+        # print('got the response from _execute')
+        if result_columns:
+            result = []
+            if select == '*':
+                column_names = self._column_names(table_name)
+            else:
+                column_names = [column.strip() for column in select.split(',')]
+            for row in server_response:
+                result.append({name: value for name, value in zip(column_names, row)})
+            # print('_read done!')
+            return result
+        # print('_read done!')
+        return server_response
+    
+    # def has_row(self, table_name, row_ids: dict):
+    #     # print('@ has_row')
+    #     search = {}
+    #     for row_id in row_ids:
+    #         search[row_id] = {'value': row_ids[row_id], 'operator': '='}
+    #     server_response = self._read(table_name, search, select = 'COUNT(*)')
+    #     # print('has_row done!')
+    #     return server_response[0][0]
+    
+    def _insert_one(self, table_name, data: dict):
+        if not self._has_table(table_name):
+            return f'Error! "{table_name}" table not found'
+        
+        table_columns = self._column_names(table_name)
+        data_columns = list(data.keys())
+        for col in data_columns:
+            if col not in table_columns:
+                return f'Error! "{col}" column not found'
+        
+        query = f'INSERT INTO {table_name} ({", ".join(data_columns)}) VALUES ({"%s, " * (len(data_columns) - 1)}%s)'
+        
+        # check if the record already exists
+        id_columns = Database.table_ids[table_name]['id']
+        # print(f'id_columns: {id_columns}')
+        search = {id_column: {'value': data[id_column], 'operator': '='} for id_column in id_columns}
+        # print(f'search: {search}')
+        server_response = self._read(table_name, search)
+        if server_response: # record exists, let's return the its primary key
+            server_response = server_response[-1][0]
+            return {'msg': f'Table "{table_name}" already has this record', 'value': server_response}
+        
+        # record is new
+        values = tuple(data[col] for col in data_columns)
+        try:
+            self._execute(query, values)
+            # print('_insert_one done!')
+            self.db.commit()
+            last_id = self.cursor.lastrowid
+            self._close()
+            return {'msg': f'Record added to "{table_name}"', 'value': last_id}
+        except Exception as e:
+            self._close()
+            return f'error on _insert_one: {e}'
+            
+        
+    def _insert_many(self, table_name, data: list):
+        # data is a list of dictionaries
+        # print('@ _insert')
+        if not self._has_table(table_name):
+            return f'Error! "{table_name}" table not found'
+        
+        # assuming all data rows have the same columns
+        # data is a list of dictionaries, of which the keys are column names
+        table_columns = self._column_names(table_name)
+        data_columns = list(data[0].keys())
+        for col in data_columns:
+            if col not in table_columns:
+                return f'Error! "{col}" column not found'
+        
+        query = f'INSERT INTO {table_name} ({", ".join(data_columns)}) VALUES ({"%s, " * (len(data_columns) - 1)}%s)'
+        values = []
+        id_columns = Database.table_ids[table_name]['id']
+        skipped_rows = 0
+        total_rows = len(data)
+        for row in data:
+            search = {id_column: {'value': row[id_column], 'operator': '='} for id_column in id_columns}
+            if self._read(table_name, search):
+                skipped_rows += 1
+                continue
+            values.append(tuple(row[col] for col in data_columns))
+        try:
+            self._execute(query, values, many = True)
+            # print('_insert done!')
+            self.db.commit()
+            last_id = self.cursor.lastrowid
+            self._close()
+            return {'msg': f'{total_rows - skipped_rows} records added ({skipped_rows} already existed)', 'value': last_id}
+        except Exception as e:
+            self._close()
+            return f'error _insert_many: {e}'
+    
+    def raw_insert(self, data: list, retrieval_time):
+        # print('@ raw_insert')
+        # data is a dictionary containing the info about 1 paper
+        warnings = data_inspector(data)
+        if 'openaccess' in warnings:
+            data['openaccess'] = '0'
+            warnings.pop('openaccess')
+        if 'author:afid' in warnings:
+            warnings.pop('author:afid')
+        if len(warnings):
+            self._close()
+            return {'warnings': warnings, 'value': None}
+        
+        keys = data.keys()
+        
+        paper_url = ''
+        for link in data['link']:
+            if link['@ref'] == 'scopus':
+                paper_url = link['@href']
+                break
+
+        paper_id_scp = int(data['dc:identifier'].split(':')[1])
+        search = {'paper_id_scp': {'value': paper_id_scp, 'operator': '='}}
+        if self._read('paper', search):
+            self._close()
+            return {'warnings': ['paper exists'], 'value': self._read('paper', search)[-1][0]}
+        
+        source_id_scp = int(data['source-id'])
+        agency_id_scp = key_get(data, keys, 'fund-no')
+        if agency_id_scp == 'undefined':
+            agency_id_scp = None
+        
+        source_info = {
+            'source_id_scp': source_id_scp, 
+            'title': data['prism:publicationName'], 
+            'url': f'https://www.scopus.com/sourceid/{source_id_scp}', 
+            'type': key_get(data, keys, 'prism:aggregationType'), 
+            'issn': strip(key_get(data, keys, 'prism:issn'), max_length=8), 
+            'e_issn': strip(key_get(data, keys, 'prism:eIssn'), max_length=8), 
+            'isbn': strip(key_get(data, keys, 'prism:isbn'), max_length=13),
+            'publisher': None, 
+            'country_id': None
+        }
+        source_id = self._insert_one('source', source_info)['value']
+        
+        agency_id = None
+        if agency_id_scp:
+            paper_funding_info = {
+                'agency_id_scp': agency_id_scp, 
+                'agency': key_get(data, keys, 'fund-sponsor'), 
+                'agency_acronym': key_get(data, keys, 'fund-acr'), 
+            }
+            # print(paper_funding_info)
+            agency_id = self._insert_one('paper_funding', paper_funding_info)['value']            
+            
+        paper_info = {
+            'paper_id_scp': paper_id_scp,
+            'eid': data['eid'],
+            'title': data['dc:title'],
+            'type': data['subtype'],
+            'type_description': key_get(data, keys, 'subtypeDescription'),
+            'abstract': key_get(data, keys, 'dc:description'),
+            'total_author': key_get(data, keys, 'author-count'),
+            'open_access': data['openaccess'],
+            'cited_cnt': data['citedby-count'],
+            'url': paper_url,
+            'article_no': key_get(data, keys, 'prism:volume'),
+            'agency_id': agency_id,
+            'retrieval_time': retrieval_time,
+            'source_id': source_id,
+            'doi': key_get(data, keys, 'prism:doi'),
+            'volume': key_get(data, keys, 'prism:volume'),
+            'issue': key_get(data, keys, 'prism:issueIdentifier'),
+            'page_range': key_get(data, keys, 'prism:pageRange'),
+            'date': data['prism:coverDate'],
+        }
+        
+        if 300 < len(paper_info['title']):
+            paper_info['title'] = strip(paper_info['title'], max_length=300, accepted_chars='')
+            # return {'warnings': [f'title too long ({len(paper_info["title"])} chars)'], 'value': None}
+        paper_id = self._insert_one('paper', paper_info)['value']
+        
+        author_institution = []
+        paper_author_info = []
+        for author in data['author']:
+            keys = author.keys()
+            author_id_scp = int(author['authid'])
+            author_info = {
+                'author_id_scp': author_id_scp,
+                'first': key_get(author, keys, 'given-name'),
+                'last': key_get(author, keys, 'surname'),
+                'initials': key_get(author, keys, 'initials'),
+            }
+            author_id = self._insert_one('author', author_info)['value']
+            
+            paper_author_info = {
+                'paper_id': paper_id,
+                'author_id': author_id,
+                'author_no': int(author['@seq']),
+            }
+            self._insert_one('paper_author', paper_author_info)
+            
+            author_profile_info = {
+                'author_id': author_id,
+                'address': f'https://www.scopus.com/authid/detail.uri?authorId={author_id_scp}',
+                'type': 'Scopus Profile',
+            }
+            self._insert_one('author_profile', author_profile_info)['value']
+            
+            institution_id_scp = key_get(author, keys, 'afid', many=True)
+            author_institution.append([author_id, institution_id_scp])
+        
+        for institution in data['affiliation']:
+            keys = institution.keys()
+            institution_id_scp = int(institution['afid'])
+            institution_info = {
+                'institution_id_scp': institution_id_scp,
+                'name': institution['affilname'],
+                'city': key_get(institution, keys, 'affiliation-city'),
+                'url': f'https://www.scopus.com/affil/profile.uri?afid={institution_id_scp}',
+                # 'country': key_get(institution, keys, 'affiliation-city'),
+            }
+            institution_id = self._insert_one('institution', institution_info)['value']
+            
+            department_info = {
+                'institution_id': institution_id,
+                'name': 'Department Not Available',
+                'abbreviation': 'No Dept',
+            }
+            department_id = self._insert_one('department', department_info)['value']
+            
+            for item in author_institution:
+                if item[1]: # author's "afid" is known
+                    if institution_id_scp in item[1]:
+                        author_department_info = {
+                            'author_id': item[0],
+                            'department_id': department_id,
+                            'institution_id': institution_id,
+                        }
+                        self._insert_one('author_department', author_department_info)
+        # print('raw_insert done')
+        return {'msg': 'Scopus paper inserted', 'value': paper_id}
+    
+    def _update_one(self, table_name, data: dict):
+        if not self._has_table(table_name):
+            return f'Error! "{table_name}" table not found'
+        
+        table_columns = self._column_names(table_name)
+        for col in data:
+            if col not in table_columns:
+                return f'Error! "{col}" column not found'
+        
+        id_columns = Database.table_ids[table_name]['id']
+        
+        query = f'UPDATE {table_name} SET '
+        set_list = []
+        where_list = []
+        values = {'set': [], 'where': []}
+        for k, v in data.items():
+            if k not in id_columns:
+                set_list.append(f'{k} = %s')
+                values['set'].append(v)
+            else:
+                where_list.append(f'{k} = %s')
+                values['where'].append(v)
+        query += ', '.join(set_list) + ' WHERE ' + ' AND '.join(where_list)
+        values = tuple(value for value in values['set'] + values['where'])
+
+        try:
+            self._execute(query, values)
+            # print('_insert_one done!')
+            self.db.commit()
+            last_id = self.cursor.lastrowid
+            self._close()
+            return {'msg': f'Record of "{table_name}" updated', 'value': last_id}
+        except Exception as e:
+            self._close()
+            return f'error on _update_one: {e}'
