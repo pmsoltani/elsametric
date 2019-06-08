@@ -55,7 +55,7 @@ def strip(data, max_length: int = 8, accepted_chars: str = '0123456789xX', force
     return ''.join([char for char in data if char in accepted_chars])
 
 
-def country(name: str):
+def country_name(name: str):
     countries = {
         'Russian Federation': 'Russia',
         'USA': 'United States',
@@ -88,7 +88,7 @@ class Database:
         'author_profile': {'order': 3, 'id': ['author_id']},
         'institution': {'order': 3, 'id': ['institution_id_scp']},
 
-        'department': {'order': 4, 'id': ['institution_id']},
+        'department': {'order': 4, 'id': ['institution_id', 'name']},
 
         'author_department': {'order': 5, 'id': ['author_id', 'department_id', 'institution_id']},
     }
@@ -291,7 +291,49 @@ class Database:
             result['msg'] = f'Error on _insert_many: {e}'
             return result
 
-    def raw_insert(self, data: list, retrieval_time, title_length: int = 300):
+    def _update_one(self, table_name, data: dict):
+        if not self._has_table(table_name):
+            return f'Error! "{table_name}" table not found'
+
+        table_columns = self._column_names(table_name)
+        for col in data:
+            if col not in table_columns:
+                return f'Error! "{col}" column not found'
+
+        id_columns = Database.table_ids[table_name]['id']
+
+        query = f'UPDATE {table_name} SET '
+        set_list = []
+        where_list = []
+        values = {'set': [], 'where': []}
+        search = {}
+        for k, v in data.items():
+            if k not in id_columns:
+                set_list.append(f'`{k}` = %s')
+                values['set'].append(v)
+            else:
+                where_list.append(f'`{k}` = %s')
+                values['where'].append(v)
+                search[k] = {'value': v, 'operator': '='}
+        query += ', '.join(set_list) + ' WHERE ' + ' AND '.join(where_list)
+        values = tuple(value for value in values['set'] + values['where'])
+        try:
+            self._execute(query, values)
+            # print('_insert_one done!')
+            self.db.commit()
+            server_response = self._read(
+                table_name=table_name,
+                search=search
+            )['value']
+            if server_response:
+                server_response = server_response[-1][0]
+            self._close()
+            return {'msg': f'Record of "{table_name}" updated', 'value': server_response}
+        except Exception as e:
+            self._close()
+            return f'error on _update_one: {e}'
+    
+    def raw_insert(self, data: list, retrieval_time, title_length: int = 300, country_data: bool = False):
         # print('@ raw_insert')
         # data is a dictionary containing the info about 1 paper
         result = {'msg': '', 'value': None}
@@ -315,8 +357,10 @@ class Database:
                 break
 
         paper_id_scp = int(data['dc:identifier'].split(':')[1])
-        search = {'paper_id_scp': {'value': paper_id_scp, 'operator': '='}}
-        server_response = self._read('paper', search)['value']
+        server_response = self._read(
+            table_name='paper',
+            search={'paper_id_scp': {'value': paper_id_scp, 'operator': '='}}
+        )['value']
         if server_response:
             self._close()
             result['msg'] = 'paper exists'
@@ -413,12 +457,22 @@ class Database:
         for institution in data['affiliation']:
             keys = institution.keys()
             institution_id_scp = int(institution['afid'])
+            country_id = None
+            if country_data:
+                country = key_get(institution, keys, 'affiliation-country')
+                if country:
+                    country_id = self._read(
+                        table_name='country',
+                        search={'name': {'value': country_name(country), 'operator': '='}}
+                    )['value']
+                    if country_id:
+                        country_id = country_id[-1][0]
             institution_info = {
                 'institution_id_scp': institution_id_scp,
                 'name': institution['affilname'],
                 'city': key_get(institution, keys, 'affiliation-city'),
+                'country_id': country_id,
                 'url': f'https://www.scopus.com/affil/profile.uri?afid={institution_id_scp}',
-                # 'country': key_get(institution, keys, 'affiliation-city'),
             }
             institution_id = self._insert_one(
                 'institution', institution_info)['value']
@@ -447,39 +501,3 @@ class Database:
         result['msg'] = 'Scopus paper inserted'
         result['value'] = paper_id
         return result
-
-    def _update_one(self, table_name, data: dict):
-        if not self._has_table(table_name):
-            return f'Error! "{table_name}" table not found'
-
-        table_columns = self._column_names(table_name)
-        for col in data:
-            if col not in table_columns:
-                return f'Error! "{col}" column not found'
-
-        id_columns = Database.table_ids[table_name]['id']
-
-        query = f'UPDATE {table_name} SET '
-        set_list = []
-        where_list = []
-        values = {'set': [], 'where': []}
-        for k, v in data.items():
-            if k not in id_columns:
-                set_list.append(f'{k} = %s')
-                values['set'].append(v)
-            else:
-                where_list.append(f'{k} = %s')
-                values['where'].append(v)
-        query += ', '.join(set_list) + ' WHERE ' + ' AND '.join(where_list)
-        values = tuple(value for value in values['set'] + values['where'])
-
-        try:
-            self._execute(query, values)
-            # print('_insert_one done!')
-            self.db.commit()
-            last_id = self.cursor.lastrowid
-            self._close()
-            return {'msg': f'Record of "{table_name}" updated', 'value': last_id}
-        except Exception as e:
-            self._close()
-            return f'error on _update_one: {e}'
