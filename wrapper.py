@@ -169,9 +169,9 @@ class Database:
     def _read(self, table_name: str, search: dict, select: str = '*', result_columns: bool = False):
         result = {'msg': '', 'value': None}
         # print('@ _read')
-        if not self._has_table(table_name):
-            result['msg'] = f'Error! "{table_name}" table not found'
-            return result
+        # if not self._has_table(table_name):
+        #     result['msg'] = f'Error! "{table_name}" table not found'
+        #     return result
 
         values = []
         if search:
@@ -206,16 +206,16 @@ class Database:
 
     def _insert_one(self, table_name, data: dict):
         result = {'msg': '', 'value': None}
-        if not self._has_table(table_name):
-            result['msg'] = f'Error! "{table_name}" table not found'
-            return result
+        # if not self._has_table(table_name):
+        #     result['msg'] = f'Error! "{table_name}" table not found'
+        #     return result
 
-        table_columns = self._column_names(table_name)
+        # table_columns = self._column_names(table_name)
         data_columns = list(data.keys())
-        for col in data_columns:
-            if col not in table_columns:
-                result['msg'] = f'Error! "{col}" column not found'
-                return result
+        # for col in data_columns:
+        #     if col not in table_columns:
+        #         result['msg'] = f'Error! "{col}" column not found'
+        #         return result
 
         # check if the record already exists
         id_columns = Database.table_ids[table_name]['id']
@@ -292,13 +292,13 @@ class Database:
             return result
 
     def _update_one(self, table_name, data: dict):
-        if not self._has_table(table_name):
-            return f'Error! "{table_name}" table not found'
+        # if not self._has_table(table_name):
+        #     return f'Error! "{table_name}" table not found'
 
-        table_columns = self._column_names(table_name)
-        for col in data:
-            if col not in table_columns:
-                return f'Error! "{col}" column not found'
+        # table_columns = self._column_names(table_name)
+        # for col in data:
+        #     if col not in table_columns:
+        #         return f'Error! "{col}" column not found'
 
         id_columns = Database.table_ids[table_name]['id']
 
