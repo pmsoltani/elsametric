@@ -340,9 +340,9 @@ class Database:
         warnings = data_inspector(data)
         if 'openaccess' in warnings:
             data['openaccess'] = '0'
-            warnings.pop('openaccess')
+            warnings.remove('openaccess')
         if 'author:afid' in warnings:
-            warnings.pop('author:afid')
+            warnings.remove('author:afid')
         if len(warnings):
             self._close()
             result['msg'] = warnings

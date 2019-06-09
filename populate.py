@@ -64,60 +64,60 @@ def retriever(data, key: str):
         return None
     return data[key]
 
-sources = []
-with io.open('data\\Scopus Sources.csv', 'r', encoding='utf-8-sig') as csvFile:
-    reader = csv.DictReader(csvFile)
-    to_be_removed = [
-        'Active', 'Discontinued', 'Coverage', '2016 CiteScore', '2017 CiteScore', '2018 CiteScore',
-        'Medline-sourced', 'Open Access', 'Articles in Press Included', 'Added to list April 2019',
-        'Title history indication', 'Related title to title history indication', 'Other related title 1',
-        'Other related title 2', 'Other related title 3', 'Publisher imprints grouped to main Publisher',
-    ]
-    for row in reader:
-        for col in to_be_removed:
-            row.pop(col, None)
-        row['ASJC'] = [int(code)
-                       for code in row['ASJC'].split(';') if code != '']
-        sources.append(row)
-for source in sources:
-    source_id_scp = int(source['Source ID'])
-    country = retriever(source, 'Country')
-    country_id = None
-    if country:
-        country_id = d2._read(
-            table_name='country',
-            search={'name': {'value': country_name(country), 'operator': '='}}
-        )['value']
-        if country_id:
-            country_id = country_id[-1][0]
+# sources = []
+# with io.open('data\\Scopus Sources.csv', 'r', encoding='utf-8-sig') as csvFile:
+#     reader = csv.DictReader(csvFile)
+#     to_be_removed = [
+#         'Active', 'Discontinued', 'Coverage', '2016 CiteScore', '2017 CiteScore', '2018 CiteScore',
+#         'Medline-sourced', 'Open Access', 'Articles in Press Included', 'Added to list April 2019',
+#         'Title history indication', 'Related title to title history indication', 'Other related title 1',
+#         'Other related title 2', 'Other related title 3', 'Publisher imprints grouped to main Publisher',
+#     ]
+#     for row in reader:
+#         for col in to_be_removed:
+#             row.pop(col, None)
+#         row['ASJC'] = [int(code)
+#                        for code in row['ASJC'].split(';') if code != '']
+#         sources.append(row)
+# for source in sources:
+#     source_id_scp = int(source['Source ID'])
+#     country = retriever(source, 'Country')
+#     country_id = None
+#     if country:
+#         country_id = d2._read(
+#             table_name='country',
+#             search={'name': {'value': country_name(country), 'operator': '='}}
+#         )['value']
+#         if country_id:
+#             country_id = country_id[-1][0]
     
-    source_info = {
-        'source_id_scp': source_id_scp,
-        'title': retriever(source, 'Source Title'),
-        'url': f'https://www.scopus.com/sourceid/{source_id_scp}',
-        'type': retriever(source, 'Source Type'),
-        'issn': retriever(source, 'ISSN'),
-        'e_issn': retriever(source, 'E_ISSN'),
-        'isbn': None,
-        'publisher': retriever(source, 'Publisher'),
-        'country_id': country_id
-    }
-    source_id = d2._insert_one('source', source_info)['value']
-    print(f'source_id: {source_id}')
+#     source_info = {
+#         'source_id_scp': source_id_scp,
+#         'title': retriever(source, 'Source Title'),
+#         'url': f'https://www.scopus.com/sourceid/{source_id_scp}',
+#         'type': retriever(source, 'Source Type'),
+#         'issn': retriever(source, 'ISSN'),
+#         'e_issn': retriever(source, 'E_ISSN'),
+#         'isbn': None,
+#         'publisher': retriever(source, 'Publisher'),
+#         'country_id': country_id
+#     }
+#     source_id = d2._insert_one('source', source_info)['value']
+#     print(f'source_id: {source_id}')
 
-    for asjc in source['ASJC']:
-        subject_id = d2._read(
-            table_name='subject',
-            search={'asjc_code': {'value': asjc, 'operator': '='}}
-        )['value']
-        if subject_id:
-            subject_id = subject_id[-1][0]
-        source_subject_info = {
-            'source_id': source_id,
-            'subject_id': subject_id
-        }
-        server_response = d2._insert_one('source_subject', source_subject_info)['value']
-        print(f'server_response: {server_response}')
+#     for asjc in source['ASJC']:
+#         subject_id = d2._read(
+#             table_name='subject',
+#             search={'asjc_code': {'value': asjc, 'operator': '='}}
+#         )['value']
+#         if subject_id:
+#             subject_id = subject_id[-1][0]
+#         source_subject_info = {
+#             'source_id': source_id,
+#             'subject_id': subject_id
+#         }
+#         server_response = d2._insert_one('source_subject', source_subject_info)['value']
+#         print(f'server_response: {server_response}')
 
 print()
 print('----------------------')
@@ -130,13 +130,13 @@ skipped_cnt = 0
 path = 'data\\Sharif University of Technology'
 files = list(os.walk(path))[0][2]
 
-for file in files[:1]:
+for file in files:
     with io.open(os.path.join(path, file), 'r', encoding='utf8') as raw:
         data = json.load(raw)
     data = data['search-results']['entry']
     ret_time = datetime.utcfromtimestamp(
         int(file.split('.')[0].split('_')[-1])).strftime('%Y-%m-%d %H:%M:%S')
-    for paper in data[:10]:
+    for paper in data:
         warnings = data_inspector(paper)
         print(file)
         print(paper['dc:identifier'])
