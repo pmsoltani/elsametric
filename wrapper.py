@@ -291,14 +291,17 @@ class Database:
             result['msg'] = f'Error on _insert_many: {e}'
             return result
 
-    def _update_one(self, table_name, data: dict):
+    def _update_one(self, table_name, data: dict, null_scape: bool = False):
+        result = {'msg': '', 'value': None}
         # if not self._has_table(table_name):
-        #     return f'Error! "{table_name}" table not found'
+        #     result['msg'] = f'Error! "{table_name}" table not found'
+        #     return result
 
         # table_columns = self._column_names(table_name)
         # for col in data:
         #     if col not in table_columns:
-        #         return f'Error! "{col}" column not found'
+        #         result['msg'] = f'Error! "{col}" column not found'
+        #         return result
 
         id_columns = Database.table_ids[table_name]['id']
 
@@ -309,6 +312,8 @@ class Database:
         search = {}
         for k, v in data.items():
             if k not in id_columns:
+                if (null_scape) and (not v):
+                    continue
                 set_list.append(f'`{k}` = %s')
                 values['set'].append(v)
             else:
@@ -328,10 +333,13 @@ class Database:
             if server_response:
                 server_response = server_response[-1][0]
             self._close()
-            return {'msg': f'Record of "{table_name}" updated', 'value': server_response}
+            result['msg'] = f'Record of "{table_name}" updated'
+            result['value'] = server_response
+            return result
         except Exception as e:
             self._close()
-            return f'error on _update_one: {e}'
+            result['msg'] = f'error on _update_one: {e}'
+            return result
     
     def raw_insert(self, data: list, retrieval_time, title_length: int = 300, country_data: bool = False):
         # print('@ raw_insert')
@@ -424,6 +432,7 @@ class Database:
         paper_id = self._insert_one('paper', paper_info)['value']
 
         author_institution = []
+        inst_from_author = []
         paper_author_info = []
         for author in data['author']:
             keys = author.keys()
@@ -451,9 +460,17 @@ class Database:
             self._insert_one('author_profile', author_profile_info)['value']
 
             institution_id_scp = key_get(author, keys, 'afid', many=True)
-            author_institution.append([author_id, institution_id_scp])
+            if institution_id_scp:
+                for id_scp in institution_id_scp:
+                    if id_scp not in inst_from_author:
+                        inst_from_author.append(id_scp)
+                    author_institution.append([author_id, institution_id_scp])
         
         inst_ids = {}
+        if len(data['affiliation']) < len(inst_from_author):
+            result['msg'] = 'mismatch authors and affiliations'
+            result['value'] = paper_id
+            return result
         for institution in data['affiliation']:
             keys = institution.keys()
             institution_id_scp = int(institution['afid'])
