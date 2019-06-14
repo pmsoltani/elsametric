@@ -319,6 +319,25 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`author_department` (
 ENGINE = InnoDB;
 
 
+-- -----------------------------------------------------
+-- Table `Scopus`.`source_metric`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `Scopus`.`source_metric` (
+  `metric_id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `source_id` INT UNSIGNED NOT NULL,
+  `type` VARCHAR(45) NOT NULL,
+  `year` YEAR(4) NOT NULL,
+  `value` DECIMAL(12,3) NULL,
+  PRIMARY KEY (`metric_id`, `source_id`),
+  INDEX `fk_source_metric_source1_idx` (`source_id` ASC) VISIBLE,
+  CONSTRAINT `fk_source_metric_source1`
+    FOREIGN KEY (`source_id`)
+    REFERENCES `Scopus`.`source` (`source_id`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
+
+
 SET SQL_MODE=@OLD_SQL_MODE;
 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS;
 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS;
