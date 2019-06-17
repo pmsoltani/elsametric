@@ -57,11 +57,11 @@ ENGINE = InnoDB;
 
 
 -- -----------------------------------------------------
--- Table `Scopus`.`paper_funding`
+-- Table `Scopus`.`fund`
 -- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `Scopus`.`paper_funding` (
+CREATE TABLE IF NOT EXISTS `Scopus`.`fund` (
   `agency_id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `agency_id_scp` VARCHAR(45) NOT NULL,
+  `agency_id_scp` VARCHAR(45) NULL,
   `agency` VARCHAR(256) NULL,
   `agency_acronym` VARCHAR(20) NULL,
   PRIMARY KEY (`agency_id`),
@@ -108,7 +108,7 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`paper` (
     ON UPDATE NO ACTION,
   CONSTRAINT `fk_paper_paper_funding1`
     FOREIGN KEY (`agency_id`)
-    REFERENCES `Scopus`.`paper_funding` (`agency_id`)
+    REFERENCES `Scopus`.`fund` (`agency_id`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB
@@ -314,25 +314,6 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`author_department` (
   CONSTRAINT `fk_author_has_department_department1`
     FOREIGN KEY (`department_id` , `institution_id`)
     REFERENCES `Scopus`.`department` (`department_id` , `institution_id`)
-    ON DELETE NO ACTION
-    ON UPDATE NO ACTION)
-ENGINE = InnoDB;
-
-
--- -----------------------------------------------------
--- Table `Scopus`.`source_metric`
--- -----------------------------------------------------
-CREATE TABLE IF NOT EXISTS `Scopus`.`source_metric` (
-  `metric_id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `source_id` INT UNSIGNED NOT NULL,
-  `type` VARCHAR(45) NOT NULL,
-  `year` YEAR(4) NOT NULL,
-  `value` DECIMAL(12,3) NULL,
-  PRIMARY KEY (`metric_id`, `source_id`),
-  INDEX `fk_source_metric_source1_idx` (`source_id` ASC) VISIBLE,
-  CONSTRAINT `fk_source_metric_source1`
-    FOREIGN KEY (`source_id`)
-    REFERENCES `Scopus`.`source` (`source_id`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
