@@ -35,7 +35,7 @@ class Paper(Base):
     cited_cnt = Column(SMALLINT(unsigned=True), nullable=False)
     url = Column(VARCHAR(100), nullable=False, unique=True)
     article_no = Column(VARCHAR(45), nullable=True)
-    # agency_id
+    fund_id = Column(BIGINT(unsigned=True), ForeignKey('fund.id'))
     # source_id
     doi = Column(VARCHAR(100), nullable=True, unique=True)
     volume = Column(VARCHAR(45), nullable=True)
@@ -53,13 +53,16 @@ class Paper(Base):
         server_default=text('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP')
     )
 
+    # Relationships
+    fund = relationship('Fund', back_populates='papers')
+
     # actors = relationship("Actor", secondary=movies_actors_association)
 
     def __init__(
         self, id_scp, eid, title, type, total_author, open_access, cited_cnt, 
-        url, date, retrieval_time, create_time=None, update_time=None, 
-        type_description=None, abstract=None, article_no=None, doi=None,
-        volume=None, issue=None, page_range=None,
+        url, date, retrieval_time, type_description=None, abstract=None, 
+        article_no=None, fund_id=None, doi=None, volume=None, issue=None, 
+        page_range=None, create_time=None, update_time=None, 
     ):
         self.id_scp = id_scp
         self.eid = eid
@@ -72,7 +75,7 @@ class Paper(Base):
         self.cited_cnt = cited_cnt
         self.url = url
         self.article_no = article_no
-        # self.agency_id = agency_id
+        self.fund_id = fund_id
         # self.source_id = source_id
         self.doi = doi
         self.volume = volume
@@ -82,19 +85,3 @@ class Paper(Base):
         self.retrieval_time = retrieval_time
         self.create_time = create_time
         self.update_time = update_time
-
-# Base.metadata.create_all(engine)
-# session = Session()
-
-# d1 = Paper(
-#     id_scp=1,
-#     eid='1',
-#     title='abc',
-#     type='ab',
-#     total_author=3,
-#     open_access=2,
-#     cited_cnt=5,
-#     url='www',
-#     date='2019-02-03 12:20:20',
-#     retrieval_time='2017-01-01',
-# )
