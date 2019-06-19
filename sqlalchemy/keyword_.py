@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import BIGINT, VARCHAR
 
 from base import Base, Session, engine
+from associations import paper_keyword
 
 class Keyword(Base):
     __tablename__ = 'keyword'
