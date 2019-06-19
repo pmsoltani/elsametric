@@ -15,7 +15,7 @@ class Subject(Base):
     asjc = Column(INTEGER(unsigned=True), nullable=False, unique=True)
     top = Column(VARCHAR(128), nullable=False)
     middle = Column(VARCHAR(128), nullable=False)
-    low = Column(VARCHAR(128), nullable=False, unique=True)
+    low = Column(VARCHAR(128), nullable=False)
     
     # Relationships
     sources = relationship(
