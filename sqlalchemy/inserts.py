@@ -22,6 +22,9 @@ from collections import OrderedDict
 import datetime
 
 start = time.time()
+max_inserts = 1000
+def session_manager():
+    pass
 
 def country_name(name: str):
     countries = {
@@ -76,10 +79,10 @@ with io.open('subjects.csv', 'r', encoding='utf-8-sig') as csvFile:
 
 session.commit()
 
-sources = []
+# sources = []
 with io.open('sources.csv', 'r', encoding='utf-8-sig') as csvFile:
     reader = csv.DictReader(csvFile)
-    for row in reader:
+    for cnt, row in enumerate(reader):
         for item in row:
             if not row[item]:
                 row[item] = None
@@ -109,14 +112,31 @@ with io.open('sources.csv', 'r', encoding='utf-8-sig') as csvFile:
                     source.subjects.append(query)
 
         session.add(source)
-        sources.append(source)
-
-session.commit()
+        # sources.append(source)
+        if (cnt + 1) % max_inserts == 0:
+            session.commit()
+            # sources = []
+        
+try:
+    session.commit()
+except:
+    print('nothing to commit')
+finally:
+    session.close()
 
 end = time.time()
 
 print(f'countries: {getsizeof(countries)}, len: {len(countries)}')
 print(f'subjects: {getsizeof(subjects)}, len: {len(subjects)}')
-print(f'sources: {getsizeof(sources)}, len: {len(sources)}')
+# print(f'sources: {getsizeof(sources)}, len: {len(sources)}')
 print(f'operation time: {str(datetime.timedelta(seconds=(end - start)))}')
-session.close()
+
+sources = session.query(Source) \
+    .all()
+
+print()
+print(len(sources))
+print(sources[0])
+print(0, source[0].title)
+print(100, sources[100].title)
+# session.close()
