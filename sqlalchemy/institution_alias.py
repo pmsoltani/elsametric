@@ -12,7 +12,7 @@ class Institution_Alias(Base):
         primary_key=True, autoincrement=True, nullable=False
     )
     institution_id = Column(
-        INTEGER(unsigned=True), ForeignKey('country.id'), primary_key=True)
+        INTEGER(unsigned=True), ForeignKey('institution.id'), primary_key=True)
     id_scp = Column(BIGINT(unsigned=True), nullable=False, unique=True)
     alias = Column(VARCHAR(128), nullable=False)
     url = Column(VARCHAR(100), nullable=True, unique=True)

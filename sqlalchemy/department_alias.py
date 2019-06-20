@@ -12,9 +12,9 @@ class Department_Alias(Base):
         primary_key=True, autoincrement=True, nullable=False
     )
     department_id = Column(
-        INTEGER(unsigned=True), ForeignKey('country.id'), primary_key=True)
+        INTEGER(unsigned=True), ForeignKey('department.id'), primary_key=True)
     institution_id = Column(
-        INTEGER(unsigned=True), ForeignKey('country.id'), primary_key=True)
+        INTEGER(unsigned=True), ForeignKey('institution.id'), primary_key=True)
     alias = Column(VARCHAR(128), nullable=False)
     
     # Relationships

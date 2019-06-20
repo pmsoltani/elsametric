@@ -22,26 +22,17 @@ Author_Department = Table(
     'author_department',
     Base.metadata,
     Column('author_id', INTEGER(unsigned=True), ForeignKey('author.id')),
-    Column(
-        'department_id', INTEGER(unsigned=True), ForeignKey('department.id')
-    ),
-    Column(
-        'institution_id', INTEGER(unsigned=True), 
-        ForeignKey('department.institution_id')
-    )
+    Column('department_id', INTEGER(unsigned=True), ForeignKey('department.id')),
+    Column('institution_id', INTEGER(unsigned=True), ForeignKey('department.institution_id'))
 )
 
 class Paper_Author(Base):
     __tablename__ = 'paper_author'
-    Column(
-        'paper_id', INTEGER(unsigned=True), 
-        ForeignKey('paper.id'), primary_key=True
-    )
-    Column(
-        'author_id', INTEGER(unsigned=True), 
-        ForeignKey('author.id'), primary_key=True
-    )
-    Column('author_no', SMALLINT(unsigned=True), nullable=False)
+    paper_id = Column(
+        INTEGER(unsigned=True), ForeignKey('paper.id'), primary_key=True)
+    author_id = Column(
+        INTEGER(unsigned=True), ForeignKey('author.id'), primary_key=True)
+    author_no = Column(SMALLINT(unsigned=True), nullable=False)
 
     # Relationships
     paper = relationship('Paper', back_populates='authors')

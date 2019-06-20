@@ -13,7 +13,7 @@ class Department(Base):
         primary_key=True, autoincrement=True, nullable=False
     )
     institution_id = Column(
-        INTEGER(unsigned=True), ForeignKey('country.id'), primary_key=True)
+        INTEGER(unsigned=True), ForeignKey('institution.id'), primary_key=True)
     name = Column(VARCHAR(128), nullable=False)
     abbreviation = Column(VARCHAR(20), nullable=True)
     type = Column(VARCHAR(45), nullable=True)

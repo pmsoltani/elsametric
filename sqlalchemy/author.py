@@ -37,7 +37,7 @@ class Author(Base):
     papers = relationship('Paper_Author', back_populates='author')
     profiles = relationship('Author_Profile', back_populates='author')
     departments = relationship(
-        'Department', secondary=Author_Department, back_populates='authors')
+        'Department', secondary=Author_Department, foreign_keys=['author_department.department_id', 'author_department.institution_id'], back_populates='authors')
     
     def __init__(
         self, id_scp, first=None, middle=None, last=None, initials=None, 
