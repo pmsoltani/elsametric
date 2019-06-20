@@ -1,10 +1,10 @@
-from sqlalchemy import Column, Table, ForeignKey, text
+from sqlalchemy import Column, ForeignKey, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import \
     BIGINT, BOOLEAN, DATE, DATETIME, INTEGER, SMALLINT, TEXT, VARCHAR
 
-from base import Base, Session, engine
-from associations import paper_keyword
+from base import Base
+from associations import Paper_Keyword, Paper_Author
 
 class Paper(Base):
     __tablename__ = 'paper'
@@ -51,7 +51,8 @@ class Paper(Base):
     fund = relationship('Fund', back_populates='papers')
     source = relationship('Source', back_populates='papers')
     keywords = relationship(
-        'Keyword', secondary=paper_keyword, back_populates='papers')
+        'Keyword', secondary=Paper_Keyword, back_populates='papers')
+    authors = relationship('Paper_Author', back_populates='paper')
     
     def __init__(
         self, id_scp, eid, title, type, total_author, open_access, cited_cnt, 

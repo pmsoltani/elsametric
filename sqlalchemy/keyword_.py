@@ -1,9 +1,9 @@
-from sqlalchemy import Column, Table, ForeignKey
+from sqlalchemy import Column
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import BIGINT, VARCHAR
 
-from base import Base, Session, engine
-from associations import paper_keyword
+from base import Base
+from associations import Paper_Keyword
 
 class Keyword(Base):
     __tablename__ = 'keyword'
@@ -16,7 +16,7 @@ class Keyword(Base):
     
     # Relationships
     papers = relationship(
-        'Paper', secondary=paper_keyword, back_populates='keywords')
+        'Paper', secondary=Paper_Keyword, back_populates='keywords')
     
     def __init__(self, keyword):
         self.keyword = keyword

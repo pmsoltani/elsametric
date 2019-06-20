@@ -1,8 +1,8 @@
-from sqlalchemy import Column, Table, ForeignKey
+from sqlalchemy import Column
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import INTEGER, VARCHAR
 
-from base import Base, Session, engine
+from base import Base
 
 class Country(Base):
     __tablename__ = 'country'

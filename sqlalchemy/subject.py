@@ -1,9 +1,9 @@
-from sqlalchemy import Column, Table, ForeignKey
+from sqlalchemy import Column
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import INTEGER, VARCHAR
 
-from base import Base, Session, engine
-from associations import source_subject
+from base import Base
+from associations import Source_Subject
 
 class Subject(Base):
     __tablename__ = 'subject'
@@ -19,7 +19,7 @@ class Subject(Base):
     
     # Relationships
     sources = relationship(
-        'Source', secondary=source_subject, back_populates='subjects')
+        'Source', secondary=Source_Subject, back_populates='subjects')
     
     def __init__(self, asjc, top, middle, low):
         self.asjc = asjc

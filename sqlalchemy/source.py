@@ -1,9 +1,9 @@
-from sqlalchemy import Column, Table, ForeignKey, text
+from sqlalchemy import Column, ForeignKey, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import BIGINT, DATETIME, INTEGER, VARCHAR
 
-from base import Base, Session, engine
-from associations import source_subject
+from base import Base
+from associations import Source_Subject
 
 class Source(Base):
     __tablename__ = 'source'
@@ -35,7 +35,7 @@ class Source(Base):
     country = relationship('Country', back_populates='sources')
     papers = relationship('Paper', back_populates='source')
     subjects = relationship(
-        'Subject', secondary=source_subject, back_populates='sources')
+        'Subject', secondary=Source_Subject, back_populates='sources')
 
     def __init__(
         self, id_scp, title, type=None, issn=None, e_issn=None, isbn=None, 
