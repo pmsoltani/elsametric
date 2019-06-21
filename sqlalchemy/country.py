@@ -18,6 +18,7 @@ class Country(Base):
     
     # Relationships
     sources = relationship('Source', back_populates='country')
+    institutions = relationship('Institution', back_populates='country')
     
     def __init__(self, name, domain, region, sub_region=None):
         self.name = name

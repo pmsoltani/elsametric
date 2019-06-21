@@ -34,7 +34,7 @@ class Institution(Base):
     # Relationships
     country = relationship('Country', back_populates='institutions')
     departments = relationship('Department', back_populates='institution')
-    aliases = relationship('Institution_Alias', back_populates='institution')
+    # aliases = relationship('Institution_Alias', back_populates='institution')
 
     def __init__(
         self, id_scp, name, abbreviation=None, city=None, country_id=None, 

@@ -4,7 +4,7 @@ from sqlalchemy.dialects.mysql import \
     BIGINT, BOOLEAN, DATE, DATETIME, INTEGER, SMALLINT, TEXT, VARCHAR
 
 from base import Base
-from associations import Paper_Keyword, Paper_Author
+from associations import Paper_Keyword#, Paper_Author
 
 class Paper(Base):
     __tablename__ = 'paper'
@@ -52,7 +52,7 @@ class Paper(Base):
     source = relationship('Source', back_populates='papers')
     keywords = relationship(
         'Keyword', secondary=Paper_Keyword, back_populates='papers')
-    authors = relationship('Paper_Author', back_populates='paper')
+    # authors = relationship('Paper_Author', back_populates='paper')
     
     def __init__(
         self, id_scp, eid, title, type, total_author, open_access, cited_cnt, 

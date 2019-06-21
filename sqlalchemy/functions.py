@@ -1,3 +1,120 @@
+# external
+# countries = []
+# with io.open('countries.csv', 'r', encoding='utf-8-sig') as csvFile:
+#     reader = csv.DictReader(csvFile)
+#     for row in reader:
+#         country = Country(
+#             name=row['name'], domain=row['domain'],
+#             region=row['region'], sub_region=row['sub_region']
+#         )
+#         query = session.query(Country) \
+#             .filter(Country.name == country.name) \
+#             .first()
+#         if query:
+#             continue
+#         session.add(country)
+#         countries.append(country)
+
+# session.commit()
+
+# subjects = []
+# with io.open('subjects.csv', 'r', encoding='utf-8-sig') as csvFile:
+#     reader = csv.DictReader(csvFile)
+#     for row in reader:
+#         subject = Subject(
+#             asjc=row['asjc'],
+#             top=row['top'], middle=row['middle'], low=row['low']
+#         )
+#         query = session.query(Subject) \
+#             .filter(Subject.asjc == subject.asjc) \
+#             .first()
+#         if query:
+#             continue
+#         session.add(subject)
+#         subjects.append(subject)
+
+# session.commit()
+
+# with io.open('sources.csv', 'r', encoding='utf-8-sig') as csvFile:
+#     reader = csv.DictReader(csvFile)
+#     for cnt, row in enumerate(reader):
+#         for item in row:
+#             if not row[item]:
+#                 row[item] = None
+#         source = Source(
+#             id_scp=row['id_scp'], title=row['title'], type=row['type'],
+#             issn=row['issn'], e_issn=row['e_issn'], publisher=row['publisher']
+#         )
+#         query = session.query(Source) \
+#             .filter(Source.id_scp == source.id_scp) \
+#             .first()
+#         if query:
+#             continue
+#         country = country_name(row['country'])
+#         if country:
+#             query = session.query(Country) \
+#                 .filter(Country.name == country) \
+#                 .first()
+#             source.country = query
+#         if row['asjc']:
+#             subject_codes = [int(code) 
+#                            for code in row['asjc'].split(';') if code != '']
+#             for code in subject_codes:
+#                 query = session.query(Subject) \
+#                     .filter(Subject.asjc == code) \
+#                     .first()
+#                 if query:
+#                     source.subjects.append(query)
+
+#         session.add(source)
+#         # sources.append(source)
+#         if (cnt + 1) % max_inserts == 0:
+#             session.commit()
+#             # sources = []
+        
+# try:
+#     session.commit()
+# except:
+#     print('nothing to commit')
+# finally:
+#     session.close()
+
+
+# author
+# for auth in entry['author']:
+#     keys = auth.keys()
+#     author_id_scp = int(auth['authid'])
+#     paper_author = Paper_Author(int(auth['@seq']))
+#     author = session.query(Author) \
+#         .filter(Author.id_scp == author_id_scp) \
+#         .first()
+#     if not author:
+#         author = Author(
+#             id_scp=author_id_scp,
+#             first=key_get(auth, keys, 'given-name'),
+#             last=key_get(auth, keys, 'surname'),
+#             initials=key_get(auth, keys, 'initials')
+#         )
+
+#         author_profile = Author_Profile(
+#             address=f'https://www.scopus.com/authid/detail.uri?authorId={author_id_scp}',
+#             type='Scopus Profile',
+#         )
+#         author.profiles.append(author_profile)
+#         session.add(author)
+#         session.commit()
+    
+#     paper_author.author = author
+#     session.add(paper_author)
+#     print('//////////////')
+#     print(paper_author.paper_id, paper_author.author_id, paper_author.author_no)
+#     print(paper.authors)
+#     print('//////////////')
+#     paper.authors.append(paper_author)
+#     print('Linked.')
+#     print()
+# print(f'ALL AUTHORS: {[[a.author.last, a.author.id] for a in paper.authors]}')
+
 def data_inspector(data:dict):
     warnings = []
     top_keys = [
@@ -32,7 +149,11 @@ def data_inspector(data:dict):
 
 
 def key_get(data:dict, keys, key:str, many:bool=False):
-    result = (data[key] if key in keys else None)
+    if key in keys:
+        result = data[key]
+    else:
+        result = None
+    
     if type(result) == list:
         if not many:
             return result[0]['$']
@@ -66,90 +187,7 @@ def country_name(name:str):
     return name
 
 def raw_insert(data:dict, retrieval_time, title_length=300, country_data=False):
-        result = {'msg': '', 'value': None}
-        warnings = data_inspector(data)
-        if 'openaccess' in warnings:
-            data['openaccess'] = '0'
-            warnings.remove('openaccess')
-        if 'author:afid' in warnings:
-            warnings.remove('author:afid')
-        if warnings:
-            result['msg'] = warnings
-            return result
-
-        keys = data.keys()
-
-        paper_url = ''
-        for link in data['link']:
-            if link['@ref'] == 'scopus':
-                paper_url = link['@href']
-                break
-
-        paper_id_scp = int(data['dc:identifier'].split(':')[1])
-        query = session.query(Paper) \
-            .filter(Paper.id_scp == paper_id_scp) \
-            .first()
-        if query:
-            result['msg'] = 'paper exists'
-            result['value'] = query.id
-            return result
-
-        source_id_scp = int(data['source-id'])
-        agency_id_scp = key_get(data, keys, 'fund-no')
-        if agency_id_scp == 'undefined':
-            agency_id_scp = None
-
-        source_info = {
-            'source_id_scp': source_id_scp,
-            'title': data['prism:publicationName'],
-            'url': f'https://www.scopus.com/sourceid/{source_id_scp}',
-            'type': key_get(data, keys, 'prism:aggregationType'),
-            'issn': strip(key_get(data, keys, 'prism:issn'), max_length=8),
-            'e_issn': strip(key_get(data, keys, 'prism:eIssn'), max_length=8),
-            'isbn': strip(key_get(data, keys, 'prism:isbn'), max_length=13),
-            'publisher': None,
-            'country_id': None
-        }
-        source_id = self._insert_one('source', source_info)['value']
-
-        agency_id = None
-        if agency_id_scp:
-            paper_funding_info = {
-                'agency_id_scp': agency_id_scp,
-                'agency': key_get(data, keys, 'fund-sponsor'),
-                'agency_acronym': key_get(data, keys, 'fund-acr'),
-            }
-            # print(paper_funding_info)
-            agency_id = self._insert_one(
-                'paper_funding', paper_funding_info)['value']
-
-        paper_info = {
-            'paper_id_scp': paper_id_scp,
-            'eid': data['eid'],
-            'title': data['dc:title'],
-            'type': data['subtype'],
-            'type_description': key_get(data, keys, 'subtypeDescription'),
-            'abstract': key_get(data, keys, 'dc:description'),
-            'total_author': key_get(data, keys, 'author-count'),
-            'open_access': data['openaccess'],
-            'cited_cnt': data['citedby-count'],
-            'url': paper_url,
-            'article_no': key_get(data, keys, 'prism:volume'),
-            'agency_id': agency_id,
-            'retrieval_time': retrieval_time,
-            'source_id': source_id,
-            'doi': key_get(data, keys, 'prism:doi'),
-            'volume': key_get(data, keys, 'prism:volume'),
-            'issue': key_get(data, keys, 'prism:issueIdentifier'),
-            'page_range': key_get(data, keys, 'prism:pageRange'),
-            'date': data['prism:coverDate'],
-        }
-
-        if title_length < len(paper_info['title']):
-            paper_info['title'] = strip(
-                paper_info['title'], max_length=title_length, accepted_chars='')
-        paper_id = self._insert_one('paper', paper_info)['value']
-
+        
         author_institution = []
         inst_from_author = []
         paper_author_info = []

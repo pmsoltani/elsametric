@@ -4,7 +4,7 @@ from sqlalchemy.dialects.mysql import \
     BIGINT, CHAR, DATETIME, ENUM, INTEGER, VARCHAR
 
 from base import Base
-from associations import Paper_Author, Author_Department
+from associations import Author_Department
 
 class Author(Base):
     __tablename__ = 'author'
@@ -34,14 +34,14 @@ class Author(Base):
     )
 
     # Relationships
-    papers = relationship('Paper_Author', back_populates='author')
+    # papers = relationship('Paper_Author', back_populates='author')
     profiles = relationship('Author_Profile', back_populates='author')
     departments = relationship(
-        'Department', secondary=Author_Department, foreign_keys=['author_department.department_id', 'author_department.institution_id'], back_populates='authors')
+        'Department', secondary=Author_Department, back_populates='authors')
     
     def __init__(
         self, id_scp, first=None, middle=None, last=None, initials=None, 
-        sex=None, type=None, rank=None, create_time=None, update_time=None
+        sex=None, type=None, rank=None, inst_id=None, create_time=None, update_time=None
     ):
         self.id_scp = id_scp
         self.first = first
@@ -51,5 +51,6 @@ class Author(Base):
         self.sex = sex
         self.type = type
         self.rank = rank
+        self.inst_id = inst_id
         self.create_time = create_time
         self.update_time = update_time

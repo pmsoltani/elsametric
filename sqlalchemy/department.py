@@ -30,7 +30,7 @@ class Department(Base):
 
     # Relationships
     institution = relationship('Institution', back_populates='departments')
-    aliases = relationship('Department_Alias', back_populates='department')
+    # aliases = relationship('Department_Alias', back_populates='department')
     authors = relationship(
         'Author', secondary=Author_Department, back_populates='departments')
 
