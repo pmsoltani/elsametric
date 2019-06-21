@@ -7,6 +7,13 @@ from author_profile import Author_Profile
 from institution import Institution
 from department import Department
 from country import Country
+from subject import Subject
+from paper import Paper
+
+import io
+import csv
+from collections import OrderedDict
+
 
 def keyword_process(session, author_keywords, separator:str='|'):
     keywords_list = []
@@ -107,6 +114,7 @@ def author_process(session, data):
         authors_list.append(author)
     return authors_list
 
+
 def institution_process(session, data, inst_id):
     print('Processing institutions and departments')
     department = None
@@ -147,3 +155,84 @@ def institution_process(session, data, inst_id):
             print(f'INSTITUTION already exists. {institution.id_scp}')
         break
     return department
+
+
+def paper_process(session, data, retrieval_time, keys=None):
+    if not keys:
+        keys = data.keys()
+
+    paper_url = ''
+    for link in data['link']:
+        if link['@ref'] == 'scopus':
+            paper_url = link['@href']
+            break
+
+    paper_id_scp = int(data['dc:identifier'].split(':')[1])
+    paper = session.query(Paper) \
+        .filter(Paper.id_scp == paper_id_scp) \
+        .first()
+    if not paper:
+        paper = Paper(
+            id_scp=paper_id_scp,
+            eid=key_get(data, keys, 'eid'),
+            title=key_get(data, keys, 'dc:title'),
+            type=key_get(data, keys, 'subtype'),
+            type_description=key_get(data, keys, 'subtypeDescription'),
+            abstract=key_get(data, keys, 'dc:description'),
+            total_author=key_get(data, keys, 'author-count'),
+            open_access=int(key_get(data, keys, 'openaccess')),
+            cited_cnt=key_get(data, keys, 'citedby-count'),
+            url=paper_url,
+            article_no=key_get(data, keys, 'article-number'),
+            doi=key_get(data, keys, 'prism:doi'),
+            volume=key_get(data, keys, 'prism:volume'),
+            issue=key_get(data, keys, 'prism:issueIdentifier'),
+            date=key_get(data, keys, 'prism:coverDate'),
+            page_range=key_get(data, keys, 'prism:pageRange'),
+            retrieval_time=retrieval_time,
+        )
+    return paper
+
+
+def ext_country_process(session, file_path, encoding='utf-8-sig'):
+    countries_list = []
+    with io.open(file_path, 'r', encoding=encoding) as csvFile:
+        reader = csv.DictReader(csvFile)
+        for row in reader:
+            for key in row:
+                if not row[key]:
+                    row[key] = None
+            country_name = row['name']
+            country = session.query(Country) \
+                .filter(Country.name == country_name) \
+                .first()
+            if not country:
+                country = Country(
+                    name=country_name, domain=row['domain'],
+                    region=row['region'], sub_region=row['sub_region']
+                )
+                countries_list.append(country)
+    return countries_list
+
+
+def ext_subject_process(session, file_path, encoding='utf-8-sig'):
+    subjects_list = []
+    with io.open(file_path, 'r', encoding=encoding) as csvFile:
+        reader = csv.DictReader(csvFile)
+        for row in reader:
+            for key in row:
+                if not row[key]:
+                    row[key] = None
+            asjc = row['asjc']
+            subject = session.query(Subject) \
+                .filter(Subject.asjc == asjc) \
+                .first()
+            if not subject:
+                subject = Subject(
+                    asjc=asjc,
+                    top=row['top'], middle=row['middle'], low=row['low']
+                )
+                subjects_list.append(subject)
+    return subjects_list
+
+
