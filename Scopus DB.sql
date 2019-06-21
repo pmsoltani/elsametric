@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`country` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `name` VARCHAR(45) NOT NULL,
   `domain` VARCHAR(2) NOT NULL,
-  `region` VARCHAR(8) NULL,
+  `region` VARCHAR(10) NULL,
   `sub_region` VARCHAR(45) NULL,
   PRIMARY KEY (`id`),
   UNIQUE INDEX `name_UNIQUE` (`name` ASC) VISIBLE,
@@ -76,28 +76,28 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`paper` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'Auto Increment Paper ID',
   `id_scp` BIGINT UNSIGNED NOT NULL COMMENT 'Unique Scopus ID',
   `eid` VARCHAR(45) NOT NULL COMMENT 'Electronic ID',
-  `title` VARCHAR(300) NOT NULL COMMENT '	\nArticle Title',
-  `type` VARCHAR(10) NOT NULL COMMENT 'Document Type code',
+  `title` VARCHAR(512) NOT NULL COMMENT '	\nArticle Title',
+  `type` VARCHAR(2) NOT NULL COMMENT 'Document Type code',
   `type_description` VARCHAR(45) NULL COMMENT 'Document Type description',
   `abstract` TEXT NULL COMMENT 'Abstract',
-  `total_author` SMALLINT UNSIGNED NOT NULL COMMENT 'Total number of authors',
+  `total_authors` SMALLINT UNSIGNED NOT NULL COMMENT 'Total number of authors',
   `open_access` TINYINT(1) UNSIGNED NOT NULL COMMENT 'True/False',
   `cited_cnt` SMALLINT UNSIGNED NOT NULL COMMENT 'Cited-by Count',
   `url` VARCHAR(256) NOT NULL COMMENT 'Scopus abstract detail page URL',
   `article_no` VARCHAR(45) NULL COMMENT '	\nArticle Number',
+  `date` DATE NOT NULL COMMENT 'Publication Date',
   `fund_id` BIGINT UNSIGNED NULL,
-  `retrieval_time` DATETIME NOT NULL COMMENT 'Date & time of accessing the paper info',
-  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Record creation time',
-  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `source_id` INT UNSIGNED NULL,
   `doi` VARCHAR(256) NULL COMMENT 'Document Object Identifier',
   `volume` VARCHAR(45) NULL COMMENT 'Volume',
   `issue` VARCHAR(45) NULL COMMENT 'Issue',
-  `date` DATE NOT NULL COMMENT 'Publication Date',
   `page_range` VARCHAR(45) NULL COMMENT 'Page',
+  `retrieval_time` DATETIME NOT NULL COMMENT 'Date & time of accessing the paper info',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Record creation time',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE INDEX `paper_id_scp_UNIQUE` (`id_scp` ASC) VISIBLE,
   UNIQUE INDEX `eid_UNIQUE` (`eid` ASC) VISIBLE,
-  UNIQUE INDEX `url_UNIQUE` (`url` ASC) VISIBLE,
+  UNIQUE INDEX `url_UNIQUE` (`url` ASC) INVISIBLE,
   PRIMARY KEY (`id`),
   INDEX `fk_paper_fund1_idx` (`fund_id` ASC) VISIBLE,
   INDEX `fk_paper_source1_idx` (`source_id` ASC) VISIBLE,
@@ -125,7 +125,7 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`author` (
   `middle` VARCHAR(45) NULL,
   `last` VARCHAR(45) NULL,
   `initials` VARCHAR(45) NULL,
-  `sex` TINYINT(1) UNSIGNED NULL COMMENT '1 for Male, 0 for Female',
+  `sex` ENUM('m', 'f') NULL,
   `type` VARCHAR(45) NULL COMMENT 'Type of author (faculty, student, researcher, staff)',
   `rank` VARCHAR(45) NULL COMMENT 'Rank of author (Full, Associate, Assitant Professor; B.Sc., M.Sc., Ph.D. Student; Postdoc Researcher)',
   `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Record creation time',
@@ -194,8 +194,6 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`subject` (
   `top` VARCHAR(128) NOT NULL,
   `middle` VARCHAR(128) NOT NULL,
   `low` VARCHAR(128) NOT NULL,
-  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Record creation time',
-  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE INDEX `asjc_code_UNIQUE` (`asjc` ASC) VISIBLE)
 ENGINE = InnoDB;
@@ -354,6 +352,25 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`department_alias` (
   CONSTRAINT `fk_department_alias_department1`
     FOREIGN KEY (`department_id` , `institution_id`)
     REFERENCES `Scopus`.`department` (`id` , `institution_id`)
+    ON DELETE NO ACTION
+    ON UPDATE NO ACTION)
+ENGINE = InnoDB;
+
+
+-- -----------------------------------------------------
+-- Table `Scopus`.`source_metric`
+-- -----------------------------------------------------
+CREATE TABLE IF NOT EXISTS `Scopus`.`source_metric` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `source_id` INT UNSIGNED NOT NULL,
+  `type` VARCHAR(45) NOT NULL,
+  `value` DECIMAL(14,4) NOT NULL,
+  `year` YEAR(4) NOT NULL,
+  PRIMARY KEY (`id`, `source_id`),
+  INDEX `fk_source_metric_source1_idx` (`source_id` ASC) VISIBLE,
+  CONSTRAINT `fk_source_metric_source1`
+    FOREIGN KEY (`source_id`)
+    REFERENCES `Scopus`.`source` (`id`)
     ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
