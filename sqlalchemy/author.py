@@ -4,7 +4,7 @@ from sqlalchemy.dialects.mysql import \
     BIGINT, CHAR, DATETIME, ENUM, INTEGER, VARCHAR
 
 from base import Base
-from associations import Author_Department
+from associations import Author_Department, Paper_Author
 
 class Author(Base):
     __tablename__ = 'author'
@@ -34,7 +34,7 @@ class Author(Base):
     )
 
     # Relationships
-    # papers = relationship('Paper_Author', back_populates='author')
+    papers = relationship('Paper_Author', back_populates='author')
     profiles = relationship('Author_Profile', back_populates='author')
     departments = relationship(
         'Department', secondary=Author_Department, back_populates='authors')

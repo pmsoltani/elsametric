@@ -14,7 +14,7 @@ class Source(Base):
     )
     id_scp = Column(BIGINT(unsigned=True), nullable=False, unique=True)
     title = Column(VARCHAR(512), nullable=False)
-    url = Column(VARCHAR(100), nullable=False, unique=True)
+    url = Column(VARCHAR(256), nullable=False, unique=True)
     type = Column(VARCHAR(45), nullable=True)
     issn = Column(VARCHAR(8), nullable=True)
     e_issn = Column(VARCHAR(8), nullable=True)

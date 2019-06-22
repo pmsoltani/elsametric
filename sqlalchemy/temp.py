@@ -1,3 +1,7 @@
+import io
+import csv
+from collections import OrderedDict
+
 from functions import key_get, strip, country_names
 from keyword_ import Keyword
 from source import Source
@@ -10,22 +14,73 @@ from country import Country
 from subject import Subject
 from paper import Paper
 
-import io
-import csv
-from collections import OrderedDict
 
 
-def keyword_process(session, author_keywords, separator:str='|'):
+def paper_process(session, data, retrieval_time, keys=None):
+    if not keys:
+        keys = data.keys()
+
+    paper_url = ''
+    for link in data['link']:
+        if link['@ref'] == 'scopus':
+            paper_url = link['@href']
+            break
+
+    paper_id_scp = int(data['dc:identifier'].split(':')[1])
+    paper = session.query(Paper) \
+        .filter(Paper.id_scp == paper_id_scp) \
+        .first()
+    if not paper:
+        # double check with DOI
+        doi = key_get(data, keys, 'prism:doi')
+        if doi:
+            paper = session.query(Paper) \
+                .filter(Paper.doi == doi) \
+                .first()
+        if not paper:
+            paper = Paper(
+                id_scp=paper_id_scp,
+                eid=key_get(data, keys, 'eid'),
+                title=strip(
+                    key_get(data, keys, 'dc:title'), 
+                    max_length=512, accepted_chars=''
+                ),
+                type=key_get(data, keys, 'subtype'),
+                type_description=key_get(data, keys, 'subtypeDescription'),
+                abstract=key_get(data, keys, 'dc:description'),
+                total_author=key_get(data, keys, 'author-count'),
+                open_access=int(key_get(data, keys, 'openaccess')),
+                cited_cnt=key_get(data, keys, 'citedby-count'),
+                url=paper_url,
+                article_no=key_get(data, keys, 'article-number'),
+                doi=key_get(data, keys, 'prism:doi'),
+                volume=key_get(data, keys, 'prism:volume'),
+                issue=key_get(data, keys, 'prism:issueIdentifier'),
+                date=key_get(data, keys, 'prism:coverDate'),
+                page_range=key_get(data, keys, 'prism:pageRange'),
+                retrieval_time=retrieval_time,
+            )
+    return paper
+
+
+def keyword_process(session, data, keys=None, separator:str='|'):
     keywords_list = []
+    author_keywords = key_get(data, keys, 'authkeywords')
     if author_keywords:
-        terms = [key.strip() for key in author_keywords.split(separator)]
-        
+        terms_list = [key.strip() for key in author_keywords.split(separator)]
+        # making sure unique keywords... case insensitive
+        seen, result = set(), []
+        for item in terms_list:
+            if item.lower() not in seen:
+                seen.add(item.lower())
+                result.append(item)
+        terms = result
+
         for term in terms:
             keyword = session.query(Keyword) \
                 .filter(Keyword.keyword == term) \
                 .first()
             if not keyword:
-                # new keyword
                 keyword = Keyword(
                     keyword=term
                 )
@@ -76,13 +131,14 @@ def fund_process(session, data, keys=None):
     return fund
 
 
-def author_process(session, data):
+def author_process(session, data, log=False):
     authors_list = []
     for auth in data['author']:
         keys = auth.keys()
         author_id_scp = int(auth['authid'])
-        print(f'AUTHOR {author_id_scp}')
-        # paper_author = Paper_Author(int(auth['@seq']))
+        if log:
+            print(f'AUTHOR {author_id_scp}')
+        author_no = int(auth['@seq'])
         author = session.query(Author) \
             .filter(Author.id_scp == author_id_scp) \
             .first()
@@ -99,24 +155,31 @@ def author_process(session, data):
             )
             author.profiles.append(author_profile)
             author.inst_id = key_get(auth, keys, 'afid', many=True)
-            print(f'AUTHOR not found in DB. Added + Profile. inst_id: {author.inst_id}')
+            if log:
+                print(f'AUTHOR not found in DB. Added + Profile. inst_id: {author.inst_id}')
         else:
             inst_ids = key_get(auth, keys, 'afid', many=True)
             author.inst_id = inst_ids
-            print(f'AUTHOR already exists. inst_id: {author.inst_id}')
+            if log:
+                print(f'AUTHOR already exists. inst_id: {author.inst_id}')
         
-        for inst_id in author.inst_id:
-            department = institution_process(session, data, inst_id)
-            print(f'Department: {department}')
-            author.departments.append(department)
-        print(f'All AUTHOR departments: {author.departments}')
-        print()
-        authors_list.append(author)
+        if author.inst_id:
+            for inst_id in author.inst_id:
+                department = institution_process(session, data, inst_id, log=log)
+                if log:
+                    print(f'Department: {department}')
+                author.departments.append(department)
+            if log:
+                print(f'All AUTHOR departments: {author.departments}')
+        if log:
+            print()
+        authors_list.append([author_no, author])
     return authors_list
 
 
-def institution_process(session, data, inst_id):
-    print('Processing institutions and departments')
+def institution_process(session, data, inst_id, log=False):
+    if log:
+        print('Processing institutions and departments')
     department = None
     for affil in data['affiliation']:
         institution_id_scp = int(affil['afid'])
@@ -144,7 +207,8 @@ def institution_process(session, data, inst_id):
             
             department = Department(name='Undefined', abbreviation='No Dept')
             institution.departments.append(department)
-            print(f'INSTITUTION not found in DB. Added + Department: {institution.id_scp}')
+            if log:
+                print(f'INSTITUTION not found in DB. Added + Department: {institution.id_scp}')
         else:
             departments = institution.departments
             if departments:
@@ -152,46 +216,10 @@ def institution_process(session, data, inst_id):
                     if dept.name == 'Undefined':
                         department = dept
                         break
-            print(f'INSTITUTION already exists. {institution.id_scp}')
+            if log:
+                print(f'INSTITUTION already exists. {institution.id_scp}')
         break
     return department
-
-
-def paper_process(session, data, retrieval_time, keys=None):
-    if not keys:
-        keys = data.keys()
-
-    paper_url = ''
-    for link in data['link']:
-        if link['@ref'] == 'scopus':
-            paper_url = link['@href']
-            break
-
-    paper_id_scp = int(data['dc:identifier'].split(':')[1])
-    paper = session.query(Paper) \
-        .filter(Paper.id_scp == paper_id_scp) \
-        .first()
-    if not paper:
-        paper = Paper(
-            id_scp=paper_id_scp,
-            eid=key_get(data, keys, 'eid'),
-            title=key_get(data, keys, 'dc:title'),
-            type=key_get(data, keys, 'subtype'),
-            type_description=key_get(data, keys, 'subtypeDescription'),
-            abstract=key_get(data, keys, 'dc:description'),
-            total_author=key_get(data, keys, 'author-count'),
-            open_access=int(key_get(data, keys, 'openaccess')),
-            cited_cnt=key_get(data, keys, 'citedby-count'),
-            url=paper_url,
-            article_no=key_get(data, keys, 'article-number'),
-            doi=key_get(data, keys, 'prism:doi'),
-            volume=key_get(data, keys, 'prism:volume'),
-            issue=key_get(data, keys, 'prism:issueIdentifier'),
-            date=key_get(data, keys, 'prism:coverDate'),
-            page_range=key_get(data, keys, 'prism:pageRange'),
-            retrieval_time=retrieval_time,
-        )
-    return paper
 
 
 def ext_country_process(session, file_path, encoding='utf-8-sig'):
@@ -236,9 +264,10 @@ def ext_subject_process(session, file_path, encoding='utf-8-sig'):
     return subjects_list
 
 
-def ext_source_process(session, file_path, src_type='Journal', chunk_size=1000, batch_no=0, encoding='utf-8-sig'):
+def ext_source_process(session, file_path, src_type='Journal', 
+    chunk_size=1000, batch_no=0, encoding='utf-8-sig'):
     sources_list = []
-    with io.open('sources.csv', 'r', encoding='utf-8-sig') as csvFile:
+    with io.open(file_path, 'r', encoding=encoding) as csvFile:
         reader = csv.DictReader(csvFile)
         for cnt, row in enumerate(reader):
             if batch_no:

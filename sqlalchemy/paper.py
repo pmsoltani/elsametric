@@ -4,7 +4,7 @@ from sqlalchemy.dialects.mysql import \
     BIGINT, BOOLEAN, DATE, DATETIME, INTEGER, SMALLINT, TEXT, VARCHAR
 
 from base import Base
-from associations import Paper_Keyword#, Paper_Author
+from associations import Paper_Keyword, Paper_Author
 
 class Paper(Base):
     __tablename__ = 'paper'
@@ -15,9 +15,9 @@ class Paper(Base):
     )
     id_scp = Column(BIGINT(unsigned=True), nullable=False, unique=True)
     eid = Column(VARCHAR(45), nullable=False, unique=True)
-    title = Column(VARCHAR(300), nullable=False)
+    title = Column(VARCHAR(512), nullable=False)
     type = Column(VARCHAR(2), nullable=False)
-    type_description = Column(VARCHAR(25), nullable=True)
+    type_description = Column(VARCHAR(45), nullable=True)
     abstract = Column(TEXT(), nullable=True)
     total_author = Column(SMALLINT(unsigned=True), nullable=False)
     open_access = Column(
@@ -25,18 +25,17 @@ class Paper(Base):
         nullable=False
     )
     cited_cnt = Column(SMALLINT(unsigned=True), nullable=False)
-    url = Column(VARCHAR(100), nullable=False, unique=True)
+    url = Column(VARCHAR(256), nullable=False, unique=True)
     article_no = Column(VARCHAR(45), nullable=True)
+    date = Column(DATE(), nullable=False)
     fund_id = Column(
         BIGINT(unsigned=True), ForeignKey('fund.id'), nullable=True)
     source_id = Column(
         INTEGER(unsigned=True), ForeignKey('source.id'), nullable=True)
-    doi = Column(VARCHAR(100), nullable=True, unique=True)
+    doi = Column(VARCHAR(256), nullable=True, unique=True)
     volume = Column(VARCHAR(45), nullable=True)
     issue = Column(VARCHAR(45), nullable=True)
-    date = Column(DATE(), nullable=False)
     page_range = Column(VARCHAR(45), nullable=True)
-
     retrieval_time = Column(DATETIME(), nullable=False)
     create_time = Column(
         DATETIME(), nullable=False,
@@ -52,7 +51,7 @@ class Paper(Base):
     source = relationship('Source', back_populates='papers')
     keywords = relationship(
         'Keyword', secondary=Paper_Keyword, back_populates='papers')
-    # authors = relationship('Paper_Author', back_populates='paper')
+    authors = relationship('Paper_Author', back_populates='paper')
     
     def __init__(
         self, id_scp, eid, title, type, total_author, open_access, cited_cnt, 

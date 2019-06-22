@@ -30,19 +30,17 @@ Author_Department = Table(
     )
 )
 
-# class Paper_Author(Base):
-#     __tablename__ = 'paper_author'
-#     paper_id = Column(
-#         INTEGER(unsigned=True), ForeignKey('paper.id'), primary_key=True)
-#     author_id = Column(
-#         INTEGER(unsigned=True), ForeignKey('author.id'), primary_key=True)
-#     author_no = Column(SMALLINT(unsigned=True), nullable=False)
+class Paper_Author(Base):
+    __tablename__ = 'paper_author'
+    paper_id = Column(
+        INTEGER(unsigned=True), ForeignKey('paper.id'), primary_key=True)
+    author_id = Column(
+        INTEGER(unsigned=True), ForeignKey('author.id'), primary_key=True)
+    author_no = Column(SMALLINT(unsigned=True), nullable=False)
 
-#     # Relationships
-#     paper = relationship('Paper', back_populates='authors')
-#     author = relationship('Author', back_populates='papers')
+    # Relationships
+    paper = relationship('Paper', back_populates='authors')
+    author = relationship('Author', back_populates='papers')
 
-#     def __init__(self, author_no, paper=None, author=None):
-#         self.paper = paper
-#         self.author = author
-#         self.author_no = author_no
+    def __init__(self, author_no):
+        self.author_no = author_no

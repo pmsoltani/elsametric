@@ -18,7 +18,7 @@ class Institution(Base):
     city = Column(VARCHAR(45), nullable=True)
     country_id = Column(
         INTEGER(unsigned=True), ForeignKey('country.id'), nullable=True)
-    url = Column(VARCHAR(100), nullable=True, unique=True)
+    url = Column(VARCHAR(256), nullable=True, unique=True)
     type = Column(VARCHAR(45), nullable=True)
     lat = Column(DECIMAL(8, 6), nullable=True)
     lng = Column(DECIMAL(9, 6), nullable=True)

@@ -1,35 +1,20 @@
-from base import Session, engine, Base
-from functions import data_inspector, key_get, strip
-from temp import keyword_process, source_process, fund_process, \
-    author_process, paper_process, ext_country_process, ext_subject_process, \
-    ext_source_process
+import os
+import json
+import io
+import time
+import winsound
+import datetime
 
-from country import Country
-from subject import Subject
-from source import Source
-from fund import Fund
-from paper import Paper
-from keyword_ import Keyword
-from author import Author
-from author_profile import Author_Profile
-from institution import Institution
-# from institution_alias import Institution_Alias
-from department import Department
-# from department_alias import Department_Alias
-# from associations import Paper_Author
+from base import Session, engine, Base
+from functions import data_inspector
+from temp import keyword_process, source_process, fund_process, \
+    author_process, paper_process, \
+    ext_country_process, ext_subject_process, ext_source_process
+
+from associations import Paper_Author
 
 Base.metadata.create_all(engine)
 session = Session()
-
-import json
-import os
-import io
-import csv
-import time
-import winsound
-from sys import getsizeof
-from collections import OrderedDict
-import datetime
 
 start = time.time()
 max_inserts = 1000
@@ -37,92 +22,110 @@ max_inserts = 1000
 frequency = 2000  # Set Frequency (Hz)
 duration = 300  # Set Duration (ms)
 
+# ==============================================================================
 # External Datasets
+# ==============================================================================
 
-# countries
-session.bulk_save_objects(ext_country_process(session, 'countries.csv'))
+# # countries
+# session.bulk_save_objects(ext_country_process(session, 'countries.csv'))
 
-end = time.time()
-print(f'operation time: {str(datetime.timedelta(seconds=(end - start)))}')
+# # subjects
+# session.bulk_save_objects(ext_subject_process(session, 'subjects.csv'))
 
-# subjects
-session.bulk_save_objects(ext_subject_process(session, 'subjects.csv'))
-
-end = time.time()
-print(f'operation time: {str(datetime.timedelta(seconds=(end - start)))}')
-
-# sources: journals
-for i in range(100):
-    sources_list = ext_source_process(session, 'sources.csv', src_type='Journal', chunk_size=1000, batch_no=(i + 1))
-    if source_process:
-        for source in sources_list:
-            session.add(source)
-
-end = time.time()
-print(f'operation time: {str(datetime.timedelta(seconds=(end - start)))}')
-
+# # sources: journals
+# for i in range(50):
+#     sources_list = ext_source_process(
+#         session, 'sources.csv', 
+#         src_type='Journal', 
+#         chunk_size=1000, batch_no=(i + 1)
+#     )
+#     if source_process:
+#         for source in sources_list:
+#             session.add(source)
+#     session.commit()
 
 # # sources: conference proceedings
-# session.bulk_save_objects(ext_source_process(session, 'conferences.csv', src_type='Conference Proceedings'))
+# for i in range(50):
+#     sources_list = ext_source_process(
+#         session, 'conferences.csv', 
+#         src_type='Conference Proceedings', 
+#         chunk_size=1000, batch_no=(i + 1)
+#     )
+#     if source_process:
+#         for source in sources_list:
+#             session.add(source)
+#     session.commit()
 
+# ==============================================================================
+# Papers
+# ==============================================================================
+
+path = 'C:\\Users\\pmsoltani\\Downloads\\Git\\elsametric\\data\\Sharif University of Technology'
+files = list(os.walk(path))[0][2]
 # file = 'Sharif University of Technology_y2018_005_S9J79E_1558880320.txt'
-# with io.open(file, 'r', encoding='utf8') as raw:
-#     data = json.load(raw)
-#     data = data['search-results']['entry']
-#     ret_time = datetime.datetime \
-#         .utcfromtimestamp(int(file.split('.')[0].split('_')[-1])) \
-#         .strftime('%Y-%m-%d %H:%M:%S')
-    
-#     for entry in data:
-#         warnings = data_inspector(entry)
-#         print(file)
-#         print(entry['dc:identifier'])
-#         print()
-#         try:
-#             result = {'msg': '', 'value': None}
-#             if 'openaccess' in warnings:
-#                 entry['openaccess'] = '0'
-#                 warnings.remove('openaccess')
-#             if 'author:afid' in warnings:
-#                 warnings.remove('author:afid')
-#             if warnings:
-#                 result['msg'] = warnings
-#                 print('!!!')
-#                 print(result)
-#                 print('---------------------')
-#                 continue
-            
-#             keys = entry.keys()
-#             paper = paper_process(session, entry, keys)
-            
-#             if not paper.source:
-#                 paper.source = source_process(session, entry, keys)
-#             if not paper.fund:
-#                 paper.fund = fund_process(session, entry, keys)
-#             if not paper.keywords:
-#                 author_keywords = key_get(entry, keys, 'authkeywords')
-#                 paper.keywords = keyword_process(session, author_keywords)
-            
-#             # authors_list = author_process(session, entry)
-#             # if authors_list:
-#             #     for auth in authors_list:
-#             #         session.add(auth)
-            
-#             # session.add(paper)
-#             session.commit()
-#             print('---------------------')
-#         except Exception as e:
-#             session.close()
-#             winsound.Beep(frequency, duration)
-#             print(e)
-#             break
+flag = False
+for file in files[52:]:
+    if flag:
+        break
+    with io.open(os.path.join(path, file), 'r', encoding='utf8') as raw:
+        data = json.load(raw)
+        data = data['search-results']['entry']
+        ret_time = datetime.datetime \
+            .utcfromtimestamp(int(file.split('.')[0].split('_')[-1])) \
+            .strftime('%Y-%m-%d %H:%M:%S')
+        
+        for entry in data:
+            warnings = data_inspector(entry)
+            try:
+                if 'openaccess' in warnings:
+                    entry['openaccess'] = '0'
+                    warnings.remove('openaccess')
+                if 'author:afid' in warnings:
+                    warnings.remove('author:afid')
+                if 'source-id' in warnings:
+                    warnings.remove('source-id')
+                if warnings:
+                    print(file)
+                    print(entry['dc:identifier'])
+                    print()
+                    print('!!!')
+                    print('ERROR: ', warnings)
+                    print('--------------------------------------------------')
+                    continue
+                
+                keys = entry.keys()
+                paper = paper_process(session, entry, ret_time, keys)
+                
+                if not paper.source:
+                    paper.source = source_process(session, entry, keys)
+                # if not paper.fund:
+                #     paper.fund = fund_process(session, entry, keys)
+                if not paper.keywords:
+                    paper.keywords = keyword_process(session, entry, keys)
+                if not paper.authors:
+                    authors_list = author_process(session, entry, log=False)
+                    for auth in authors_list:
+                        paper_author = Paper_Author(author_no=auth[0])
+                        paper_author.author = auth[1]
+                        paper.authors.append(paper_author)
+
+                session.add(paper)
+                session.commit()
+            except Exception as e:
+                session.close()
+                winsound.Beep(frequency, duration)
+                print(file)
+                print(entry['dc:identifier'])
+                print()
+                print('!!!')
+                print('ERROR: ', e)
+                print('--------------------------------------------------')
+                flag = True
+                break
 
 session.commit()
 
 end = time.time()
 
-# print(f'countries: {getsizeof(countries)}, len: {len(countries)}')
-# print(f'subjects: {getsizeof(subjects)}, len: {len(subjects)}')
-# # print(f'sources: {getsizeof(sources)}, len: {len(sources)}')
 print(f'operation time: {str(datetime.timedelta(seconds=(end - start)))}')
 session.close()
