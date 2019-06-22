@@ -36,44 +36,8 @@ frequency = 2000  # Set Frequency (Hz)
 duration = 300  # Set Duration (ms)
 # winsound.Beep(frequency=frequency, duration=duration)
 
-# insert external here
-with io.open('conferences.csv', 'r', encoding='utf-8-sig') as csvFile:
-    reader = csv.DictReader(csvFile)
-    for cnt, row in enumerate(reader):
-        for item in row:
-            if not row[item]:
-                row[item] = None
-        source = Source(
-            id_scp=row['id_scp'], title=row['title'], type='Conference Proceedings',
-            issn=row['issn'],
-        )
-        query = session.query(Source) \
-            .filter(Source.id_scp == source.id_scp) \
-            .first()
-        if query:
-            continue
-        if row['asjc']:
-            subject_codes = [int(code) 
-                             for code in row['asjc'].split(';') if code != '']
-            for code in subject_codes:
-                query = session.query(Subject) \
-                    .filter(Subject.asjc == code) \
-                    .first()
-                if query:
-                    source.subjects.append(query)
+# insert externals here
 
-        session.add(source)
-        # sources.append(source)
-        if (cnt + 1) % max_inserts == 0:
-            session.commit()
-            # sources = []
-        
-try:
-    session.commit()
-except:
-    print('nothing to commit')
-finally:
-    session.close()
 
 
 # file = 'Sharif University of Technology_y2018_005_S9J79E_1558880320.txt'

@@ -173,7 +173,7 @@ def strip(data, max_length:int=8, accepted_chars:str='0123456789xX', force_strip
     return ''.join([char for char in data if char in accepted_chars])
 
 
-def country_name(name:str):
+def country_names(name):
     countries = {
         'Russian Federation': 'Russia',
         'USA': 'United States',

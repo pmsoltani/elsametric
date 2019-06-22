@@ -1,4 +1,4 @@
-from functions import key_get, strip
+from functions import key_get, strip, country_names
 from keyword_ import Keyword
 from source import Source
 from fund import Fund
@@ -202,7 +202,7 @@ def ext_country_process(session, file_path, encoding='utf-8-sig'):
             for key in row:
                 if not row[key]:
                     row[key] = None
-            country_name = row['name']
+            country_name = country_names(row['name'])
             country = session.query(Country) \
                 .filter(Country.name == country_name) \
                 .first()
@@ -234,5 +234,49 @@ def ext_subject_process(session, file_path, encoding='utf-8-sig'):
                 )
                 subjects_list.append(subject)
     return subjects_list
+
+
+def ext_source_process(session, file_path, src_type='Journal', encoding='utf-8-sig'):
+    sources_list = []
+    with io.open('sources.csv', 'r', encoding='utf-8-sig') as csvFile:
+        reader = csv.DictReader(csvFile)
+        for row in reader:
+            for item in row:
+                if not row[item]:
+                    row[item] = None
+            source_id_scp = row['id_scp']
+            source = session.query(Source) \
+                .filter(Source.id_scp == source_id_scp) \
+                .first()
+            if not source:
+                if src_type == 'Journal':
+                    source = Source(
+                        id_scp=row['id_scp'], title=row['title'], type=row['type'],
+                        issn=row['issn'], e_issn=row['e_issn'], publisher=row['publisher']
+                    )
+                    country_name = country_names(row['country'])
+                    if country_name:
+                        country = session.query(Country) \
+                            .filter(Country.name == country_name) \
+                            .first()
+                        source.country = country
+                else:
+                    source = Source(
+                        id_scp=row['id_scp'], title=row['title'], type='Conference Proceedings',
+                        issn=row['issn'],
+                    )
+                
+                if row['asjc']:
+                    subject_codes = [int(code) 
+                                    for code in row['asjc'].split(';') if code != '']
+                    for asjc in subject_codes:
+                        subject = session.query(Subject) \
+                            .filter(Subject.asjc == asjc) \
+                            .first()
+                        if subject:
+                            source.subjects.append(subject)
+                
+                sources_list.append(source)
+
 
 
