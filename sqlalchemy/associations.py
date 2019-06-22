@@ -7,8 +7,8 @@ from base import Base
 Source_Subject = Table(
     'source_subject',
     Base.metadata,
-    Column('source_id', INTEGER(unsigned=True), ForeignKey('source.id')),
-    Column('subject_id', INTEGER(unsigned=True), ForeignKey('subject.id'))
+    Column('source_id', INTEGER(unsigned=True), ForeignKey('source.id'), primary_key=True),
+    Column('subject_id', INTEGER(unsigned=True), ForeignKey('subject.id'), primary_key=True)
 )
 
 Paper_Keyword = Table(
