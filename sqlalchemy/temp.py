@@ -236,11 +236,14 @@ def ext_subject_process(session, file_path, encoding='utf-8-sig'):
     return subjects_list
 
 
-def ext_source_process(session, file_path, src_type='Journal', encoding='utf-8-sig'):
+def ext_source_process(session, file_path, src_type='Journal', chunk_size=1000, batch_no=0, encoding='utf-8-sig'):
     sources_list = []
     with io.open('sources.csv', 'r', encoding='utf-8-sig') as csvFile:
         reader = csv.DictReader(csvFile)
-        for row in reader:
+        for cnt, row in enumerate(reader):
+            if batch_no:
+                if (cnt >= (chunk_size * batch_no)) or (cnt < (chunk_size * (batch_no - 1))):
+                    continue
             for item in row:
                 if not row[item]:
                     row[item] = None
@@ -277,6 +280,6 @@ def ext_source_process(session, file_path, src_type='Journal', encoding='utf-8-s
                             source.subjects.append(subject)
                 
                 sources_list.append(source)
-
+    return sources_list
 
 

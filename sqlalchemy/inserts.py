@@ -1,6 +1,8 @@
 from base import Session, engine, Base
 from functions import data_inspector, key_get, strip
-from temp import keyword_process, source_process, fund_process, author_process, paper_process
+from temp import keyword_process, source_process, fund_process, \
+    author_process, paper_process, ext_country_process, ext_subject_process, \
+    ext_source_process
 
 from country import Country
 from subject import Subject
@@ -34,11 +36,34 @@ max_inserts = 1000
 
 frequency = 2000  # Set Frequency (Hz)
 duration = 300  # Set Duration (ms)
-# winsound.Beep(frequency=frequency, duration=duration)
 
-# insert externals here
+# External Datasets
+
+# countries
+session.bulk_save_objects(ext_country_process(session, 'countries.csv'))
+
+end = time.time()
+print(f'operation time: {str(datetime.timedelta(seconds=(end - start)))}')
+
+# subjects
+session.bulk_save_objects(ext_subject_process(session, 'subjects.csv'))
+
+end = time.time()
+print(f'operation time: {str(datetime.timedelta(seconds=(end - start)))}')
+
+# sources: journals
+for i in range(100):
+    sources_list = ext_source_process(session, 'sources.csv', src_type='Journal', chunk_size=1000, batch_no=(i + 1))
+    if source_process:
+        for source in sources_list:
+            session.add(source)
+
+end = time.time()
+print(f'operation time: {str(datetime.timedelta(seconds=(end - start)))}')
 
 
+# # sources: conference proceedings
+# session.bulk_save_objects(ext_source_process(session, 'conferences.csv', src_type='Conference Proceedings'))
 
 # file = 'Sharif University of Technology_y2018_005_S9J79E_1558880320.txt'
 # with io.open(file, 'r', encoding='utf8') as raw:
