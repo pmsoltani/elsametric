@@ -64,7 +64,7 @@ path = 'C:\\Users\\pmsoltani\\Downloads\\Git\\elsametric\\data\\Sharif Universit
 files = list(os.walk(path))[0][2]
 # file = 'Sharif University of Technology_y2018_005_S9J79E_1558880320.txt'
 flag = False
-for file in files[52:]:
+for file in files:
     if flag:
         break
     with io.open(os.path.join(path, file), 'r', encoding='utf8') as raw:
@@ -82,8 +82,6 @@ for file in files[52:]:
                     warnings.remove('openaccess')
                 if 'author:afid' in warnings:
                     warnings.remove('author:afid')
-                if 'source-id' in warnings:
-                    warnings.remove('source-id')
                 if warnings:
                     print(file)
                     print(entry['dc:identifier'])

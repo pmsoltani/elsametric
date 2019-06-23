@@ -4,6 +4,7 @@
 
 # testing
 /data
+/sqlalchemy/data
 /logs
 /.ipynb_checkpoints
 /__pycache__
