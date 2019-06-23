@@ -5,6 +5,7 @@ from collections import OrderedDict
 from functions import key_get, strip, country_names
 from keyword_ import Keyword
 from source import Source
+from source_metric import Source_Metric
 from fund import Fund
 from author import Author
 from author_profile import Author_Profile
@@ -312,3 +313,49 @@ def ext_source_process(session, file_path, src_type='Journal',
     return sources_list
 
 
+def ext_source_metric_process(session, file_path, file_year, 
+    encoding='utf-8-sig'):
+    metrics_list = []
+    metric_types = [
+        'Rank', 'SJR', 'SJR Best Quartile', 'H index', 
+        f'Total Docs. ({file_year})', 'Total Docs. (3years)', 'Total Refs.', 
+        'Total Cites (3years)', 'Citable Docs. (3years)', 
+        'Cites / Doc. (2years)', 'Ref. / Doc.', 'Categories'
+    ]
+    with io.open(file_path, 'r', encoding=encoding) as csvFile:
+        reader = csv.DictReader(csvFile)
+        for row in reader:
+            for key in row:
+                if (not row[key]) or (row[key] == '-'):
+                    row[key] = None
+            source_id_scp = row['Sourceid']
+            source = session.query(Source) \
+                .filter(Source.id_scp == source_id_scp) \
+                .first()
+            if source:
+                for item in metric_types:
+                    if row[item]:
+                        source_metric = Source_Metric(
+                            type=item,
+                            value=row[item],
+                            year=file_year
+                        )
+                        source.metrics.append(source_metric)
+                # source_metric = Source_Metric(
+                #     type=
+                # )
+
+# - it's best to return a list of sources, each of them having several metrics
+# - after inserting the metrics present in the csv file, calculate others such
+#   as CiteScore, or ImpactFactor (if possible)
+# - think about a way to add Q1-Q4 metrics to each 'low' subject of each source
+# - since the csv files contain everything needed to instantiate a new source:
+#   - add sources if not found
+#   - repair sources if needed (publisher, country, and other data)
+#   - since some the source info might change over the years (like publisher)
+#     it would be best to start from 2018 and move backwards
+# - use the 'Rank' column to add a 'Percentile' metric to each journal, but
+#   first do some research about the definitions of quartiles and percentiles
+
+
+    return subjects_list

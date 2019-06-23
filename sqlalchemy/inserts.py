@@ -27,15 +27,15 @@ duration = 300  # Set Duration (ms)
 # ==============================================================================
 
 # # countries
-# session.bulk_save_objects(ext_country_process(session, 'countries.csv'))
+# session.bulk_save_objects(ext_country_process(session, 'data\\countries.csv'))
 
 # # subjects
-# session.bulk_save_objects(ext_subject_process(session, 'subjects.csv'))
+# session.bulk_save_objects(ext_subject_process(session, 'data\\subjects.csv'))
 
 # # sources: journals
 # for i in range(50):
 #     sources_list = ext_source_process(
-#         session, 'sources.csv', 
+#         session, 'data\\sources.csv', 
 #         src_type='Journal', 
 #         chunk_size=1000, batch_no=(i + 1)
 #     )
@@ -47,7 +47,7 @@ duration = 300  # Set Duration (ms)
 # # sources: conference proceedings
 # for i in range(50):
 #     sources_list = ext_source_process(
-#         session, 'conferences.csv', 
+#         session, 'data\\conferences.csv', 
 #         src_type='Conference Proceedings', 
 #         chunk_size=1000, batch_no=(i + 1)
 #     )
@@ -60,7 +60,9 @@ duration = 300  # Set Duration (ms)
 # Papers
 # ==============================================================================
 
-path = 'C:\\Users\\pmsoltani\\Downloads\\Git\\elsametric\\data\\Sharif University of Technology'
+bad_papers = []
+
+path = 'data\\Sharif University of Technology'
 files = list(os.walk(path))[0][2]
 # file = 'Sharif University of Technology_y2018_005_S9J79E_1558880320.txt'
 flag = False
@@ -78,17 +80,30 @@ for file in files:
             warnings = data_inspector(entry)
             try:
                 if 'openaccess' in warnings:
+                    bad_papers.append(
+                        {'file': file, 'id_scp': entry['dc:identifier'], 
+                        'problem': [warn for warn in warnings]}
+                    )
                     entry['openaccess'] = '0'
                     warnings.remove('openaccess')
                 if 'author:afid' in warnings:
+                    bad_papers.append(
+                        {'file': file, 'id_scp': entry['dc:identifier'], 
+                        'problem': [warn for warn in warnings]}
+                    )
                     warnings.remove('author:afid')
+                if 'dc:title' in warnings:
+                    bad_papers.append(
+                        {'file': file, 'id_scp': entry['dc:identifier'], 
+                        'problem': [warn for warn in warnings]}
+                    )
+                    entry['dc:title'] = 'TITLE NOT AVAILABLE'
+                    warnings.remove('dc:title')
                 if warnings:
-                    print(file)
-                    print(entry['dc:identifier'])
-                    print()
-                    print('!!!')
-                    print('ERROR: ', warnings)
-                    print('--------------------------------------------------')
+                    bad_papers.append(
+                        {'file': file, 'id_scp': entry['dc:identifier'], 
+                        'problem': [warn for warn in warnings]}
+                    )
                     continue
                 
                 keys = entry.keys()
@@ -112,6 +127,10 @@ for file in files:
             except Exception as e:
                 session.close()
                 winsound.Beep(frequency, duration)
+                bad_papers.append(
+                    {'file': file, 'id_scp': entry['dc:identifier'], 
+                    'problem': e}
+                )
                 print(file)
                 print(entry['dc:identifier'])
                 print()
@@ -126,4 +145,12 @@ session.commit()
 end = time.time()
 
 print(f'operation time: {str(datetime.timedelta(seconds=(end - start)))}')
+
+# ==============================================================================
+# Exporting logs
+# ==============================================================================
+
+with io.open('logs\\bad_papers.json', 'w', encoding='utf8') as log:
+    json.dump(bad_papers, log, indent=4)
+
 session.close()

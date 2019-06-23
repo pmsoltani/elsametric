@@ -36,6 +36,7 @@ class Source(Base):
     papers = relationship('Paper', back_populates='source')
     subjects = relationship(
         'Subject', secondary=Source_Subject, back_populates='sources')
+    metrics = relationship('Source_Metric', back_populates='source')
 
     def __init__(
         self, id_scp, title, type=None, issn=None, e_issn=None, isbn=None, 

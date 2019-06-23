@@ -5,22 +5,19 @@ from sqlalchemy.dialects.mysql import BIGINT, INTEGER, SMALLINT
 from base import Base
 
 Source_Subject = Table(
-    'source_subject',
-    Base.metadata,
+    'source_subject', Base.metadata,
     Column('source_id', INTEGER(unsigned=True), ForeignKey('source.id'), primary_key=True),
     Column('subject_id', INTEGER(unsigned=True), ForeignKey('subject.id'), primary_key=True)
 )
 
 Paper_Keyword = Table(
-    'paper_keyword',
-    Base.metadata,
+    'paper_keyword', Base.metadata,
     Column('paper_id', INTEGER(unsigned=True), ForeignKey('paper.id'), primary_key=True),
     Column('keyword_id', BIGINT(unsigned=True), ForeignKey('keyword.id'), primary_key=True)
 )
 
 Author_Department = Table(
-    'author_department',
-    Base.metadata,
+    'author_department', Base.metadata,
     Column('author_id', INTEGER(unsigned=True), ForeignKey('author.id'), primary_key=True),
     Column('department_id', INTEGER(unsigned=True), primary_key=True),
     Column('institution_id', INTEGER(unsigned=True), primary_key=True),
@@ -32,6 +29,7 @@ Author_Department = Table(
 
 class Paper_Author(Base):
     __tablename__ = 'paper_author'
+    
     paper_id = Column(
         INTEGER(unsigned=True), ForeignKey('paper.id'), primary_key=True)
     author_id = Column(
