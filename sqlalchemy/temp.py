@@ -315,7 +315,7 @@ def ext_source_process(session, file_path, src_type='Journal',
 
 def ext_source_metric_process(session, file_path, file_year, 
     encoding='utf-8-sig'):
-    metrics_list = []
+    sources_list = []
     metric_types = [
         'Rank', 'SJR', 'SJR Best Quartile', 'H index', 
         f'Total Docs. ({file_year})', 'Total Docs. (3years)', 'Total Refs.', 
@@ -332,26 +332,63 @@ def ext_source_metric_process(session, file_path, file_year,
             source = session.query(Source) \
                 .filter(Source.id_scp == source_id_scp) \
                 .first()
-            if source:
-                for item in metric_types:
-                    if row[item]:
-                        source_metric = Source_Metric(
-                            type=item,
-                            value=row[item],
-                            year=file_year
-                        )
-                        source.metrics.append(source_metric)
-                # source_metric = Source_Metric(
-                #     type=
-                # )
+            if not source:
+                keys = row.keys()
+                source = Source(
+                    id_scp=source_id_scp, title=key_get(row, keys, 'Title'),
+                    type=key_get(row, keys, 'Type'),
+                    issn=None, e_issn=None, isbn=None,
+                    publisher=key_get(row, keys, 'Publisher'),
+                )
+                if source.type == 'conference and proceedings':
+                    source.type = 'Conference Proceedings'
+                if source.type:
+                    source.type = source.type.title()
+            
+            if not source.publisher:
+                source.publisher = key_get(row, keys, 'Publisher')
+            
+            if not source.country:
+                country_name = country_names(row['country'])
+                if country_name:
+                    country = session.query(Country) \
+                        .filter(Country.name == country_name) \
+                        .first()
+                    source.country = country
+            
+            if not source.subjects:
+                if row['Categories']:
+                    subject_low = [low.strip() for low in 
+                                    row['Categories'].split(';') if low != '']
+                    for low in subject_low:
+                        if low[-4:] in ['(Q1)', '(Q2)', '(Q3)', '(Q4)']:
+                            low = low[:-4].strip()
+                        
+                        subject = session.query(Subject) \
+                            .filter(Subject.low == low) \
+                            .first()
+                        if subject:
+                            source.subjects.append(subject)
+
+            for item in metric_types:
+                if row[item]:
+                    source_metric = Source_Metric(
+                        type=item,
+                        value=row[item],
+                        year=file_year
+                    )
+                    source.metrics.append(source_metric)
+            # source_metric = Source_Metric(
+            #     type=
+            # )
 
 # - it's best to return a list of sources, each of them having several metrics
 # - after inserting the metrics present in the csv file, calculate others such
 #   as CiteScore, or ImpactFactor (if possible)
 # - think about a way to add Q1-Q4 metrics to each 'low' subject of each source
 # - since the csv files contain everything needed to instantiate a new source:
-#   - add sources if not found
-#   - repair sources if needed (publisher, country, and other data)
+#   * add sources if not found
+#   * repair sources if needed (publisher, country, and other data)
 #   - since some the source info might change over the years (like publisher)
 #     it would be best to start from 2018 and move backwards
 # - use the 'Rank' column to add a 'Percentile' metric to each journal, but
