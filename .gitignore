@@ -9,6 +9,7 @@
 /sqlalchemy/logs
 /.ipynb_checkpoints
 /__pycache__
+/.vscode
 /sqlalchemy/__pycache__
 
 # production

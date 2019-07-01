@@ -16,7 +16,6 @@ from subject import Subject
 from paper import Paper
 
 
-
 def paper_process(session, data, retrieval_time, keys=None):
     if not keys:
         keys = data.keys()
@@ -43,7 +42,7 @@ def paper_process(session, data, retrieval_time, keys=None):
                 id_scp=paper_id_scp,
                 eid=key_get(data, keys, 'eid'),
                 title=strip(
-                    key_get(data, keys, 'dc:title'), 
+                    key_get(data, keys, 'dc:title'),
                     max_length=512, accepted_chars=''
                 ),
                 type=key_get(data, keys, 'subtype'),
@@ -64,7 +63,7 @@ def paper_process(session, data, retrieval_time, keys=None):
     return paper
 
 
-def keyword_process(session, data, keys=None, separator:str='|'):
+def keyword_process(session, data, keys=None, separator: str = '|'):
     keywords_list = []
     author_keywords = key_get(data, keys, 'authkeywords')
     if author_keywords:
@@ -92,7 +91,7 @@ def keyword_process(session, data, keys=None, separator:str='|'):
 def source_process(session, data, keys=None):
     if not keys:
         keys = data.keys()
-    
+
     source_id_scp = int(data['source-id'])
     source = session.query(Source) \
         .filter(Source.id_scp == source_id_scp) \
@@ -112,13 +111,13 @@ def source_process(session, data, keys=None):
 def fund_process(session, data, keys=None):
     if not keys:
         keys = data.keys()
-    
+
     fund_id_scp = key_get(data, keys, 'fund-no')
     if fund_id_scp == 'undefined':
         fund_id_scp = None
     agency = key_get(data, keys, 'fund-sponsor')
     agency_acronym = key_get(data, keys, 'fund-acr')
-    
+
     fund = None
     if fund_id_scp or agency:
         fund = session.query(Fund) \
@@ -157,16 +156,18 @@ def author_process(session, data, log=False):
             author.profiles.append(author_profile)
             author.inst_id = key_get(auth, keys, 'afid', many=True)
             if log:
-                print(f'AUTHOR not found in DB. Added + Profile. inst_id: {author.inst_id}')
+                print(
+                    f'AUTHOR not found in DB. Added + Profile. inst_id: {author.inst_id}')
         else:
             inst_ids = key_get(auth, keys, 'afid', many=True)
             author.inst_id = inst_ids
             if log:
                 print(f'AUTHOR already exists. inst_id: {author.inst_id}')
-        
+
         if author.inst_id:
             for inst_id in author.inst_id:
-                department = institution_process(session, data, inst_id, log=log)
+                department = institution_process(
+                    session, data, inst_id, log=log)
                 if log:
                     print(f'Department: {department}')
                 author.departments.append(department)
@@ -186,7 +187,7 @@ def institution_process(session, data, inst_id, log=False):
         institution_id_scp = int(affil['afid'])
         if inst_id != institution_id_scp:
             continue
-        
+
         keys = affil.keys()
 
         institution = session.query(Institution) \
@@ -205,11 +206,12 @@ def institution_process(session, data, inst_id, log=False):
                     .filter(Country.name == country_name) \
                     .first()
             institution.country = country
-            
+
             department = Department(name='Undefined', abbreviation='No Dept')
             institution.departments.append(department)
             if log:
-                print(f'INSTITUTION not found in DB. Added + Department: {institution.id_scp}')
+                print(
+                    f'INSTITUTION not found in DB. Added + Department: {institution.id_scp}')
         else:
             departments = institution.departments
             if departments:
@@ -265,14 +267,16 @@ def ext_subject_process(session, file_path, encoding='utf-8-sig'):
     return subjects_list
 
 
-def ext_source_process(session, file_path, src_type='Journal', 
-    chunk_size=1000, batch_no=0, encoding='utf-8-sig'):
+def ext_source_process(session, file_path, src_type='Journal',
+                       chunk_size=1000, batch_no=0, encoding='utf-8-sig'):
     sources_list = []
+    batch_max = chunk_size * batch_no
+    batch_min = chunk_size * (batch_no - 1)
     with io.open(file_path, 'r', encoding=encoding) as csvFile:
         reader = csv.DictReader(csvFile)
         for cnt, row in enumerate(reader):
             if batch_no:
-                if (cnt >= (chunk_size * batch_no)) or (cnt < (chunk_size * (batch_no - 1))):
+                if (cnt >= batch_max) or (cnt < batch_min):
                     continue
             for item in row:
                 if not row[item]:
@@ -284,8 +288,9 @@ def ext_source_process(session, file_path, src_type='Journal',
             if not source:
                 if src_type == 'Journal':
                     source = Source(
-                        id_scp=row['id_scp'], title=row['title'], type=row['type'],
-                        issn=row['issn'], e_issn=row['e_issn'], publisher=row['publisher']
+                        id_scp=row['id_scp'], title=row['title'],
+                        type=row['type'], issn=row['issn'],
+                        e_issn=row['e_issn'], publisher=row['publisher']
                     )
                     country_name = country_names(row['country'])
                     if country_name:
@@ -295,32 +300,35 @@ def ext_source_process(session, file_path, src_type='Journal',
                         source.country = country
                 else:
                     source = Source(
-                        id_scp=row['id_scp'], title=row['title'], type='Conference Proceedings',
-                        issn=row['issn'],
+                        id_scp=row['id_scp'], title=row['title'],
+                        type='Conference Proceedings', issn=row['issn'],
                     )
-                
+
                 if row['asjc']:
-                    subject_codes = [int(code) 
-                                    for code in row['asjc'].split(';') if code != '']
+                    subject_codes = [
+                        int(code) for code in row['asjc'].split(';') if code != '']
                     for asjc in subject_codes:
                         subject = session.query(Subject) \
                             .filter(Subject.asjc == asjc) \
                             .first()
                         if subject:
                             source.subjects.append(subject)
-                
+
                 sources_list.append(source)
     return sources_list
 
 
-def ext_source_metric_process(session, file_path, file_year, 
-    chunk_size=1000, batch_no=0, encoding='utf-8-sig', delimiter=';', log=False):
+def ext_source_metric_process(session, file_path, file_year,
+                              chunk_size=1000, batch_no=0, encoding='utf-8-sig', 
+                              delimiter=';', log=False):
     sources_list = []
+    batch_max = chunk_size * batch_no
+    batch_min = chunk_size * (batch_no - 1)
     metric_types = [
-        'Rank', 'SJR', 'SJR Best Quartile', 'H index', 
-        f'Total Docs. ({file_year})', 'Total Docs. (3years)', 'Total Refs.', 
-        'Total Cites (3years)', 'Citable Docs. (3years)', 
-        'Cites / Doc. (2years)', 'Ref. / Doc.', 'Categories', 
+        'Rank', 'SJR', 'SJR Best Quartile', 'H index',
+        f'Total Docs. ({file_year})', 'Total Docs. (3years)', 'Total Refs.',
+        'Total Cites (3years)', 'Citable Docs. (3years)',
+        'Cites / Doc. (2years)', 'Ref. / Doc.', 'Categories',
     ]
     with io.open(file_path, 'r', encoding=encoding) as csvFile:
         if log:
@@ -336,7 +344,7 @@ def ext_source_metric_process(session, file_path, file_year,
             if batch_no:
                 if log:
                     print('@ batch')
-                if (cnt >= (chunk_size * batch_no)) or (cnt < (chunk_size * (batch_no - 1))):
+                if (cnt >= batch_max) or (cnt < batch_min):
                     continue
             keys = row.keys()
             for key in row:
@@ -361,12 +369,13 @@ def ext_source_metric_process(session, file_path, file_year,
                     source.type = source.type.title()
                 if log:
                     print(source.type)
-            
+
             if not source.publisher:
                 source.publisher = key_get(row, keys, 'Publisher')
                 if log:
-                    print(f'new publisher for {source.id_scp}: {source.publisher}')
-            
+                    print(
+                        f'new publisher for {source.id_scp}: {source.publisher}')
+
             if not source.country:
                 country_name = country_names(row['Country'])
                 if country_name:
@@ -375,24 +384,26 @@ def ext_source_metric_process(session, file_path, file_year,
                         .first()
                     source.country = country
                     if log:
-                        print(f'new country for {source.id_scp}: {source.country}')
-            
+                        print(
+                            f'new country for {source.id_scp}: {source.country}')
+
             if not source.subjects:
                 if row['Categories']:
-                    subject_low = [low.strip() for low in 
-                                    row['Categories'].split(';') if low != '']
+                    subject_low = [low.strip() for low in
+                                   row['Categories'].split(';') if low != '']
                     for low in subject_low:
                         if low[-4:] in ['(Q1)', '(Q2)', '(Q3)', '(Q4)']:
                             low = low[:-4].strip()
-                        
+
                         subject = session.query(Subject) \
                             .filter(Subject.low == low) \
                             .first()
                         if subject:
                             source.subjects.append(subject)
                     if log:
-                        print(f'new subjects for {source.id_scp}:', [sub.asjc for sub in source.subjects])
-            
+                        print(f'new subjects for {source.id_scp}:', [
+                              sub.asjc for sub in source.subjects])
+
             if not source.metrics:
                 total_docs = 0
                 total_cites = 0
@@ -404,7 +415,7 @@ def ext_source_metric_process(session, file_path, file_year,
                             row[item] = float(row[item].replace(',', '.'))
                         if item == 'SJR Best Quartile':
                             row[item] = row[item][-1]
-                        
+
                         source_metric = Source_Metric(
                             type=item,
                             value=row[item],
@@ -417,7 +428,7 @@ def ext_source_metric_process(session, file_path, file_year,
                         if item == f'Total Docs. ({file_year})':
                             source_metric.type = 'Total Docs. (Current)'
                         source.metrics.append(source_metric)
-                
+
                 if total_docs and total_cites:
                     if log:
                         print('@ citescore')
@@ -427,7 +438,7 @@ def ext_source_metric_process(session, file_path, file_year,
                         year=file_year
                     )
                     source.metrics.append(source_metric)
-            
+
                 source_metric = Source_Metric(
                     type='Percentile',
                     value=((int(row['Rank']) - 1) * 100 // ranked_sources) + 1,
@@ -436,12 +447,10 @@ def ext_source_metric_process(session, file_path, file_year,
                 if log:
                     print('@ percentile')
                 source.metrics.append(source_metric)
-                
+
                 if log:
                     for met in source.metrics:
                         print(met.type, met.value)
             sources_list.append(source)
 
     return sources_list
-
-

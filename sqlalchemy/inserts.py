@@ -18,27 +18,35 @@ Base.metadata.create_all(engine)
 session = Session()
 
 start = time.time()
-max_inserts = 1000
 
-frequency = 2000  # Set Frequency (Hz)
-duration = 300  # Set Duration (ms)
+# frequency = 2000  # Set Frequency (Hz)
+# duration = 300  # Set Duration (ms)
 
 # ==============================================================================
 # External Datasets
 # ==============================================================================
 
 # # countries
-# session.bulk_save_objects(ext_country_process(session, os.path.join('data', 'countries.csv')))
+# print('@ countries')
+# session.bulk_save_objects(
+#     ext_country_process(session, os.path.join('data', 'countries.csv')))
 
 # # subjects
-# session.bulk_save_objects(ext_subject_process(session, os.path.join('data', 'subjects.csv')))
+# print('@ subjects')
+# session.bulk_save_objects(
+#     ext_subject_process(session, os.path.join('data', 'subjects.csv')))
+
+# max_rows = 50000
+# max_inserts = 1000
+# total_batches = max_rows // max_inserts
 
 # # sources: journals
-# for i in range(50):
+# print('@ journals')
+# for i in range(total_batches):
 #     sources_list = ext_source_process(
 #         session, os.path.join('data', 'sources.csv'), 
 #         src_type='Journal', 
-#         chunk_size=1000, batch_no=(i + 1)
+#         chunk_size=max_inserts, batch_no=(i + 1)
 #     )
 #     if source_process:
 #         for source in sources_list:
@@ -46,121 +54,124 @@ duration = 300  # Set Duration (ms)
 #     session.commit()
 
 # # sources: conference proceedings
-# for i in range(50):
+# print('@ conference proceedings')
+# for i in range(total_batches):
 #     sources_list = ext_source_process(
 #         session, os.path.join('data', 'conferences.csv'),
 #         src_type='Conference Proceedings', 
-#         chunk_size=1000, batch_no=(i + 1)
+#         chunk_size=max_inserts, batch_no=(i + 1)
 #     )
 #     if source_process:
 #         for source in sources_list:
 #             session.add(source)
 #     session.commit()
 
-# source metrics
-for y in range(2018, 2010, -1):
-    for i in range(100):
-        sources_list = ext_source_metric_process(
-            session, os.path.join('data', f'scimagojr {y}.csv'), y,
-            chunk_size=1000, batch_no=(i + 1), log=False
-        )
-        session.commit()
+# # source metrics
+# print('@ source metrics')
+# for y in range(2018, 2010, -1):
+#     for i in range(total_batches):
+#         sources_list = ext_source_metric_process(
+#             session, os.path.join('data', f'scimagojr {y}.csv'), y,
+#             chunk_size=max_inserts, batch_no=(i + 1)
+#         )
+#         session.commit()
 
 # ==============================================================================
 # Papers
 # ==============================================================================
 
-# bad_papers = []
+print('@ papers')
+bad_papers = []
 
-# path = 'data\\Sharif University of Technology'
-# files = list(os.walk(path))[0][2]
-# # file = 'Sharif University of Technology_y2018_005_S9J79E_1558880320.txt'
-# flag = False
-# for file in files:
-#     if flag:
-#         break
-#     with io.open(os.path.join(path, file), 'r', encoding='utf8') as raw:
-#         data = json.load(raw)
-#         data = data['search-results']['entry']
-#         ret_time = datetime.datetime \
-#             .utcfromtimestamp(int(file.split('.')[0].split('_')[-1])) \
-#             .strftime('%Y-%m-%d %H:%M:%S')
+path = os.path.join('data', 'Sharif University of Technology')
+files = list(os.walk(path))[0][2]
+flag = False
+for file in files:
+    if file.split('.')[1] != 'txt':
+        continue
+    if flag:
+        break
+    with io.open(os.path.join(path, file), 'r', encoding='utf8') as raw:
+        data = json.load(raw)
+        data = data['search-results']['entry']
+        retrieval_time = datetime.datetime \
+            .utcfromtimestamp(int(file.split('.')[0].split('_')[-1])) \
+            .strftime('%Y-%m-%d %H:%M:%S')
         
-#         for entry in data:
-#             warnings = data_inspector(entry)
-#             try:
-#                 if 'openaccess' in warnings:
-#                     bad_papers.append(
-#                         {'file': file, 'id_scp': entry['dc:identifier'], 
-#                         'problem': [warn for warn in warnings]}
-#                     )
-#                     entry['openaccess'] = '0'
-#                     warnings.remove('openaccess')
-#                 if 'author:afid' in warnings:
-#                     bad_papers.append(
-#                         {'file': file, 'id_scp': entry['dc:identifier'], 
-#                         'problem': [warn for warn in warnings]}
-#                     )
-#                     warnings.remove('author:afid')
-#                 if 'dc:title' in warnings:
-#                     bad_papers.append(
-#                         {'file': file, 'id_scp': entry['dc:identifier'], 
-#                         'problem': [warn for warn in warnings]}
-#                     )
-#                     entry['dc:title'] = 'TITLE NOT AVAILABLE'
-#                     warnings.remove('dc:title')
-#                 if warnings:
-#                     bad_papers.append(
-#                         {'file': file, 'id_scp': entry['dc:identifier'], 
-#                         'problem': [warn for warn in warnings]}
-#                     )
-#                     continue
+        for entry in data:
+            warnings = data_inspector(entry)
+            try:
+                if 'openaccess' in warnings:
+                    bad_papers.append(
+                        {'file': file, 'id_scp': entry['dc:identifier'], 
+                        'problem': [warn for warn in warnings]}
+                    )
+                    entry['openaccess'] = '0'
+                    warnings.remove('openaccess')
+                if 'author:afid' in warnings:
+                    bad_papers.append(
+                        {'file': file, 'id_scp': entry['dc:identifier'], 
+                        'problem': [warn for warn in warnings]}
+                    )
+                    warnings.remove('author:afid')
+                if 'dc:title' in warnings:
+                    bad_papers.append(
+                        {'file': file, 'id_scp': entry['dc:identifier'], 
+                        'problem': [warn for warn in warnings]}
+                    )
+                    entry['dc:title'] = 'TITLE NOT AVAILABLE'
+                    warnings.remove('dc:title')
+                if warnings:
+                    bad_papers.append(
+                        {'file': file, 'id_scp': entry['dc:identifier'], 
+                        'problem': [warn for warn in warnings]}
+                    )
+                    continue
                 
-#                 keys = entry.keys()
-#                 paper = paper_process(session, entry, ret_time, keys)
+                keys = entry.keys()
+                paper = paper_process(session, entry, retrieval_time, keys)
                 
-#                 if not paper.source:
-#                     paper.source = source_process(session, entry, keys)
-#                 # if not paper.fund:
-#                 #     paper.fund = fund_process(session, entry, keys)
-#                 if not paper.keywords:
-#                     paper.keywords = keyword_process(session, entry, keys)
-#                 if not paper.authors:
-#                     authors_list = author_process(session, entry, log=False)
-#                     for auth in authors_list:
-#                         paper_author = Paper_Author(author_no=auth[0])
-#                         paper_author.author = auth[1]
-#                         paper.authors.append(paper_author)
+                if not paper.source:
+                    paper.source = source_process(session, entry, keys)
+                # if not paper.fund:
+                #     paper.fund = fund_process(session, entry, keys)
+                if not paper.keywords:
+                    paper.keywords = keyword_process(session, entry, keys)
+                if not paper.authors:
+                    authors_list = author_process(session, entry, log=False)
+                    for auth in authors_list:
+                        paper_author = Paper_Author(author_no=auth[0])
+                        paper_author.author = auth[1]
+                        paper.authors.append(paper_author)
 
-#                 session.add(paper)
-#                 session.commit()
-#             except Exception as e:
-#                 session.close()
-#                 # winsound.Beep(frequency, duration)
-#                 bad_papers.append(
-#                     {'file': file, 'id_scp': entry['dc:identifier'], 
-#                     'problem': e}
-#                 )
-#                 print(file)
-#                 print(entry['dc:identifier'])
-#                 print()
-#                 print('!!!')
-#                 print('ERROR: ', e)
-#                 print('--------------------------------------------------')
-#                 flag = True
-#                 break
+                session.add(paper)
+                session.commit()
+            except Exception as e:
+                session.close()
+                # winsound.Beep(frequency, duration)
+                bad_papers.append(
+                    {'file': file, 'id_scp': entry['dc:identifier'], 
+                    'problem': e}
+                )
+                print(file)
+                print(entry['dc:identifier'])
+                print()
+                print('!!!')
+                print('ERROR: ', e)
+                print('--------------------------------------------------')
+                flag = True
+                break
 
-# session.commit()
-
-# end = time.time()
-
-# print(f'operation time: {str(datetime.timedelta(seconds=(end - start)))}')
+session.commit()
 
 # ==============================================================================
 # Exporting logs
 # ==============================================================================
 
-# with io.open(os.path.join('logs', 'bad_papers.json'), 'w', encoding='utf8') as log:
-#     json.dump(bad_papers, log, indent=4)
+with io.open(os.path.join('logs', 'bad_papers.json'), 
+    'w', encoding='utf8') as log:
+    json.dump(bad_papers, log, indent=4)
 
+end = time.time()
+print(f'operation time: {str(datetime.timedelta(seconds=(end - start)))}')
 session.close()
