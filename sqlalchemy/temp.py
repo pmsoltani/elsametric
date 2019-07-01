@@ -314,17 +314,31 @@ def ext_source_process(session, file_path, src_type='Journal',
 
 
 def ext_source_metric_process(session, file_path, file_year, 
-    encoding='utf-8-sig'):
+    chunk_size=1000, batch_no=0, encoding='utf-8-sig', delimiter=';', log=False):
     sources_list = []
     metric_types = [
         'Rank', 'SJR', 'SJR Best Quartile', 'H index', 
-        'Total Docs. (3years)', 'Total Refs.', 'Total Cites (3years)', 
-        'Citable Docs. (3years)', 'Cites / Doc. (2years)', 'Ref. / Doc.', 
-        'Categories', f'Total Docs. ({file_year})', 
+        f'Total Docs. ({file_year})', 'Total Docs. (3years)', 'Total Refs.', 
+        'Total Cites (3years)', 'Citable Docs. (3years)', 
+        'Cites / Doc. (2years)', 'Ref. / Doc.', 'Categories', 
     ]
     with io.open(file_path, 'r', encoding=encoding) as csvFile:
-        reader = csv.DictReader(csvFile)
-        for row in reader:
+        if log:
+            print('@ with')
+        reader = csv.DictReader(csvFile, delimiter=delimiter)
+        reader = list(reader)
+        ranked_sources = len(reader)
+        if log:
+            print('len:', ranked_sources)
+        for cnt, row in enumerate(reader):
+            if log:
+                print('@ reader', cnt)
+            if batch_no:
+                if log:
+                    print('@ batch')
+                if (cnt >= (chunk_size * batch_no)) or (cnt < (chunk_size * (batch_no - 1))):
+                    continue
+            keys = row.keys()
             for key in row:
                 if (not row[key]) or (row[key] == '-'):
                     row[key] = None
@@ -333,7 +347,8 @@ def ext_source_metric_process(session, file_path, file_year,
                 .filter(Source.id_scp == source_id_scp) \
                 .first()
             if not source:
-                keys = row.keys()
+                if log:
+                    print('@ not source: creating')
                 source = Source(
                     id_scp=source_id_scp, title=key_get(row, keys, 'Title'),
                     type=key_get(row, keys, 'Type'),
@@ -344,17 +359,23 @@ def ext_source_metric_process(session, file_path, file_year,
                     source.type = 'Conference Proceedings'
                 if source.type:
                     source.type = source.type.title()
+                if log:
+                    print(source.type)
             
             if not source.publisher:
                 source.publisher = key_get(row, keys, 'Publisher')
+                if log:
+                    print(f'new publisher for {source.id_scp}: {source.publisher}')
             
             if not source.country:
-                country_name = country_names(row['country'])
+                country_name = country_names(row['Country'])
                 if country_name:
                     country = session.query(Country) \
                         .filter(Country.name == country_name) \
                         .first()
                     source.country = country
+                    if log:
+                        print(f'new country for {source.id_scp}: {source.country}')
             
             if not source.subjects:
                 if row['Categories']:
@@ -369,45 +390,58 @@ def ext_source_metric_process(session, file_path, file_year,
                             .first()
                         if subject:
                             source.subjects.append(subject)
-            total_docs = 0
-            total_cites = 0
-            for item in metric_types[:-1]:
-                if row[item]:
+                    if log:
+                        print(f'new subjects for {source.id_scp}:', [sub.asjc for sub in source.subjects])
+            
+            if not source.metrics:
+                total_docs = 0
+                total_cites = 0
+                for item in metric_types[:-1]:
+                    if log:
+                        print('@ metrics')
+                    if row[item]:
+                        if item in ['SJR', 'Cites / Doc. (2years)', 'Ref. / Doc.']:
+                            row[item] = float(row[item].replace(',', '.'))
+                        if item == 'SJR Best Quartile':
+                            row[item] = row[item][-1]
+                        
+                        source_metric = Source_Metric(
+                            type=item,
+                            value=row[item],
+                            year=file_year
+                        )
+                        if item == 'Total Docs. (3years)':
+                            total_docs = int(row[item])
+                        if item == 'Total Cites (3years)':
+                            total_cites = int(row[item])
+                        if item == f'Total Docs. ({file_year})':
+                            source_metric.type = 'Total Docs. (Current)'
+                        source.metrics.append(source_metric)
+                
+                if total_docs and total_cites:
+                    if log:
+                        print('@ citescore')
                     source_metric = Source_Metric(
-                        type=item,
-                        value=row[item],
+                        type='CiteScore',
+                        value=total_cites / total_docs,
                         year=file_year
                     )
-                    if item == 'Total Docs. (3years)':
-                        total_docs = row[item]
-                    if item == 'Total Cites (3years)':
-                        total_cites = row[item]
-                    if item == f'Total Docs. ({file_year})':
-                        source_metric.type = 'Total Docs. (Current)'
                     source.metrics.append(source_metric)
             
-            if total_docs and total_cites:
                 source_metric = Source_Metric(
-                    type='CiteScore',
-                    value=total_cites / total_docs
+                    type='Percentile',
+                    value=((int(row['Rank']) - 1) * 100 // ranked_sources) + 1,
                     year=file_year
                 )
+                if log:
+                    print('@ percentile')
                 source.metrics.append(source_metric)
-            
+                
+                if log:
+                    for met in source.metrics:
+                        print(met.type, met.value)
             sources_list.append(source)
-    
-
-# x it's best to return a list of sources, each of them having several metrics
-# x after inserting the metrics present in the csv file, calculate others such
-#   as CiteScore, or ImpactFactor (if possible)
-# - think about a way to add Q1-Q4 metrics to each 'low' subject of each source
-# x since the csv files contain everything needed to instantiate a new source:
-#   x add sources if not found
-#   x repair sources if needed (publisher, country, and other data)
-#   - since some the source info might change over the years (like publisher)
-#     it would be best to start from 2018 and move backwards
-# - use the 'Rank' column to add a 'Percentile' metric to each journal, but
-#   first do some research about the definitions of quartiles and percentiles
-
 
     return sources_list
+
+

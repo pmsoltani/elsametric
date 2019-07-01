@@ -15,7 +15,7 @@ class Source_Metric(Base):
         INTEGER(unsigned=True), ForeignKey('source.id'), primary_key=True
     )
     type = Column(VARCHAR(45), nullable=False)
-    value = Column(DECIMAL(14, 4), nullable=False)
+    value = Column(DECIMAL(13, 3), nullable=False)
     year = Column(YEAR(4), nullable=False)
     
     # Relationships
