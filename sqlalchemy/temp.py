@@ -162,16 +162,17 @@ def author_process(session, data, log=False):
 
         if inst_ids:
             for inst_id in inst_ids:
-                [department, institution] = institution_process(
+                [institution, department] = institution_process(
                     session, data, inst_id, new_institutions, log=log)
                 if department:
                     author.departments.append(department)
                 
-                if not new_institutions:
-                    new_institutions.append(institution)
-                else:
-                    if institution.id_scp not in [inst.id_scp for inst in new_institutions]:
+                if institution:
+                    if not new_institutions:
                         new_institutions.append(institution)
+                    else:
+                        if institution.id_scp not in [inst.id_scp for inst in new_institutions]:
+                            new_institutions.append(institution)
                 
                 if log: print(f'Department: {department}')
             if log: print(f'All AUTHOR departments: {author.departments}')
@@ -183,6 +184,7 @@ def author_process(session, data, log=False):
 def institution_process(session, data, inst_id, new_institutions=[], log=False):
     if log: print('Processing institutions and departments')
     department = None
+    institution = None
     for affil in data['affiliation']:
         institution_id_scp = int(affil['afid'])
         if inst_id != institution_id_scp:
@@ -206,7 +208,7 @@ def institution_process(session, data, inst_id, new_institutions=[], log=False):
                     name=key_get(affil, keys, 'affilname'),
                     city=key_get(affil, keys, 'affiliation-city'),
                 )        
-                country_name = key_get(affil, keys, 'affiliation-country')
+                country_name = country_names(key_get(affil, keys, 'affiliation-country'))
                 country = None
                 if country_name:
                     country = session.query(Country) \
@@ -220,7 +222,7 @@ def institution_process(session, data, inst_id, new_institutions=[], log=False):
         else:
             if institution.departments:
                 department = list(filter(lambda dept: dept.name == 'Undefined', institution.departments))[0]
-            if log: print(f'INSTITUTION already exists. {institution.id_scp}')
+            if log: print(f'INSTITUTION already exists: {institution.id_scp}. Department: {department}, {department.name}')
         break
     return [institution, department]
 

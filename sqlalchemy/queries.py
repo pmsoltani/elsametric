@@ -1,3 +1,4 @@
+from sqlalchemy import extract
 from base import Session, engine, Base
 
 # from functions import key_get, strip, country_names
@@ -15,7 +16,12 @@ from paper import Paper
 
 session = Session()
 
-papers = session.query(Paper).all()
+papers = session.query(Paper) \
+    .filter() .filter(
+        extract('year',  Paper.date) >= 2011,
+        extract('year',  Paper.date) <= 2018,
+    ) \
+    .all()
 print(len(papers))
 cnt = 0
 iran_p = []
@@ -27,4 +33,4 @@ for paper in papers:
                 print(ls)
                 iran_p.append(ls)
                 cnt += 1
-print(cnt, cnt / len(papers))
+print(f'{cnt}, {round(100 * cnt / len(papers), 2)}%')
