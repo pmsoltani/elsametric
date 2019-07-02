@@ -10,7 +10,7 @@ with open('config.json', 'r') as read_file:
 mysql_user = client['MySQL User']
 mysql_pass = client['MySQL Pass']
 mysql_host = 'localhost'
-mysql_db = 'scopus3'
+mysql_db = client['MySQL DB']
 engine_uri = f'mysql+mysqlconnector://{mysql_user}:{mysql_pass}@{mysql_host}/{mysql_db}'
 
 engine = create_engine(engine_uri)
