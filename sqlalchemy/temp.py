@@ -133,6 +133,7 @@ def fund_process(session, data, keys=None):
 
 def author_process(session, data, log=False):
     authors_list = []
+    new_institutions = []
     for auth in data['author']:
         keys = auth.keys()
         author_id_scp = int(auth['authid'])
@@ -162,9 +163,16 @@ def author_process(session, data, log=False):
         if inst_ids:
             for inst_id in inst_ids:
                 [department, institution] = institution_process(
-                    session, data, inst_id, log=log)
+                    session, data, inst_id, new_institutions, log=log)
                 if department:
                     author.departments.append(department)
+                
+                if not new_institutions:
+                    new_institutions.append(institution)
+                else:
+                    if institution.id_scp not in [inst.id_scp for inst in new_institutions]:
+                        new_institutions.append(institution)
+                
                 if log: print(f'Department: {department}')
             if log: print(f'All AUTHOR departments: {author.departments}')
         if log: print()
@@ -176,7 +184,6 @@ def institution_process(session, data, inst_id, new_institutions=[], log=False):
     if log: print('Processing institutions and departments')
     department = None
     for affil in data['affiliation']:
-        new_institution = False
         institution_id_scp = int(affil['afid'])
         if inst_id != institution_id_scp:
             continue
@@ -187,8 +194,12 @@ def institution_process(session, data, inst_id, new_institutions=[], log=False):
             .filter(Institution.id_scp == institution_id_scp) \
             .first()
         if not institution:
-            if new_institutions and (inst_id in [inst.id_scp for inst in new_institutions]):
-                institution = filter(lambda inst: inst.id_scp == inst_id, new_institutions)
+            if log: print('INSTITUTION not found in DB')
+            institution = list(filter(lambda inst: inst.id_scp == inst_id, new_institutions))
+            if institution:
+                institution = institution[0]
+                department = list(filter(lambda dept: dept.name == 'Undefined', institution.departments))[0]
+                if log: print(f'INSTITUTION {institution.id_scp} just created but not yet added to DB. Using it again.')
             else:
                 institution = Institution(
                     id_scp=institution_id_scp,
@@ -202,19 +213,13 @@ def institution_process(session, data, inst_id, new_institutions=[], log=False):
                         .filter(Country.name == country_name) \
                         .first()
                 institution.country = country
-
-            department = Department(name='Undefined', abbreviation='No Dept')
-            institution.departments.append(department)
-            new_institution = True
-            if log: print(
-                    f'INSTITUTION not found in DB. Added + Department: {institution.id_scp}')
+                
+                department = Department(name='Undefined', abbreviation='No Dept.')
+                institution.departments.append(department)
+                if log: print(f'INSTITUTION not found in DB. Added + Department: {institution.id_scp}')
         else:
-            departments = institution.departments
-            if departments:
-                for dept in departments:
-                    if dept.name == 'Undefined':
-                        department = dept
-                        break
+            if institution.departments:
+                department = list(filter(lambda dept: dept.name == 'Undefined', institution.departments))[0]
             if log: print(f'INSTITUTION already exists. {institution.id_scp}')
         break
     return [institution, department]
