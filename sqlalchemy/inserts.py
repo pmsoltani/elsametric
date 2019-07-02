@@ -30,11 +30,15 @@ start = time.time()
 # print('@ countries')
 # session.bulk_save_objects(
 #     ext_country_process(session, os.path.join('data', 'countries.csv')))
+# end = time.time()
+# print(f'operation time: {str(datetime.timedelta(seconds=(end - start)))}')
 
 # # subjects
 # print('@ subjects')
 # session.bulk_save_objects(
 #     ext_subject_process(session, os.path.join('data', 'subjects.csv')))
+# end = time.time()
+# print(f'operation time: {str(datetime.timedelta(seconds=(end - start)))}')
 
 # max_rows = 50000
 # max_inserts = 1000
@@ -52,6 +56,8 @@ start = time.time()
 #         for source in sources_list:
 #             session.add(source)
 #     session.commit()
+# end = time.time()
+# print(f'operation time: {str(datetime.timedelta(seconds=(end - start)))}')
 
 # # sources: conference proceedings
 # print('@ conference proceedings')
@@ -65,6 +71,8 @@ start = time.time()
 #         for source in sources_list:
 #             session.add(source)
 #     session.commit()
+# end = time.time()
+# print(f'operation time: {str(datetime.timedelta(seconds=(end - start)))}')
 
 # # source metrics
 # print('@ source metrics')
@@ -75,6 +83,8 @@ start = time.time()
 #             chunk_size=max_inserts, batch_no=(i + 1)
 #         )
 #         session.commit()
+# end = time.time()
+# print(f'operation time: {str(datetime.timedelta(seconds=(end - start)))}')
 
 # ==============================================================================
 # Papers
@@ -91,6 +101,7 @@ for file in files:
         continue
     if flag:
         break
+    print(file)
     with io.open(os.path.join(path, file), 'r', encoding='utf8') as raw:
         data = json.load(raw)
         data = data['search-results']['entry']
@@ -148,10 +159,11 @@ for file in files:
                 session.commit()
             except Exception as e:
                 session.close()
+                print('\a')
                 # winsound.Beep(frequency, duration)
                 bad_papers.append(
                     {'file': file, 'id_scp': entry['dc:identifier'], 
-                    'problem': e}
+                    'problem': str(e)}
                 )
                 print(file)
                 print(entry['dc:identifier'])

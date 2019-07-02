@@ -136,8 +136,7 @@ def author_process(session, data, log=False):
     for auth in data['author']:
         keys = auth.keys()
         author_id_scp = int(auth['authid'])
-        if log:
-            print(f'AUTHOR {author_id_scp}')
+        if log: print(f'AUTHOR {author_id_scp}')
         author_no = int(auth['@seq'])
         author = session.query(Author) \
             .filter(Author.id_scp == author_id_scp) \
@@ -154,36 +153,30 @@ def author_process(session, data, log=False):
                 type='Scopus Profile',
             )
             author.profiles.append(author_profile)
-            author.inst_id = key_get(auth, keys, 'afid', many=True)
-            if log:
-                print(
-                    f'AUTHOR not found in DB. Added + Profile. inst_id: {author.inst_id}')
+            inst_ids = key_get(auth, keys, 'afid', many=True)
+            if log: print(f'AUTHOR not found in DB. Added + Profile. inst_id: {inst_ids}')
         else:
             inst_ids = key_get(auth, keys, 'afid', many=True)
-            author.inst_id = inst_ids
-            if log:
-                print(f'AUTHOR already exists. inst_id: {author.inst_id}')
+            if log: print(f'AUTHOR already exists. inst_id: {inst_ids}')
 
-        if author.inst_id:
-            for inst_id in author.inst_id:
-                department = institution_process(
+        if inst_ids:
+            for inst_id in inst_ids:
+                [department, institution] = institution_process(
                     session, data, inst_id, log=log)
-                if log:
-                    print(f'Department: {department}')
-                author.departments.append(department)
-            if log:
-                print(f'All AUTHOR departments: {author.departments}')
-        if log:
-            print()
+                if department:
+                    author.departments.append(department)
+                if log: print(f'Department: {department}')
+            if log: print(f'All AUTHOR departments: {author.departments}')
+        if log: print()
         authors_list.append([author_no, author])
     return authors_list
 
 
-def institution_process(session, data, inst_id, log=False):
-    if log:
-        print('Processing institutions and departments')
+def institution_process(session, data, inst_id, new_institutions=[], log=False):
+    if log: print('Processing institutions and departments')
     department = None
     for affil in data['affiliation']:
+        new_institution = False
         institution_id_scp = int(affil['afid'])
         if inst_id != institution_id_scp:
             continue
@@ -194,23 +187,26 @@ def institution_process(session, data, inst_id, log=False):
             .filter(Institution.id_scp == institution_id_scp) \
             .first()
         if not institution:
-            institution = Institution(
-                id_scp=institution_id_scp,
-                name=key_get(affil, keys, 'affilname'),
-                city=key_get(affil, keys, 'affiliation-city'),
-            )
-            country_name = key_get(affil, keys, 'affiliation-country')
-            country = None
-            if country_name:
-                country = session.query(Country) \
-                    .filter(Country.name == country_name) \
-                    .first()
-            institution.country = country
+            if new_institutions and (inst_id in [inst.id_scp for inst in new_institutions]):
+                institution = filter(lambda inst: inst.id_scp == inst_id, new_institutions)
+            else:
+                institution = Institution(
+                    id_scp=institution_id_scp,
+                    name=key_get(affil, keys, 'affilname'),
+                    city=key_get(affil, keys, 'affiliation-city'),
+                )        
+                country_name = key_get(affil, keys, 'affiliation-country')
+                country = None
+                if country_name:
+                    country = session.query(Country) \
+                        .filter(Country.name == country_name) \
+                        .first()
+                institution.country = country
 
             department = Department(name='Undefined', abbreviation='No Dept')
             institution.departments.append(department)
-            if log:
-                print(
+            new_institution = True
+            if log: print(
                     f'INSTITUTION not found in DB. Added + Department: {institution.id_scp}')
         else:
             departments = institution.departments
@@ -219,10 +215,9 @@ def institution_process(session, data, inst_id, log=False):
                     if dept.name == 'Undefined':
                         department = dept
                         break
-            if log:
-                print(f'INSTITUTION already exists. {institution.id_scp}')
+            if log: print(f'INSTITUTION already exists. {institution.id_scp}')
         break
-    return department
+    return [institution, department]
 
 
 def ext_country_process(session, file_path, encoding='utf-8-sig'):
@@ -331,19 +326,15 @@ def ext_source_metric_process(session, file_path, file_year,
         'Cites / Doc. (2years)', 'Ref. / Doc.', 'Categories',
     ]
     with io.open(file_path, 'r', encoding=encoding) as csvFile:
-        if log:
-            print('@ with')
+        if log: print('@ with')
         reader = csv.DictReader(csvFile, delimiter=delimiter)
         reader = list(reader)
         ranked_sources = len(reader)
-        if log:
-            print('len:', ranked_sources)
+        if log: print('len:', ranked_sources)
         for cnt, row in enumerate(reader):
-            if log:
-                print('@ reader', cnt)
+            if log: print('@ reader', cnt)
             if batch_no:
-                if log:
-                    print('@ batch')
+                if log: print('@ batch')
                 if (cnt >= batch_max) or (cnt < batch_min):
                     continue
             keys = row.keys()
@@ -355,8 +346,7 @@ def ext_source_metric_process(session, file_path, file_year,
                 .filter(Source.id_scp == source_id_scp) \
                 .first()
             if not source:
-                if log:
-                    print('@ not source: creating')
+                if log: print('@ not source: creating')
                 source = Source(
                     id_scp=source_id_scp, title=key_get(row, keys, 'Title'),
                     type=key_get(row, keys, 'Type'),
@@ -367,13 +357,11 @@ def ext_source_metric_process(session, file_path, file_year,
                     source.type = 'Conference Proceedings'
                 if source.type:
                     source.type = source.type.title()
-                if log:
-                    print(source.type)
+                if log: print(source.type)
 
             if not source.publisher:
                 source.publisher = key_get(row, keys, 'Publisher')
-                if log:
-                    print(
+                if log: print(
                         f'new publisher for {source.id_scp}: {source.publisher}')
 
             if not source.country:
@@ -383,8 +371,7 @@ def ext_source_metric_process(session, file_path, file_year,
                         .filter(Country.name == country_name) \
                         .first()
                     source.country = country
-                    if log:
-                        print(
+                    if log: print(
                             f'new country for {source.id_scp}: {source.country}')
 
             if not source.subjects:
@@ -400,16 +387,14 @@ def ext_source_metric_process(session, file_path, file_year,
                             .first()
                         if subject:
                             source.subjects.append(subject)
-                    if log:
-                        print(f'new subjects for {source.id_scp}:', [
+                    if log: print(f'new subjects for {source.id_scp}:', [
                               sub.asjc for sub in source.subjects])
 
             if not source.metrics:
                 total_docs = 0
                 total_cites = 0
                 for item in metric_types[:-1]:
-                    if log:
-                        print('@ metrics')
+                    if log: print('@ metrics')
                     if row[item]:
                         if item in ['SJR', 'Cites / Doc. (2years)', 'Ref. / Doc.']:
                             row[item] = float(row[item].replace(',', '.'))
@@ -430,8 +415,7 @@ def ext_source_metric_process(session, file_path, file_year,
                         source.metrics.append(source_metric)
 
                 if total_docs and total_cites:
-                    if log:
-                        print('@ citescore')
+                    if log: print('@ citescore')
                     source_metric = Source_Metric(
                         type='CiteScore',
                         value=total_cites / total_docs,
@@ -444,8 +428,7 @@ def ext_source_metric_process(session, file_path, file_year,
                     value=((int(row['Rank']) - 1) * 100 // ranked_sources) + 1,
                     year=file_year
                 )
-                if log:
-                    print('@ percentile')
+                if log: print('@ percentile')
                 source.metrics.append(source_metric)
 
                 if log:
