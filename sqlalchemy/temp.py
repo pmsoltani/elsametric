@@ -310,7 +310,7 @@ def ext_source_process(session, file_path, src_type='Journal',
 
                 if row['asjc']:
                     subject_codes = [
-                        int(code) for code in row['asjc'].split(';') if code != '']
+                        int(code) for code in row['asjc'].split(';') if code]
                     for asjc in subject_codes:
                         subject = session.query(Subject) \
                             .filter(Subject.asjc == asjc) \
@@ -323,8 +323,8 @@ def ext_source_process(session, file_path, src_type='Journal',
 
 
 def ext_source_metric_process(session, file_path, file_year,
-                              chunk_size=1000, batch_no=0, encoding='utf-8-sig', 
-                              delimiter=';', log=False):
+                            chunk_size=1000, batch_no=0, encoding='utf-8-sig', 
+                            delimiter=';', log=False):
     sources_list = []
     batch_max = chunk_size * batch_no
     batch_min = chunk_size * (batch_no - 1)
@@ -384,7 +384,7 @@ def ext_source_metric_process(session, file_path, file_year,
             if not source.subjects:
                 if row['Categories']:
                     subject_low = [low.strip() for low in
-                                   row['Categories'].split(';') if low != '']
+                                row['Categories'].split(';') if low]
                     for low in subject_low:
                         if low[-4:] in ['(Q1)', '(Q2)', '(Q3)', '(Q4)']:
                             low = low[:-4].strip()
@@ -395,7 +395,7 @@ def ext_source_metric_process(session, file_path, file_year,
                         if subject:
                             source.subjects.append(subject)
                     if log: print(f'new subjects for {source.id_scp}:', [
-                              sub.asjc for sub in source.subjects])
+                            sub.asjc for sub in source.subjects])
 
             if not source.metrics:
                 total_docs = 0
@@ -446,18 +446,96 @@ def ext_source_metric_process(session, file_path, file_year,
     return sources_list
 
 
-def ext_faculty_process(session, file_path, encoding='utf-8-sig'):
-    authors_list = []
+def ext_faculty_process(session, file_path, dept_file_path, inst_id, encoding='utf-8-sig'):
+    faculties_list = []
+    faculty_depts = ext_department_process(dept_file_path, encoding)
+    institution = session.query(Institution) \
+        .filter(Institution.id_scp == inst_id) \
+        .first()
+    print(f'INSTITUTION: {institution}, {institution.name}')
+    no_dept = list(filter(lambda d: d.name ==
+                          'Undefined', institution.departments))
+    print(f'Undefined: {no_dept}')
+    if no_dept:
+        no_dept = no_dept[0]
+    print(f'Undefined: {no_dept}, {no_dept.name}, {no_dept.abbreviation}, {no_dept.institution.name}')
     with io.open(file_path, 'r', encoding=encoding) as csvFile:
         reader = csv.DictReader(csvFile)
         for row in reader:
             nullify(row)
-            if row['Scopus']:
-                author_ids = [int(id_scp) 
-                                for id_scp in row['Scopus'].split(',') if id_scp != '']
-                for id_scp in author_ids[0:1]:
-                    author = session.query(Author) \
-                                .filter(Author.id_scp == id_scp) \
-                                .first()
-                                
-    return authors_list
+            keys = row.keys()
+            if not row['Scopus']:
+                continue
+            faculty_id_scp = [int(id_scp) 
+                            for id_scp in row['Scopus'].split(',') if id_scp][0]
+            print(f'faculty_id_scp: {faculty_id_scp}')
+            # for now, only use the first author scopus id
+            faculty = session.query(Author) \
+                .filter(Author.id_scp == faculty_id_scp) \
+                .first()
+            if not faculty:
+                continue
+            print(f'FACULTY: {faculty}, {faculty.first}, {faculty.last}')
+            sex = key_get(row, keys, 'Sex')
+            if sex in ['M', 'F']:
+                faculty.sex = sex.lower()
+            faculty.type = 'Faculty'
+            faculty.rank = key_get(row, keys , 'Rank')
+            
+            if row['Email']:
+                for email in row['Email'].split(','):
+                    if not email:
+                        continue
+                    faculty.profiles.append(
+                        Author_Profile(address=email.strip(), type='Email'))
+            if row['Office']:
+                faculty.profiles.append(
+                    Author_Profile(address=row['Office'], type='Phone (Office)'))
+            if row['Page']:
+                faculty.profiles.append(
+                    Author_Profile(address=row['Page'], type='Personal Website'))
+            print()
+            print([[prof.address, prof.type] for prof in faculty.profiles])
+            print()
+            for dept in row['Departments'].split(','):
+                if not dept:
+                    continue
+                department = list(filter(lambda d: d.abbreviation == 
+                                         dept, institution.departments))
+                print(f'DEPARTMENT: {department}')
+                if department:
+                    department = department[0]
+                    print(f'DEPARTMENT already created: {department}, {department.name}, {department.abbreviation}')
+                else:
+                    department = Department(
+                        abbreviation=dept,
+                        name=faculty_depts[dept]['name'],
+                        type=faculty_depts[dept]['type']
+                    )
+                    institution.departments.append(department)
+                    print(f'DEPARTMENT Added + Institution: {department}, {department.name}, {department.abbreviation}')
+                
+                faculty.departments.append(department)
+                print([[d.name, d.abbreviation, d.institution.name] for d in faculty.departments])
+            
+            if no_dept in faculty.departments:
+                faculty.departments.remove(no_dept)
+                print()
+                print('After remove:')
+                print([[d.name, d.abbreviation, d.institution.name]
+                       for d in faculty.departments])
+            faculties_list.append(faculty)
+            print('-----------------------------------------------------------')
+    return faculties_list
+
+
+def ext_department_process(file_path, encoding='utf-8-sig'):
+    departments = {}
+    with io.open(file_path, 'r', encoding=encoding) as csvFile:
+        reader = csv.DictReader(csvFile)
+        for row in reader:
+            departments[row['Abbreviation']] = {
+                'name': row['Full Name'],
+                'type': row['Type']
+            }
+    return departments
