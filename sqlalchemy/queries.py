@@ -29,8 +29,20 @@ for paper in papers:
     if paper.source:
         if paper.source.country:
             if paper.source.country.domain == 'IR':
-                ls = [paper.id, paper.title, paper.source.title, paper.source.publisher]
-                print(ls)
+                ls = [paper.id, paper.title,
+                      paper.source.title, paper.source.publisher]
+                # print(ls)
                 iran_p.append(ls)
                 cnt += 1
 print(f'{cnt}, {round(100 * cnt / len(papers), 2)}%')
+
+foreign = []
+for p in papers:
+    for pa in p.authors:
+        if not pa.author.departments:
+            continue
+        if all('Sharif' not in d.institution.name for d in pa.author.departments):
+            foreign.append(p)
+            break
+print(
+    f'Papers with foreign authors: {len(foreign)} ({round(100 * len(foreign) / len(papers), 2)}%)')

@@ -54,7 +54,10 @@ def paper_process(session, data, retrieval_time, keys=None):
                 url=paper_url,
                 article_no=key_get(data, keys, 'article-number'),
                 doi=key_get(data, keys, 'prism:doi'),
-                volume=key_get(data, keys, 'prism:volume'),
+                volume=strip(
+                    key_get(data, keys, 'prism:volume'),
+                    max_length=45, accepted_chars=''
+                ),
                 issue=key_get(data, keys, 'prism:issueIdentifier'),
                 date=key_get(data, keys, 'prism:coverDate'),
                 page_range=key_get(data, keys, 'prism:pageRange'),
@@ -133,10 +136,15 @@ def fund_process(session, data, keys=None):
 
 def author_process(session, data, log=False):
     authors_list = []
+    auth_ids = []
     new_institutions = []
     for auth in data['author']:
         keys = auth.keys()
         author_id_scp = int(auth['authid'])
+        if author_id_scp in auth_ids: # repeated author in the same paper!
+            continue
+        else:
+            auth_ids.append(author_id_scp)
         if log: print(f'AUTHOR {author_id_scp}')
         author_no = int(auth['@seq'])
         author = session.query(Author) \
@@ -178,7 +186,7 @@ def author_process(session, data, log=False):
             if log: print(f'All AUTHOR departments: {author.departments}')
         if log: print()
         authors_list.append([author_no, author])
-    return authors_list
+    return authors_list # as of now, if there are repeated authors in the same paper, "total_author" won't be updated
 
 
 def institution_process(session, data, inst_id, new_institutions=[], log=False):
