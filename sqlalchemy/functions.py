@@ -186,6 +186,13 @@ def country_names(name):
         return countries[name]
     return name
 
+
+def nullify(data:dict, null_types:list=[None, '', ' ', '-']):
+    for key in data:
+        if data[key] in null_types:
+            data[key] = None
+
+
 def raw_insert(data:dict, retrieval_time, title_length=300, country_data=False):
         
         author_institution = []

@@ -2,7 +2,7 @@ import io
 import csv
 from collections import OrderedDict
 
-from functions import key_get, strip, country_names
+from functions import key_get, strip, country_names, nullify
 from keyword_ import Keyword
 from source import Source
 from source_metric import Source_Metric
@@ -240,9 +240,7 @@ def ext_country_process(session, file_path, encoding='utf-8-sig'):
     with io.open(file_path, 'r', encoding=encoding) as csvFile:
         reader = csv.DictReader(csvFile)
         for row in reader:
-            for key in row:
-                if not row[key]:
-                    row[key] = None
+            nullify(row)
             country_name = country_names(row['name'])
             country = session.query(Country) \
                 .filter(Country.name == country_name) \
@@ -261,9 +259,7 @@ def ext_subject_process(session, file_path, encoding='utf-8-sig'):
     with io.open(file_path, 'r', encoding=encoding) as csvFile:
         reader = csv.DictReader(csvFile)
         for row in reader:
-            for key in row:
-                if not row[key]:
-                    row[key] = None
+            nullify(row)
             asjc = row['asjc']
             subject = session.query(Subject) \
                 .filter(Subject.asjc == asjc) \
@@ -288,9 +284,7 @@ def ext_source_process(session, file_path, src_type='Journal',
             if batch_no:
                 if (cnt >= batch_max) or (cnt < batch_min):
                     continue
-            for item in row:
-                if not row[item]:
-                    row[item] = None
+            nullify(row)
             source_id_scp = row['id_scp']
             source = session.query(Source) \
                 .filter(Source.id_scp == source_id_scp) \
@@ -353,9 +347,7 @@ def ext_source_metric_process(session, file_path, file_year,
                 if (cnt >= batch_max) or (cnt < batch_min):
                     continue
             keys = row.keys()
-            for key in row:
-                if (not row[key]) or (row[key] == '-'):
-                    row[key] = None
+            nullify(row)
             source_id_scp = row['Sourceid']
             source = session.query(Source) \
                 .filter(Source.id_scp == source_id_scp) \
@@ -452,3 +444,20 @@ def ext_source_metric_process(session, file_path, file_year,
             sources_list.append(source)
 
     return sources_list
+
+
+def ext_faculty_process(session, file_path, encoding='utf-8-sig'):
+    authors_list = []
+    with io.open(file_path, 'r', encoding=encoding) as csvFile:
+        reader = csv.DictReader(csvFile)
+        for row in reader:
+            nullify(row)
+            if row['Scopus']:
+                author_ids = [int(id_scp) 
+                                for id_scp in row['Scopus'].split(',') if id_scp != '']
+                for id_scp in author_ids[0:1]:
+                    author = session.query(Author) \
+                                .filter(Author.id_scp == id_scp) \
+                                .first()
+                                
+    return authors_list
