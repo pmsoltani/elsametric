@@ -1,6 +1,5 @@
 import io
 import csv
-from collections import OrderedDict
 
 from functions import key_get, strip, country_names, nullify
 from keyword_ import Keyword
@@ -141,11 +140,12 @@ def author_process(session, data, log=False):
     for auth in data['author']:
         keys = auth.keys()
         author_id_scp = int(auth['authid'])
-        if author_id_scp in auth_ids: # repeated author in the same paper!
+        if author_id_scp in auth_ids:  # repeated author in the same paper!
             continue
         else:
             auth_ids.append(author_id_scp)
-        if log: print(f'AUTHOR {author_id_scp}')
+        if log:
+            print(f'AUTHOR {author_id_scp}')
         author_no = int(auth['@seq'])
         author = session.query(Author) \
             .filter(Author.id_scp == author_id_scp) \
@@ -163,10 +163,13 @@ def author_process(session, data, log=False):
             )
             author.profiles.append(author_profile)
             inst_ids = key_get(auth, keys, 'afid', many=True)
-            if log: print(f'AUTHOR not found in DB. Added + Profile. inst_id: {inst_ids}')
+            if log:
+                print(
+                    f'AUTHOR not found in DB. Added + Profile. inst_id: {inst_ids}')
         else:
             inst_ids = key_get(auth, keys, 'afid', many=True)
-            if log: print(f'AUTHOR already exists. inst_id: {inst_ids}')
+            if log:
+                print(f'AUTHOR already exists. inst_id: {inst_ids}')
 
         if inst_ids:
             for inst_id in inst_ids:
@@ -174,23 +177,28 @@ def author_process(session, data, log=False):
                     session, data, inst_id, new_institutions, log=log)
                 if department:
                     author.departments.append(department)
-                
+
                 if institution:
                     if not new_institutions:
                         new_institutions.append(institution)
                     else:
                         if institution.id_scp not in [inst.id_scp for inst in new_institutions]:
                             new_institutions.append(institution)
-                
-                if log: print(f'Department: {department}')
-            if log: print(f'All AUTHOR departments: {author.departments}')
-        if log: print()
+
+                if log:
+                    print(f'Department: {department}')
+            if log:
+                print(f'All AUTHOR departments: {author.departments}')
+        if log:
+            print()
         authors_list.append([author_no, author])
-    return authors_list # as of now, if there are repeated authors in the same paper, "total_author" won't be updated
+    # as of now, if there are repeated authors in the same paper, "total_author" won't be updated
+    return authors_list
 
 
 def institution_process(session, data, inst_id, new_institutions=[], log=False):
-    if log: print('Processing institutions and departments')
+    if log:
+        print('Processing institutions and departments')
     department = None
     institution = None
     for affil in data['affiliation']:
@@ -204,57 +212,131 @@ def institution_process(session, data, inst_id, new_institutions=[], log=False):
             .filter(Institution.id_scp == institution_id_scp) \
             .first()
         if not institution:
-            if log: print('INSTITUTION not found in DB')
-            institution = list(filter(lambda inst: inst.id_scp == inst_id, new_institutions))
+            if log:
+                print('INSTITUTION not found in DB')
+            institution = list(
+                filter(lambda inst: inst.id_scp == inst_id, new_institutions))
             if institution:
                 institution = institution[0]
-                department = list(filter(lambda dept: dept.name == 'Undefined', institution.departments))[0]
-                if log: print(f'INSTITUTION {institution.id_scp} just created but not yet added to DB. Using it again.')
+                department = list(
+                    filter(lambda dept: dept.name == 'Undefined', institution.departments))[0]
+                if log:
+                    print(
+                        f'INSTITUTION {institution.id_scp} just created but not yet added to DB. Using it again.')
             else:
                 institution = Institution(
                     id_scp=institution_id_scp,
                     name=key_get(affil, keys, 'affilname'),
                     city=key_get(affil, keys, 'affiliation-city'),
-                )        
-                country_name = country_names(key_get(affil, keys, 'affiliation-country'))
+                )
+                country_name = country_names(
+                    key_get(affil, keys, 'affiliation-country'))
                 country = None
                 if country_name:
                     country = session.query(Country) \
                         .filter(Country.name == country_name) \
                         .first()
                 institution.country = country
-                
-                department = Department(name='Undefined', abbreviation='No Dept.')
+
+                department = Department(
+                    name='Undefined', abbreviation='No Dept.')
                 institution.departments.append(department)
-                if log: print(f'INSTITUTION not found in DB. Added + Department: {institution.id_scp}')
+                if log:
+                    print(
+                        f'INSTITUTION not found in DB. Added + Department: {institution.id_scp}')
         else:
             if institution.departments:
-                department = list(filter(lambda dept: dept.name == 'Undefined', institution.departments))[0]
-            if log: print(f'INSTITUTION already exists: {institution.id_scp}. Department: {department}, {department.name}')
+                department = list(
+                    filter(lambda dept: dept.name == 'Undefined', institution.departments))[0]
+            if log:
+                print(
+                    f'INSTITUTION already exists: {institution.id_scp}. Department: {department}, {department.name}')
         break
     return [institution, department]
 
 
-def ext_country_process(session, file_path, encoding='utf-8-sig'):
+def ext_country_process(session, file_path: str, encoding: str = 'utf-8-sig'):
+    """Imports a list of countries to database
+
+    Reads a .csv file and creates 'Country' objects which represent
+    rows in the 'country' table in the database. Each country object
+    should have the following attributes:
+        name: full name of the country
+        domain: the 2-character code of the country (ISO 3166-1 alpha-2)
+        region: the continent of the country
+        sub_region: general geo-graphical location of the country
+
+    It is assumed that each row of the .csv file contains these parts.
+
+    Dependencies(libraries):
+        io, csv
+
+    Dependencies(functions):
+        nullify: changes any null-looking value to None
+        country_names: assigns a unified name to countries with name
+            variations
+
+    Parameters:
+        session: a session instance of SQLAlchemy session factory to
+            interact with the database
+        file_path (str): the path to a .csv file containing a list of
+            country names with details
+        encoding (str): encoding to be used when reading the .csv file
+
+    Returns:
+        list: a list of 'Country' objects to be added to the database
+    """
+
     countries_list = []
     with io.open(file_path, 'r', encoding=encoding) as csvFile:
         reader = csv.DictReader(csvFile)
         for row in reader:
             nullify(row)
-            country_name = country_names(row['name'])
+            country_name = country_names(row['name']).strip()
             country = session.query(Country) \
                 .filter(Country.name == country_name) \
                 .first()
-            if not country:
+            if not country:  # country not in db, let's create it
                 country = Country(
-                    name=country_name, domain=row['domain'],
-                    region=row['region'], sub_region=row['sub_region']
+                    name=country_name, domain=row['domain'].strip(),
+                    region=row['region'].strip(),
+                    sub_region=row['sub_region'].strip()
                 )
                 countries_list.append(country)
     return countries_list
 
 
-def ext_subject_process(session, file_path, encoding='utf-8-sig'):
+def ext_subject_process(session, file_path: str, encoding: str = 'utf-8-sig'):
+    """Imports a list of subjects to database
+
+    Reads a .csv file and creates 'Subject' objects which represent
+    rows in the 'subject' table in the database. Each Subject object
+    has to have the following attributes:
+        asjc: All Science Journal Classification Codes - a 4-digit code
+            assigned to the subject by Scopus
+        top: broad name of the science
+        middle: name of the field
+        low: name of the field branch
+
+    It is assumed that each row of the .csv file contains these parts.
+
+    Dependencies(libraries):
+        io, csv
+
+    Dependencies(functions):
+        nullify: changes any null-looking value to None
+
+    Parameters:
+        session: a session instance of SQLAlchemy session factory to
+            interact with the database
+        file_path (str): the path to a .csv file containing a list of
+            subjects with details
+        encoding (str): encoding to be used when reading the .csv file
+
+    Returns:
+        list: a list of 'Subject' objects to be added to the database
+    """
+
     subjects_list = []
     with io.open(file_path, 'r', encoding=encoding) as csvFile:
         reader = csv.DictReader(csvFile)
@@ -264,7 +346,7 @@ def ext_subject_process(session, file_path, encoding='utf-8-sig'):
             subject = session.query(Subject) \
                 .filter(Subject.asjc == asjc) \
                 .first()
-            if not subject:
+            if not subject:  # subject not in db, let's create it
                 subject = Subject(
                     asjc=asjc,
                     top=row['top'], middle=row['middle'], low=row['low']
@@ -273,47 +355,87 @@ def ext_subject_process(session, file_path, encoding='utf-8-sig'):
     return subjects_list
 
 
-def ext_source_process(session, file_path, src_type='Journal',
-                       chunk_size=1000, batch_no=0, encoding='utf-8-sig'):
+def ext_source_process(session, file_path: str, src_type: str = 'Journal',
+                       chunk_size: int = 1000, batch_no: int = 0, encoding: str = 'utf-8-sig'):
+    """Imports a list of sources to database
+
+    Reads a .csv file and creates 'Source' objects which represent
+    rows in the 'source' table in the database. Each Source object
+    should have the following attributes:
+        id_scp: a unique id assigned to each source by Scopus
+        title: title of the source
+        type: type of the source (Journal, Conference Proceedings, ...)
+        issn: issn of the source
+        e_issn: electronic issn of the source
+        publisher: source's publisher
+        country: country of the source's publisher
+
+    It is assumed that each row of the .csv file contains these parts.
+
+    Dependencies(libraries):
+        io, csv
+
+    Dependencies(functions):
+        nullify: changes any null-looking value to None
+
+    Parameters:
+        session: a session instance of SQLAlchemy session factory to
+            interact with the database
+        file_path (str): the path to a .csv file containing a list of
+            subjects with details
+        src_type (str): used to distinguish between files for conference
+            proceedings & other source types which are located in 
+            separate files
+        chunk_size (int): used to break the .csv files into several 
+            chunks, since they are very large,
+        batch_no (int): the number of the chunk to be processed
+        encoding (str): encoding to be used when reading the .csv file
+
+    Returns:
+        list: a list of 'Source' objects to be added to the database
+    """
+
     sources_list = []
     batch_max = chunk_size * batch_no
     batch_min = chunk_size * (batch_no - 1)
     with io.open(file_path, 'r', encoding=encoding) as csvFile:
         reader = csv.DictReader(csvFile)
         for cnt, row in enumerate(reader):
-            if batch_no:
+            if batch_no:  # 'cnt' is used to know if a row should be processed
                 if (cnt >= batch_max) or (cnt < batch_min):
                     continue
+
             nullify(row)
             source_id_scp = row['id_scp']
             source = session.query(Source) \
                 .filter(Source.id_scp == source_id_scp) \
                 .first()
-            if not source:
+            if not source:  # source not in db, let's create it
                 if src_type == 'Journal':
                     source = Source(
                         id_scp=row['id_scp'], title=row['title'],
                         type=row['type'], issn=row['issn'],
-                        e_issn=row['e_issn'], publisher=row['publisher']
-                    )
+                        e_issn=row['e_issn'], publisher=row['publisher'])
+
+                    # 'source' table is related to the 'country' table
                     country_name = country_names(row['country'])
                     if country_name:
                         country = session.query(Country) \
                             .filter(Country.name == country_name) \
                             .first()
-                        source.country = country
+                        source.country = country  # country either found or None
                 else:
                     source = Source(
                         id_scp=row['id_scp'], title=row['title'],
                         type='Conference Proceedings', issn=row['issn'],
                     )
 
-                if row['asjc']:
-                    subject_codes = [
-                        int(code) for code in row['asjc'].split(';') if code]
-                    for asjc in subject_codes:
+                if row['asjc']:  # 'source' is related to the 'subject' table
+                    for asjc in row['asjc'].split(';'):
+                        if not asjc:
+                            continue
                         subject = session.query(Subject) \
-                            .filter(Subject.asjc == asjc) \
+                            .filter(Subject.asjc == int(asjc)) \
                             .first()
                         if subject:
                             source.subjects.append(subject)
@@ -322,9 +444,36 @@ def ext_source_process(session, file_path, src_type='Journal',
     return sources_list
 
 
-def ext_source_metric_process(session, file_path, file_year,
-                            chunk_size=1000, batch_no=0, encoding='utf-8-sig', 
-                            delimiter=';', log=False):
+def ext_source_metric_process(session, file_path: str, file_year: int,
+                              chunk_size: int = 1000, batch_no: int = 0,
+                              encoding: str = 'utf-8-sig', delimiter: str = ';'):
+    """Adds source metrics to database
+
+    Reads a .csv file and creates/updates 'Source' objects. The returned
+    list of objects will have source metrics data in them, which will be
+    added to the 'source_metric' table of the database. Sources already
+    in the database will be checked for missing data, such as publisher,
+    country, and subjects. If there are metrics available for multiple
+    years, the data for each year should be in a separate file and it is
+    best to be fed to the function from the most recent year.
+
+    Parameters:
+        session: a session instance of SQLAlchemy session factory to
+        file_path (str): the path to a .csv file containing a list of
+            sources along with metric details
+        file_year (int): an integer to indicate the year that the metric
+            was evaluated for the source
+        chunk_size (int): used to break the .csv files into several 
+            chunks, since they are very large,
+        batch_no (int): the number of the chunk to be processed
+        encoding (str): encoding to be used when reading the .csv file
+        delimiter (str): Scimago .csv files use semicolon as delimiter
+
+    Returns:
+        list: a list of 'Source' objects which now have metrics, to be 
+            added to the database
+    """
+
     sources_list = []
     batch_max = chunk_size * batch_no
     batch_min = chunk_size * (batch_no - 1)
@@ -335,41 +484,38 @@ def ext_source_metric_process(session, file_path, file_year,
         'Cites / Doc. (2years)', 'Ref. / Doc.', 'Categories',
     ]
     with io.open(file_path, 'r', encoding=encoding) as csvFile:
-        if log: print('@ with')
-        reader = csv.DictReader(csvFile, delimiter=delimiter)
-        reader = list(reader)
-        ranked_sources = len(reader)
-        if log: print('len:', ranked_sources)
+        reader = list(csv.DictReader(csvFile, delimiter=delimiter))
+        # 'reader' is converted to list so that we can know its length
+        ranked_sources = len(reader)  # used to calculate rank percentiles
         for cnt, row in enumerate(reader):
-            if log: print('@ reader', cnt)
-            if batch_no:
-                if log: print('@ batch')
+            if batch_no:  # 'cnt' is used to know if a row should be processed
                 if (cnt >= batch_max) or (cnt < batch_min):
                     continue
+
             keys = row.keys()
             nullify(row)
             source_id_scp = row['Sourceid']
             source = session.query(Source) \
                 .filter(Source.id_scp == source_id_scp) \
                 .first()
-            if not source:
-                if log: print('@ not source: creating')
+            if not source:  # 'cnt' is used to know if a row should be processed
                 source = Source(
                     id_scp=source_id_scp, title=key_get(row, keys, 'Title'),
                     type=key_get(row, keys, 'Type'),
                     issn=None, e_issn=None, isbn=None,
                     publisher=key_get(row, keys, 'Publisher'),
                 )
+
+                # some minor modifications to keep the database clean
                 if source.type == 'conference and proceedings':
                     source.type = 'Conference Proceedings'
                 if source.type:
                     source.type = source.type.title()
-                if log: print(source.type)
 
+            # doing some repairs to sources already in the database, like
+            # add missing publisher and country data
             if not source.publisher:
                 source.publisher = key_get(row, keys, 'Publisher')
-                if log: print(
-                        f'new publisher for {source.id_scp}: {source.publisher}')
 
             if not source.country:
                 country_name = country_names(row['Country'])
@@ -377,52 +523,51 @@ def ext_source_metric_process(session, file_path, file_year,
                     country = session.query(Country) \
                         .filter(Country.name == country_name) \
                         .first()
-                    source.country = country
-                    if log: print(
-                            f'new country for {source.id_scp}: {source.country}')
+                    source.country = country  # country either found or None
 
             if not source.subjects:
                 if row['Categories']:
-                    subject_low = [low.strip() for low in
-                                row['Categories'].split(';') if low]
-                    for low in subject_low:
+                    # example of row['Categories']
+                    # Economics and Econometrics (Q1); Finance (Q1)
+                    for low in row['Categories'].split(';'):
+                        if not low:
+                            continue
+                        low = low.strip()
                         if low[-4:] in ['(Q1)', '(Q2)', '(Q3)', '(Q4)']:
-                            low = low[:-4].strip()
-
+                            low = low[:-4].strip()  # removing the '(Qs)'
                         subject = session.query(Subject) \
                             .filter(Subject.low == low) \
                             .first()
                         if subject:
                             source.subjects.append(subject)
-                    if log: print(f'new subjects for {source.id_scp}:', [
-                            sub.asjc for sub in source.subjects])
 
+            # TODO: This 'if' is too broad. Use query to search whether metrics
+            #       are available in the current year
             if not source.metrics:
-                total_docs = 0
-                total_cites = 0
+                total_docs = 0  # used to calculate the CiteScore
+                total_cites = 0  # used to calculate the CiteScore
                 for item in metric_types[:-1]:
-                    if log: print('@ metrics')
                     if row[item]:
                         if item in ['SJR', 'Cites / Doc. (2years)', 'Ref. / Doc.']:
+                            # unfortunately, the decimal points in .csv files by
+                            # Scimago are actually commas
                             row[item] = float(row[item].replace(',', '.'))
                         if item == 'SJR Best Quartile':
+                            # the database cannot hold values like:
+                            # Q1 & Q2, so we must remove the 'Q'
                             row[item] = row[item][-1]
 
                         source_metric = Source_Metric(
-                            type=item,
-                            value=row[item],
-                            year=file_year
-                        )
+                            type=item, value=row[item], year=file_year)
                         if item == 'Total Docs. (3years)':
                             total_docs = int(row[item])
                         if item == 'Total Cites (3years)':
                             total_cites = int(row[item])
                         if item == f'Total Docs. ({file_year})':
-                            source_metric.type = 'Total Docs. (Current)'
+                            source_metric.type = 'Total Docs. (Current Year)'
                         source.metrics.append(source_metric)
 
-                if total_docs and total_cites:
-                    if log: print('@ citescore')
+                if total_docs and total_cites:  # calculating CiteScore
                     source_metric = Source_Metric(
                         type='CiteScore',
                         value=total_cites / total_docs,
@@ -430,19 +575,15 @@ def ext_source_metric_process(session, file_path, file_year,
                     )
                     source.metrics.append(source_metric)
 
+                # calculating rank percentile
                 source_metric = Source_Metric(
                     type='Percentile',
-                    value=((int(row['Rank']) - 1) * 100 // ranked_sources) + 1,
+                    value=(int(row['Rank']) - 1) * 100 // ranked_sources + 1,
                     year=file_year
                 )
-                if log: print('@ percentile')
                 source.metrics.append(source_metric)
 
-                if log:
-                    for met in source.metrics:
-                        print(met.type, met.value)
             sources_list.append(source)
-
     return sources_list
 
 
@@ -458,7 +599,8 @@ def ext_faculty_process(session, file_path, dept_file_path, inst_id, encoding='u
     print(f'Undefined: {no_dept}')
     if no_dept:
         no_dept = no_dept[0]
-    print(f'Undefined: {no_dept}, {no_dept.name}, {no_dept.abbreviation}, {no_dept.institution.name}')
+    print(
+        f'Undefined: {no_dept}, {no_dept.name}, {no_dept.abbreviation}, {no_dept.institution.name}')
     with io.open(file_path, 'r', encoding=encoding) as csvFile:
         reader = csv.DictReader(csvFile)
         for row in reader:
@@ -466,8 +608,8 @@ def ext_faculty_process(session, file_path, dept_file_path, inst_id, encoding='u
             keys = row.keys()
             if not row['Scopus']:
                 continue
-            faculty_id_scp = [int(id_scp) 
-                            for id_scp in row['Scopus'].split(',') if id_scp][0]
+            faculty_id_scp = [int(id_scp)
+                              for id_scp in row['Scopus'].split(',') if id_scp][0]
             print(f'faculty_id_scp: {faculty_id_scp}')
             # for now, only use the first author scopus id
             faculty = session.query(Author) \
@@ -480,8 +622,8 @@ def ext_faculty_process(session, file_path, dept_file_path, inst_id, encoding='u
             if sex in ['M', 'F']:
                 faculty.sex = sex.lower()
             faculty.type = 'Faculty'
-            faculty.rank = key_get(row, keys , 'Rank')
-            
+            faculty.rank = key_get(row, keys, 'Rank')
+
             if row['Email']:
                 for email in row['Email'].split(','):
                     if not email:
@@ -500,12 +642,13 @@ def ext_faculty_process(session, file_path, dept_file_path, inst_id, encoding='u
             for dept in row['Departments'].split(','):
                 if not dept:
                     continue
-                department = list(filter(lambda d: d.abbreviation == 
+                department = list(filter(lambda d: d.abbreviation ==
                                          dept, institution.departments))
                 print(f'DEPARTMENT: {department}')
                 if department:
                     department = department[0]
-                    print(f'DEPARTMENT already created: {department}, {department.name}, {department.abbreviation}')
+                    print(
+                        f'DEPARTMENT already created: {department}, {department.name}, {department.abbreviation}')
                 else:
                     department = Department(
                         abbreviation=dept,
@@ -513,11 +656,13 @@ def ext_faculty_process(session, file_path, dept_file_path, inst_id, encoding='u
                         type=faculty_depts[dept]['type']
                     )
                     institution.departments.append(department)
-                    print(f'DEPARTMENT Added + Institution: {department}, {department.name}, {department.abbreviation}')
-                
+                    print(
+                        f'DEPARTMENT Added + Institution: {department}, {department.name}, {department.abbreviation}')
+
                 faculty.departments.append(department)
-                print([[d.name, d.abbreviation, d.institution.name] for d in faculty.departments])
-            
+                print([[d.name, d.abbreviation, d.institution.name]
+                       for d in faculty.departments])
+
             if no_dept in faculty.departments:
                 faculty.departments.remove(no_dept)
                 print()
