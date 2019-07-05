@@ -2,7 +2,6 @@ import os
 import json
 import io
 import time
-# import winsound
 import datetime
 
 from base import Session, engine, Base
@@ -19,9 +18,6 @@ session = Session()
 
 start = time.time()
 
-# frequency = 2000  # Set Frequency (Hz)
-# duration = 300  # Set Duration (ms)
-
 # ==============================================================================
 # External Datasets
 # ==============================================================================
@@ -30,15 +26,13 @@ start = time.time()
 # print('@ countries')
 # session.bulk_save_objects(
 #     ext_country_process(session, os.path.join('data', 'countries.csv')))
-# end = time.time()
-# print(f'operation time: {str(datetime.timedelta(seconds=(end - start)))}')
+# print(f'Op. Time: {str(datetime.timedelta(seconds=(time.time() - start)))}')
 
 # # subjects
 # print('@ subjects')
 # session.bulk_save_objects(
 #     ext_subject_process(session, os.path.join('data', 'subjects.csv')))
-# end = time.time()
-# print(f'operation time: {str(datetime.timedelta(seconds=(end - start)))}')
+# print(f'Op. Time: {str(datetime.timedelta(seconds=(time.time() - start)))}')
 
 # max_rows = 50000
 # max_inserts = 1000
@@ -56,8 +50,7 @@ start = time.time()
 #         for source in sources_list:
 #             session.add(source)
 #     session.commit()
-# end = time.time()
-# print(f'operation time: {str(datetime.timedelta(seconds=(end - start)))}')
+# print(f'Op. Time: {str(datetime.timedelta(seconds=(time.time() - start)))}')
 
 # # sources: conference proceedings
 # print('@ conference proceedings')
@@ -71,8 +64,7 @@ start = time.time()
 #         for source in sources_list:
 #             session.add(source)
 #     session.commit()
-# end = time.time()
-# print(f'operation time: {str(datetime.timedelta(seconds=(end - start)))}')
+# print(f'Op. Time: {str(datetime.timedelta(seconds=(time.time() - start)))}')
 
 # # source metrics
 # print('@ source metrics')
@@ -83,106 +75,105 @@ start = time.time()
 #             chunk_size=max_inserts, batch_no=(i + 1)
 #         )
 #         session.commit()
-# end = time.time()
-# print(f'operation time: {str(datetime.timedelta(seconds=(end - start)))}')
+# print(f'Op. Time: {str(datetime.timedelta(seconds=(time.time() - start)))}')
 
 # ==============================================================================
 # Papers
 # ==============================================================================
 
-# print('@ papers')
-# bad_papers = []
+print('@ papers')
+bad_papers = []
 
-# path = os.path.join('data', 'Sharif University of Technology')
-# files = list(os.walk(path))[0][2]
-# files.sort()
-# flag = False
-# for file in files:
-#     if file.split('.')[1] != 'txt':
-#         continue
-#     if flag:
-#         break
-#     print(file)
-#     with io.open(os.path.join(path, file), 'r', encoding='utf8') as raw:
-#         data = json.load(raw)
-#         data = data['search-results']['entry']
-#         retrieval_time = datetime.datetime \
-#             .utcfromtimestamp(int(file.split('.')[0].split('_')[-1])) \
-#             .strftime('%Y-%m-%d %H:%M:%S')
+path = os.path.join('data', 'Sharif University of Technology')
+files = list(os.walk(path))[0][2]
+files.sort()
+flag = False
+for file in files:
+    if file.split('.')[1] != 'txt':
+        continue
+    if flag:
+        break
+    print(file)
+    with io.open(os.path.join(path, file), 'r', encoding='utf8') as raw:
+        data = json.load(raw)
+        data = data['search-results']['entry']
+        retrieval_time = datetime.datetime \
+            .utcfromtimestamp(int(file.split('.')[0].split('_')[-1])) \
+            .strftime('%Y-%m-%d %H:%M:%S')
         
-#         for cnt, entry in enumerate(data):
-#             warnings = data_inspector(entry)
-#             try:
-#                 keys = entry.keys()
-#                 if 'dc:identifier' in warnings:
-#                     bad_papers.append(
-#                         {'file': file, 'paper_no': cnt,
-#                          'problem': [warn for warn in warnings]}
-#                     )
-#                     continue
-#                 if 'openaccess' in warnings:
-#                     bad_papers.append(
-#                         {'file': file, 'paper_no': cnt, 'id_scp': entry['dc:identifier'], 
-#                         'problem': [warn for warn in warnings]}
-#                     )
-#                     entry['openaccess'] = '0'
-#                     warnings.remove('openaccess')
-#                 if 'author:afid' in warnings:
-#                     bad_papers.append(
-#                         {'file': file, 'paper_no': cnt, 'id_scp': entry['dc:identifier'], 
-#                         'problem': [warn for warn in warnings]}
-#                     )
-#                     warnings.remove('author:afid')
-#                 if 'dc:title' in warnings:
-#                     bad_papers.append(
-#                         {'file': file, 'paper_no': cnt, 'id_scp': entry['dc:identifier'], 
-#                         'problem': [warn for warn in warnings]}
-#                     )
-#                     entry['dc:title'] = 'TITLE NOT AVAILABLE'
-#                     warnings.remove('dc:title')
-#                 if warnings:
-#                     bad_papers.append(
-#                         {'file': file, 'paper_no': cnt, 'id_scp': entry['dc:identifier'], 
-#                         'problem': [warn for warn in warnings]}
-#                     )
-#                     continue
+        for cnt, entry in enumerate(data):
+            warnings = data_inspector(entry)
+            try:
+                keys = entry.keys()
+                if 'dc:identifier' in warnings:
+                    bad_papers.append(
+                        {'file': file, 'paper_no': cnt,
+                         'problem': [warn for warn in warnings]}
+                    )
+                    continue
+                if 'openaccess' in warnings:
+                    bad_papers.append(
+                        {'file': file, 'paper_no': cnt, 'id_scp': entry['dc:identifier'], 
+                        'problem': [warn for warn in warnings]}
+                    )
+                    entry['openaccess'] = '0'
+                    warnings.remove('openaccess')
+                if 'author:afid' in warnings:
+                    bad_papers.append(
+                        {'file': file, 'paper_no': cnt, 'id_scp': entry['dc:identifier'], 
+                        'problem': [warn for warn in warnings]}
+                    )
+                    warnings.remove('author:afid')
+                if 'dc:title' in warnings:
+                    bad_papers.append(
+                        {'file': file, 'paper_no': cnt, 'id_scp': entry['dc:identifier'], 
+                        'problem': [warn for warn in warnings]}
+                    )
+                    entry['dc:title'] = 'TITLE NOT AVAILABLE'
+                    warnings.remove('dc:title')
+                if warnings:
+                    bad_papers.append(
+                        {'file': file, 'paper_no': cnt, 'id_scp': entry['dc:identifier'], 
+                        'problem': [warn for warn in warnings]}
+                    )
+                    continue
                 
-#                 paper = paper_process(session, entry, retrieval_time, keys)
+                paper = paper_process(session, entry, retrieval_time, keys)
                 
-#                 if not paper.source:
-#                     paper.source = source_process(session, entry, keys)
-#                 # if not paper.fund:
-#                 #     paper.fund = fund_process(session, entry, keys)
-#                 if not paper.keywords:
-#                     paper.keywords = keyword_process(session, entry, keys)
-#                 if not paper.authors:
-#                     authors_list = author_process(session, entry, log=False)
-#                     for auth in authors_list:
-#                         paper_author = Paper_Author(author_no=auth[0])
-#                         paper_author.author = auth[1]
-#                         paper.authors.append(paper_author)
+                if not paper.source:
+                    paper.source = source_process(session, entry, keys)
+                # if not paper.fund:
+                #     paper.fund = fund_process(session, entry, keys)
+                if not paper.keywords:
+                    paper.keywords = keyword_process(session, entry, keys)
+                if not paper.authors:
+                    authors_list = author_process(session, entry, log=False)
+                    for auth in authors_list:
+                        paper_author = Paper_Author(author_no=auth[0])
+                        paper_author.author = auth[1]
+                        paper.authors.append(paper_author)
 
-#                 session.add(paper)
-#                 session.commit()
-#             except Exception as e:
-#                 print(type(e))
-#                 session.close()
-#                 print('\a')
-#                 # winsound.Beep(frequency, duration)
-#                 bad_papers.append(
-#                     {'file': file, 'paper_no': cnt, 'id_scp': entry['dc:identifier'],
-#                      'problem': f'{type(e)}: {e}'}
-#                 )
-#                 print(file)
-#                 print(entry['dc:identifier'])
-#                 print()
-#                 print('!!!')
-#                 print('ERROR: ', e)
-#                 print('--------------------------------------------------')
-#                 flag = True
-#                 break
+                session.add(paper)
+                session.commit()
+            except Exception as e:
+                print(type(e))
+                session.close()
+                print('\a')
+                bad_papers.append(
+                    {'file': file, 'paper_no': cnt, 'id_scp': entry['dc:identifier'],
+                     'problem': f'{type(e)}: {e}'}
+                )
+                print(file)
+                print(entry['dc:identifier'])
+                print()
+                print('!!!')
+                print('ERROR: ', e)
+                print('--------------------------------------------------')
+                flag = True
+                break
 
-# session.commit()
+session.commit()
+print(f'Op. Time: {str(datetime.timedelta(seconds=(time.time() - start)))}')
 
 # ==============================================================================
 # Faculties
@@ -194,7 +185,7 @@ faculties_list = ext_faculty_process(
     session, 
     os.path.join('data', 'Faculties.csv'), 
     os.path.join('data', 'Departments.csv'),
-    inst_id=inst_id
+    institution_id_scp=inst_id
 )
 
 session.commit()
@@ -207,6 +198,5 @@ session.commit()
 #     'w', encoding='utf8') as log:
 #     json.dump(bad_papers, log, indent=4)
 
-end = time.time()
-print(f'operation time: {str(datetime.timedelta(seconds=(end - start)))}')
+print(f'Op. Time: {str(datetime.timedelta(seconds=(time.time() - start)))}')
 session.close()

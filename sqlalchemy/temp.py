@@ -83,9 +83,7 @@ def keyword_process(session, data, keys=None, separator: str = '|'):
                 .filter(Keyword.keyword == term) \
                 .first()
             if not keyword:
-                keyword = Keyword(
-                    keyword=term
-                )
+                keyword = Keyword(keyword=term)
             keywords_list.append(keyword)
     return keywords_list
 
@@ -214,12 +212,15 @@ def institution_process(session, data, inst_id, new_institutions=[], log=False):
         if not institution:
             if log:
                 print('INSTITUTION not found in DB')
-            institution = list(
-                filter(lambda inst: inst.id_scp == inst_id, new_institutions))
+            institution = next(
+                filter(lambda inst: inst.id_scp == inst_id, new_institutions),
+                None
+            )
             if institution:
-                institution = institution[0]
-                department = list(
-                    filter(lambda dept: dept.name == 'Undefined', institution.departments))[0]
+                department = session.query(Department) \
+                    .with_parent(institution, Institution.departments) \
+                    .filter(Department.name == 'Undefined') \
+                    .first()
                 if log:
                     print(
                         f'INSTITUTION {institution.id_scp} just created but not yet added to DB. Using it again.')
@@ -231,12 +232,11 @@ def institution_process(session, data, inst_id, new_institutions=[], log=False):
                 )
                 country_name = country_names(
                     key_get(affil, keys, 'affiliation-country'))
-                country = None
                 if country_name:
                     country = session.query(Country) \
                         .filter(Country.name == country_name) \
                         .first()
-                institution.country = country
+                    institution.country = country  # country either found or None
 
                 department = Department(
                     name='Undefined', abbreviation='No Dept.')
@@ -245,9 +245,10 @@ def institution_process(session, data, inst_id, new_institutions=[], log=False):
                     print(
                         f'INSTITUTION not found in DB. Added + Department: {institution.id_scp}')
         else:
-            if institution.departments:
-                department = list(
-                    filter(lambda dept: dept.name == 'Undefined', institution.departments))[0]
+            department = session.query(Department) \
+                .with_parent(institution, Institution.departments) \
+                .filter(Department.name == 'Undefined') \
+                .first()
             if log:
                 print(
                     f'INSTITUTION already exists: {institution.id_scp}. Department: {department}, {department.name}')
@@ -587,43 +588,91 @@ def ext_source_metric_process(session, file_path: str, file_year: int,
     return sources_list
 
 
-def ext_faculty_process(session, file_path, dept_file_path, inst_id, encoding='utf-8-sig'):
+def ext_faculty_process(session, file_path: str, dept_file_path: str,
+                        institution_id_scp: int, encoding: str = 'utf-8-sig'):
+    """Updates author information with faculty data
+
+    This function uses a .csv file containing faculty data (such as sex,
+    department, academic rank, email, ...) of an institution and updates
+    authors from the 'author' table in the database that match using
+    (Scopus Author ID).
+
+    The function has several parts:
+        1. finds the institute in the database using its Scopus ID
+        2. finds the 'Undefined' department within the institution that
+        was first used to link authors from the institution to it
+        3. finds the faculty members of the institution based on their
+        Scopus ID
+        4. for each faculty:
+            a. adds his/her details (sex, department, rank)
+            b. adds his/her profiles (email, office phone, website)
+            c. adds his/her already created department(s) or create them
+            d. unlinks the 'Undefined' department from him/her
+        5. adds the updated Author objects to a list and return it
+
+    For each faculty, it is assumed that there are at least 1 Scopus ID
+    available. Faculties must also belong to at least 1 department.
+
+    Parameters:
+        session: a session instance of SQLAlchemy session factory to
+        file_path (str): the path to a .csv file containing a list of
+            faculties along with some details
+        dept_file_path (str): the path to a .csv file containing a list
+            of all department & other 'sub-institutes' belonging to the
+            institution
+        institution_id_scp (int): the Scopus ID (Affiliation ID) of the
+            institution
+        encoding (str): encoding to be used when reading the .csv file
+
+    Returns:
+        list: a list of 'Author' objects which now have represent 
+            faculty members of the institution
+    """
+
     faculties_list = []
     faculty_depts = ext_department_process(dept_file_path, encoding)
+
+    # find the institution in the database
     institution = session.query(Institution) \
-        .filter(Institution.id_scp == inst_id) \
+        .filter(Institution.id_scp == institution_id_scp) \
         .first()
-    print(f'INSTITUTION: {institution}, {institution.name}')
-    no_dept = list(filter(lambda d: d.name ==
-                          'Undefined', institution.departments))
-    print(f'Undefined: {no_dept}')
-    if no_dept:
-        no_dept = no_dept[0]
-    print(
-        f'Undefined: {no_dept}, {no_dept.name}, {no_dept.abbreviation}, {no_dept.institution.name}')
+
+    if not institution:
+        return faculties_list
+
+    # find the 'Undefined' department within the institution
+    no_dept = session.query(Department) \
+        .with_parent(institution, Institution.departments) \
+        .filter(Department.name == 'Undefined') \
+        .first()
+
     with io.open(file_path, 'r', encoding=encoding) as csvFile:
         reader = csv.DictReader(csvFile)
         for row in reader:
             nullify(row)
             keys = row.keys()
-            if not row['Scopus']:
+            if not row['Scopus']:  # faculty's Scopus ID not known: can't go on
                 continue
-            faculty_id_scp = [int(id_scp)
-                              for id_scp in row['Scopus'].split(',') if id_scp][0]
-            print(f'faculty_id_scp: {faculty_id_scp}')
-            # for now, only use the first author scopus id
+            if not row['Departments']:  # faculty's dept. not known: can't go on
+                continue
+
+            # some faculties may have more than 1 Scopus ID, but for now,
+            # we only use the first one
+            faculty_id_scp = int(row['Scopus'].split(',')[0])
             faculty = session.query(Author) \
                 .filter(Author.id_scp == faculty_id_scp) \
                 .first()
-            if not faculty:
+            if not faculty:  # faculty not found in the database: can't to go on
                 continue
-            print(f'FACULTY: {faculty}, {faculty.first}, {faculty.last}')
+
+            # adding faculty details
             sex = key_get(row, keys, 'Sex')
             if sex in ['M', 'F']:
                 faculty.sex = sex.lower()
             faculty.type = 'Faculty'
             faculty.rank = key_get(row, keys, 'Rank')
 
+            # adding faculty profiles
             if row['Email']:
                 for email in row['Email'].split(','):
                     if not email:
@@ -636,51 +685,58 @@ def ext_faculty_process(session, file_path, dept_file_path, inst_id, encoding='u
             if row['Page']:
                 faculty.profiles.append(
                     Author_Profile(address=row['Page'], type='Personal Website'))
-            print()
-            print([[prof.address, prof.type] for prof in faculty.profiles])
-            print()
+
+            # adding the departments that the faculty belongs to
             for dept in row['Departments'].split(','):
                 if not dept:
                     continue
-                department = list(filter(lambda d: d.abbreviation ==
-                                         dept, institution.departments))
-                print(f'DEPARTMENT: {department}')
-                if department:
-                    department = department[0]
-                    print(
-                        f'DEPARTMENT already created: {department}, {department.name}, {department.abbreviation}')
-                else:
+                department = session.query(Department) \
+                    .with_parent(institution, Institution.departments) \
+                    .filter(Department.abbreviation == dept) \
+                    .first()
+                if not department:  # department not found, let's create one
                     department = Department(
                         abbreviation=dept,
                         name=faculty_depts[dept]['name'],
                         type=faculty_depts[dept]['type']
                     )
                     institution.departments.append(department)
-                    print(
-                        f'DEPARTMENT Added + Institution: {department}, {department.name}, {department.abbreviation}')
 
                 faculty.departments.append(department)
-                print([[d.name, d.abbreviation, d.institution.name]
-                       for d in faculty.departments])
 
+            # now that the faculty's departments are known, we can safely
+            # unlink the initial 'Undefined' department from that faculty
+            # NOTE: Some authors might belong to several institutions at
+            # the same time. This means that they might have 'Undefined'
+            # departments from their other institutions.
             if no_dept in faculty.departments:
                 faculty.departments.remove(no_dept)
-                print()
-                print('After remove:')
-                print([[d.name, d.abbreviation, d.institution.name]
-                       for d in faculty.departments])
+
             faculties_list.append(faculty)
-            print('-----------------------------------------------------------')
     return faculties_list
 
 
-def ext_department_process(file_path, encoding='utf-8-sig'):
+def ext_department_process(file_path: str, encoding='utf-8-sig'):
+    """Returns a dictionary of department data
+
+    This function is a helper tool for the function ext_faculty_process.
+    It returns a dictionary of department data which will be used to
+    assign the departments of each faculty member in the institution.
+
+    Parameters:
+        file_path (str): the path to a .csv file containing a list of
+            faculties along with some details
+        encoding (str): encoding to be used when reading the .csv file
+
+    Returns:
+        dict: a dictionary with the following format:
+            {dept_abbreviation: {name: dept_full_name, type: dept_type}}
+    """
+
     departments = {}
     with io.open(file_path, 'r', encoding=encoding) as csvFile:
         reader = csv.DictReader(csvFile)
         for row in reader:
             departments[row['Abbreviation']] = {
-                'name': row['Full Name'],
-                'type': row['Type']
-            }
+                'name': row['Full Name'], 'type': row['Type']}
     return departments
