@@ -64,21 +64,5 @@ sources1 = session.query(Source).join(Country) \
     .filter(Source.publisher.contains('Sharif')) \
     .all()
 
-
-print('-----')
-print(len(sources1), type(sources1))
-print(sources1[0].id_scp, sources1[0].title)
-print()
-# for s in range(12, 20):
-#     print(f'{sources1[s].id_scp}\t {sources1[s].title}')
-#     print(f'{sources2[s].id_scp}\t {sources2[s].title}')
-#     print()
-
-papers1 = session.query(Paper) \
-    .with_parent(sources1[0], Source.papers) \
-    .filter(extract('year',  Paper.date) == 2015) \
-    .all()
-
-print(type(session))
-print(type(papers), len(papers))
-print(papers[0].id_scp, papers[0].title, papers[0].source.title)
+p = session.query(Paper).first()
+print(p.eid, p.id_scp)

@@ -52,16 +52,16 @@ def paper_process(session, data: dict, retrieval_time: str, keys=None):
     if not keys:
         keys = data.keys()
 
-    # there are several links included in the paper's JSON file, we only
-    # need a specific one tagged 'scopus'
+    # There are several links included in the paper's JSON file, we only
+    # need a specific one tagged 'scopus'.
     paper_url = None
     for link in data['link']:
         if link['@ref'] == 'scopus':
             paper_url = link['@href']
             break
 
-    # an upstream function already confirmed that the paper does have a
-    # Scopus ID, otherwise we couldn't go on
+    # An upstream function already confirmed that the paper does have a
+    # Scopus ID, otherwise we couldn't go on.
     paper_id_scp = int(data['dc:identifier'].split(':')[1])
     paper = session.query(Paper) \
         .filter(Paper.id_scp == paper_id_scp) \
@@ -77,18 +77,20 @@ def paper_process(session, data: dict, retrieval_time: str, keys=None):
                 .filter(Paper.doi == doi) \
                 .first()
     if not paper:
+        # The default argument for the 'key_get' function is because of the
+        # database's 'not null' constraint on that column(s).
         paper = Paper(
             id_scp=paper_id_scp,
-            eid=key_get(data, keys, 'eid'),
+            eid=key_get(data, keys, 'eid', default=f'2-s2.0-{paper_id_scp}'),
             title=strip(
-                key_get(data, keys, 'dc:title'),
+                key_get(data, keys, 'dc:title', default='NOT AVAILABLE'),
                 max_length=512, accepted_chars=''
             ),  # yeah... some paper titles are even longer than 512 chars!
-            type=key_get(data, keys, 'subtype'),
+            type=key_get(data, keys, 'subtype', default='na'),
             type_description=key_get(data, keys, 'subtypeDescription'),
             abstract=key_get(data, keys, 'dc:description'),
             total_author=key_get(data, keys, 'author-count'),
-            open_access=int(key_get(data, keys, 'openaccess')),
+            open_access=int(key_get(data, keys, 'openaccess', default=0)),
             cited_cnt=key_get(data, keys, 'citedby-count'),
             url=paper_url,
             article_no=key_get(data, keys, 'article-number'),
@@ -116,14 +118,14 @@ def paper_process(session, data: dict, retrieval_time: str, keys=None):
 
     # NOTE: this is an 'all-or-nothing' check, which could cause problems
     if not paper.authors:
-        authors_list = author_process(session, data, log=False)
+        authors_list = author_process(session, data)
         if authors_list:
             for auth in authors_list:
                 # using the SQLAlchemy's Association Object
                 paper_author = Paper_Author(author_no=auth[0])
                 paper_author.author = auth[1]
                 paper.authors.append(paper_author)
-    
+
     return paper
 
 
@@ -150,6 +152,7 @@ def keyword_process(session, data: dict, keys=None, separator: str = '|'):
         list: a list of unique 'Keyword' objects to be added to a 
             'Paper' object
     """
+
     keywords_list = []
     raw_keywords = key_get(data, keys, 'authkeywords')
     if raw_keywords:
@@ -194,6 +197,7 @@ def source_process(session, data: dict, keys=None):
     Returns:
         Source: a single 'Source' object to be added to a 'Paper' object
     """
+
     source = None
     source_id_scp = key_get(data, keys, 'source-id')
     if not source_id_scp:  # data doesn't have Scopus Source ID: can't go on
@@ -204,14 +208,13 @@ def source_process(session, data: dict, keys=None):
         .filter(Source.id_scp == source_id_scp) \
         .first()
     if not source:  # source not in database, let's create one
-        title = key_get(data, keys, 'prism:publicationName')
-        if not title:  # database has a 'not null' constraint on source title
-            title = 'NOT AVAILABLE'
-
-        # strips issn, e_issn, and isbn from any non-alphanumeric chars
+        # The default argument for the 'key_get' function is because of the
+        # database's 'not null' constraint on that column(s).
+        # We will strip issn, e_issn, and isbn from any non-alphanumeric chars.
         source = Source(
             id_scp=source_id_scp,
-            title=title,
+            title=key_get(
+                data, keys, 'prism:publicationName', default='NOT AVAILABLE'),
             type=key_get(data, keys, 'prism:aggregationType'),
             issn=strip(key_get(data, keys, 'prism:issn'), max_length=8),
             e_issn=strip(key_get(data, keys, 'prism:eIssn'), max_length=8),
@@ -244,20 +247,50 @@ def fund_process(session, data: dict, keys=None):
 
 
 def author_process(session, data: dict):
+    """Returns a list of Author objects to be added to a Paper object
+
+    Receives a dictionary containing information about a paper and 
+    extracts the author's info from it, in the form of a list of Author
+    objects.
+
+    For each author mentioned in the paper, the function tries to find
+    that author in the database. Failing that, it then attempts to 
+    create an 'Author' object and append the authors Scopus profile to 
+    that object using a 'Author_Profile' object.
+
+    The function then retrieves a list of Scopus Affiliation IDs for the
+    current author and for each affiliation (institution), calls the
+    'institution_process' helper function to get the repective 
+    institution and department objects for that author.
+
+    At the end, the function returns a list of authors, all of them 
+    having profiles, institutions, and departments.
+
+    Parameters:
+        session: a session instance of SQLAlchemy session factory to
+            interact with the database
+        data (dict): a pre-checked dictionary containing information 
+            about a paper registered in the Scopus database
+
+    Returns:
+        list: a list of 'Author' objects to be added to a 'Paper' object
+    """
+
     authors_list = []
+    if not data['author']:  # data doesn't have any author info: can't go on
+        return authors_list
+
     author_ids = []
     new_institutions = []
     author_url = 'https://www.scopus.com/authid/detail.uri?authorId='
-    if not data['author']:  # data doesn't have any author info: can't go on
-        return authors_list
-    
+
     for auth in data['author']:
         keys = auth.keys()
         author_id_scp = key_get(auth, keys, 'authid')
         if not author_id_scp:  # Scopus Author ID not found: go to next author
             continue
         author_id_scp = int(author_id_scp)
-        
+
         # In some cases, the name of an author is repeated more than once
         # in the paper data dictionary. The 'author_ids' variable is used
         # to make a unique list of authors for each paper. Note that this
@@ -285,8 +318,9 @@ def author_process(session, data: dict):
                 type='Scopus Profile',
             )
             author.profiles.append(author_profile)
-        
+
         # get a list of all institution ids for the author in the paper
+        # function 'key_get' with argument 'many=True' returns a list of integers
         inst_ids = key_get(auth, keys, 'afid', many=True)
         if inst_ids:
             for inst_id in inst_ids:
@@ -295,24 +329,61 @@ def author_process(session, data: dict):
                 # to-be-added institutions so that we don't try to add
                 # the same institution to the database twice. The variable
                 # 'new_institutions' is used to acheive this.
-                [institution, department] = institution_process(
+                (institution, department) = institution_process(
                     session, data, inst_id, new_institutions)
-                
+
                 if department:
                     author.departments.append(department)
                 if institution:  # TODO: is this the best way to check? Test.
                     if institution not in new_institutions:
                         new_institutions.append(institution)
-                    
+
         authors_list.append([author_no, author])
     return authors_list
 
 
-def institution_process(session, data: dict, inst_id: int, new_institutions: list = [], log: bool = False):
-    if log:
-        print('Processing institutions and departments')
-    department = None
+def institution_process(session, data: dict, inst_id: int,
+                        new_institutions: list = []):
+    """Returns a tuple of (Institution, Department) objects
+
+    Receives a dictionary containing information about a paper and 
+    extracts the author's affiliation info from it, using the provided 
+    'inst_id' (Scopus Affiliation ID).
+
+    The function loops through the affiliation data of the paper and if
+    it finds a matching Scopus ID, it will try to find the institution
+    in (1) the database, (2) the new_institutions list, or (3) create
+    it.
+
+    For new institutions, the function creates and appends a Department
+    object to it. Since the Scopus API does not provide any information
+    regarding the author's department within the institution, the 
+    function creates a pseudo-department named 'Undefined'.
+
+    Authors' true departments can be reconciled later on, using 
+    third-party data.
+
+    In the end, the function returns a tuple in the format:
+    (Institution, Department) to be added to the current Author object.
+
+    Parameters:
+        session: a session instance of SQLAlchemy session factory to
+            interact with the database
+        data (dict): a pre-checked dictionary containing information 
+            about a paper registered in the Scopus database
+
+    Returns:
+        tuple: in the format (Institution, Department) to be added to 
+            the current Author
+    """
+    
     institution = None
+    department = None
+    if not data['affiliation']:  # no institution info available: can't go on
+        return (institution, department)
+
+    # from the list of all institutions in a paper, select the one relating to
+    # the current author (using Affiliation ID)
     for affil in data['affiliation']:
         institution_id_scp = int(affil['afid'])
         if inst_id != institution_id_scp:
@@ -323,51 +394,49 @@ def institution_process(session, data: dict, inst_id: int, new_institutions: lis
         institution = session.query(Institution) \
             .filter(Institution.id_scp == institution_id_scp) \
             .first()
-        if not institution:
-            if log:
-                print('INSTITUTION not found in DB')
+        if not institution:  # institution not in database
+            # Before creating a new institution, search for it in the
+            # 'new_institutions' list, which contain institutions that are going
+            # to be added to the database (but not added yet).
             institution = next(
                 filter(lambda inst: inst.id_scp == inst_id, new_institutions),
                 None
             )
-            if institution:
-                department = session.query(Department) \
-                    .with_parent(institution, Institution.departments) \
-                    .filter(Department.name == 'Undefined') \
-                    .first()
-                if log:
-                    print(
-                        f'INSTITUTION {institution.id_scp} just created but not yet added to DB. Using it again.')
-            else:
-                institution = Institution(
-                    id_scp=institution_id_scp,
-                    name=key_get(affil, keys, 'affilname'),
-                    city=key_get(affil, keys, 'affiliation-city'),
-                )
-                country_name = country_names(
-                    key_get(affil, keys, 'affiliation-country'))
-                if country_name:
-                    country = session.query(Country) \
-                        .filter(Country.name == country_name) \
-                        .first()
-                    institution.country = country  # country either found or None
-
-                department = Department(
-                    name='Undefined', abbreviation='No Dept.')
-                institution.departments.append(department)
-                if log:
-                    print(
-                        f'INSTITUTION not found in DB. Added + Department: {institution.id_scp}')
-        else:
+        if institution:  # institution found in 'new_institutions' list!
+            # Institutions in the database or the 'new_institutions' list should
+            # already have an 'Undefined' department.
             department = session.query(Department) \
                 .with_parent(institution, Institution.departments) \
                 .filter(Department.name == 'Undefined') \
                 .first()
-            if log:
-                print(
-                    f'INSTITUTION already exists: {institution.id_scp}. Department: {department}, {department.name}')
+        if not institution:  # inst. not in 'new_institutions' list, creating one
+            # The default argument for the 'key_get' function is because of the
+            # database's 'not null' constraint on that column(s).
+            institution = Institution(
+                id_scp=institution_id_scp,
+                name=key_get(affil, keys, 'affilname', default='NOT AVAILABLE'),
+                city=key_get(affil, keys, 'affiliation-city'),
+            )
+            country_name = country_names(
+                key_get(affil, keys, 'affiliation-country'))
+            if country_name:
+                country = session.query(Country) \
+                    .filter(Country.name == country_name) \
+                    .first()
+                institution.country = country  # country either found or None
+
+        if not department:
+            # Either an institution already in 'new_institutions' list or
+            # the database doesn't have an 'Undefined' department, or we are yet
+            # to create an 'Undefined' department for a newly created institution
+            # (which is more likely the case):
+            department = Department(name='Undefined', abbreviation='No Dept.')
+            institution.departments.append(department)
+
+        # At this point we have both the institution and the department for the
+        # current author in the current paper. No need to continue the loop.
         break
-    return [institution, department]
+    return (institution, department)
 
 
 def ext_country_process(session, file_path: str, encoding: str = 'utf-8-sig'):
@@ -613,9 +682,10 @@ def ext_source_metric_process(session, file_path: str, file_year: int,
             source = session.query(Source) \
                 .filter(Source.id_scp == source_id_scp) \
                 .first()
-            if not source:  # 'cnt' is used to know if a row should be processed
+            if not source:
                 source = Source(
-                    id_scp=source_id_scp, title=key_get(row, keys, 'Title'),
+                    id_scp=source_id_scp,
+                    title=key_get(row, keys, 'Title', default='NOT AVAILABLE'),
                     type=key_get(row, keys, 'Type'),
                     issn=None, e_issn=None, isbn=None,
                     publisher=key_get(row, keys, 'Publisher'),
