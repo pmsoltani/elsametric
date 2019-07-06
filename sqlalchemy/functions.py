@@ -31,12 +31,13 @@ def data_inspector(data:dict):
     return warnings
 
 
-def key_get(data:dict, keys, key:str, many:bool=False):
+def key_get(data:dict, keys, key:str, many:bool=False, default=None):
+    result = None
     if key in keys:
         result = data[key]
-    else:
-        result = None
     
+    if not result:
+        return default
     if type(result) == list:
         if not many:
             return result[0]['$']
