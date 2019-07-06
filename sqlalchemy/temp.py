@@ -12,94 +12,206 @@ from institution import Institution
 from department import Department
 from country import Country
 from subject import Subject
+from associations import Paper_Author
 from paper import Paper
 
 
-def paper_process(session, data, retrieval_time, keys=None):
+def paper_process(session, data: dict, retrieval_time: str, keys=None):
+    """Imports a paper to database
+
+    Receives a dictionary containing information about a paper and 
+    creates a 'Paper' object to be added to the database, if not found.
+
+    Is is assumed that an upstream check has been performed on the input
+    data and the availablity of some key nodes in the dictionary (such 
+    as paper's Scopus ID) has been confirmed.
+
+    The function performs other checks on the data as well, such as 
+    restricting the length of some of the string attributes (including 
+    paper title).
+
+    At the end, the Paper object will be examined to check whether it 
+    has source, fund, keyword, and author information. If not present, 
+    each of these will be added to the Paper object using separate 
+    functions.
+
+    Parameters:
+        session: a session instance of SQLAlchemy session factory to
+            interact with the database
+        data (dict): a pre-checked dictionary containing information 
+            about a paper registered in the Scopus database
+        retrieval_time (str): a 'datatime' string pointing to the time
+            that the data was retrieved from the Scopus API
+        keys: the keys from the data dictionary, to be used by the 
+            key_get helper function
+
+    Returns:
+        Paper: a 'Paper' object to be added to the database
+    """
+
     if not keys:
         keys = data.keys()
 
-    paper_url = ''
+    # there are several links included in the paper's JSON file, we only
+    # need a specific one tagged 'scopus'
+    paper_url = None
     for link in data['link']:
         if link['@ref'] == 'scopus':
             paper_url = link['@href']
             break
 
+    # an upstream function already confirmed that the paper does have a
+    # Scopus ID, otherwise we couldn't go on
     paper_id_scp = int(data['dc:identifier'].split(':')[1])
     paper = session.query(Paper) \
         .filter(Paper.id_scp == paper_id_scp) \
         .first()
-    if not paper:
-        # double check with DOI
+    if not paper:  # paper not found in the database
+        # There have been cases were the same paper where repeated in
+        # the Scopus database twice, with different Scopus IDs. In order
+        # to make sure that the paper doesn't exist in our database, we
+        # can double check with DOI
         doi = key_get(data, keys, 'prism:doi')
         if doi:
             paper = session.query(Paper) \
                 .filter(Paper.doi == doi) \
                 .first()
-        if not paper:
-            paper = Paper(
-                id_scp=paper_id_scp,
-                eid=key_get(data, keys, 'eid'),
-                title=strip(
-                    key_get(data, keys, 'dc:title'),
-                    max_length=512, accepted_chars=''
-                ),
-                type=key_get(data, keys, 'subtype'),
-                type_description=key_get(data, keys, 'subtypeDescription'),
-                abstract=key_get(data, keys, 'dc:description'),
-                total_author=key_get(data, keys, 'author-count'),
-                open_access=int(key_get(data, keys, 'openaccess')),
-                cited_cnt=key_get(data, keys, 'citedby-count'),
-                url=paper_url,
-                article_no=key_get(data, keys, 'article-number'),
-                doi=key_get(data, keys, 'prism:doi'),
-                volume=strip(
-                    key_get(data, keys, 'prism:volume'),
-                    max_length=45, accepted_chars=''
-                ),
-                issue=key_get(data, keys, 'prism:issueIdentifier'),
-                date=key_get(data, keys, 'prism:coverDate'),
-                page_range=key_get(data, keys, 'prism:pageRange'),
-                retrieval_time=retrieval_time,
-            )
+    if not paper:
+        paper = Paper(
+            id_scp=paper_id_scp,
+            eid=key_get(data, keys, 'eid'),
+            title=strip(
+                key_get(data, keys, 'dc:title'),
+                max_length=512, accepted_chars=''
+            ),  # yeah... some paper titles are even longer than 512 chars!
+            type=key_get(data, keys, 'subtype'),
+            type_description=key_get(data, keys, 'subtypeDescription'),
+            abstract=key_get(data, keys, 'dc:description'),
+            total_author=key_get(data, keys, 'author-count'),
+            open_access=int(key_get(data, keys, 'openaccess')),
+            cited_cnt=key_get(data, keys, 'citedby-count'),
+            url=paper_url,
+            article_no=key_get(data, keys, 'article-number'),
+            doi=key_get(data, keys, 'prism:doi'),
+            volume=strip(
+                key_get(data, keys, 'prism:volume'),
+                max_length=45, accepted_chars=''
+            ),
+            issue=key_get(data, keys, 'prism:issueIdentifier'),
+            date=key_get(data, keys, 'prism:coverDate'),
+            page_range=key_get(data, keys, 'prism:pageRange'),
+            retrieval_time=retrieval_time,
+        )
+
+    if not paper.source:
+        paper.source = source_process(session, data, keys)
+
+    # FIXME: fund_procees needs re-thinking
+    # if not paper.fund:
+    #     paper.fund = fund_process(session, data, keys)
+
+    # NOTE: this is an 'all-or-nothing' check, which could cause problems
+    if not paper.keywords:
+        paper.keywords = keyword_process(session, data, keys)
+
+    # NOTE: this is an 'all-or-nothing' check, which could cause problems
+    if not paper.authors:
+        authors_list = author_process(session, data, log=False)
+        if authors_list:
+            for auth in authors_list:
+                # using the SQLAlchemy's Association Object
+                paper_author = Paper_Author(author_no=auth[0])
+                paper_author.author = auth[1]
+                paper.authors.append(paper_author)
+    
     return paper
 
 
-def keyword_process(session, data, keys=None, separator: str = '|'):
-    keywords_list = []
-    author_keywords = key_get(data, keys, 'authkeywords')
-    if author_keywords:
-        terms_list = [key.strip() for key in author_keywords.split(separator)]
-        # making sure unique keywords... case insensitive
-        seen, result = set(), []
-        for item in terms_list:
-            if item.lower() not in seen:
-                seen.add(item.lower())
-                result.append(item)
-        terms = result
+def keyword_process(session, data: dict, keys=None, separator: str = '|'):
+    """Returns a list of Keyword objects to be added to a Paper object
 
-        for term in terms:
+    Receives a dictionary containing information about a paper and 
+    extracts the paper's keywords from it. 
+
+    The function then adds all unique keywords to a list which will be
+    added to the upstream Paper object.
+
+    Parameters:
+        session: a session instance of SQLAlchemy session factory to
+            interact with the database
+        data (dict): a pre-checked dictionary containing information 
+            about a paper registered in the Scopus database
+        keys: the keys from the data dictionary, to be used by the 
+            key_get helper function
+        separator (str): used to split the string from Scopus API which 
+            has concatenated the keywords using the '|' character
+
+    Returns:
+        list: a list of unique 'Keyword' objects to be added to a 
+            'Paper' object
+    """
+    keywords_list = []
+    raw_keywords = key_get(data, keys, 'authkeywords')
+    if raw_keywords:
+        # Some papers have the same keywords repeated more than once,
+        # which can cause problem, since the database has a unique constraint.
+        unique_keys_set = set()
+        keywords = []
+        for key in raw_keywords.split(separator):
+            key = key.strip()
+            if not key:
+                continue
+
+            if key.lower() not in unique_keys_set:
+                unique_keys_set.add(key.lower())
+                keywords.append(key)
+
+        # at this point, all keywords are stripped and unique within the paper
+        for key in keywords:
             keyword = session.query(Keyword) \
-                .filter(Keyword.keyword == term) \
+                .filter(Keyword.keyword == key) \
                 .first()
-            if not keyword:
-                keyword = Keyword(keyword=term)
+            if not keyword:  # keyword not in database, let's add it
+                keyword = Keyword(keyword=key)
             keywords_list.append(keyword)
     return keywords_list
 
 
-def source_process(session, data, keys=None):
-    if not keys:
-        keys = data.keys()
+def source_process(session, data: dict, keys=None):
+    """Returns a single Source object to be added to a Paper object 
 
-    source_id_scp = int(data['source-id'])
+    Receives a dictionary containing information about a paper and 
+    extracts the paper's source from it. 
+
+    Parameters:
+        session: a session instance of SQLAlchemy session factory to
+            interact with the database
+        data (dict): a pre-checked dictionary containing information 
+            about a paper registered in the Scopus database
+        keys: the keys from the data dictionary, to be used by the 
+            key_get helper function
+
+    Returns:
+        Source: a single 'Source' object to be added to a 'Paper' object
+    """
+    source = None
+    source_id_scp = key_get(data, keys, 'source-id')
+    if not source_id_scp:  # data doesn't have Scopus Source ID: can't go on
+        return source
+
+    source_id_scp = int(source_id_scp)
     source = session.query(Source) \
         .filter(Source.id_scp == source_id_scp) \
         .first()
-    if not source:
+    if not source:  # source not in database, let's create one
+        title = key_get(data, keys, 'prism:publicationName')
+        if not title:  # database has a 'not null' constraint on source title
+            title = 'NOT AVAILABLE'
+
+        # strips issn, e_issn, and isbn from any non-alphanumeric chars
         source = Source(
             id_scp=source_id_scp,
-            title=key_get(data, keys, 'prism:publicationName'),
+            title=title,
             type=key_get(data, keys, 'prism:aggregationType'),
             issn=strip(key_get(data, keys, 'prism:issn'), max_length=8),
             e_issn=strip(key_get(data, keys, 'prism:eIssn'), max_length=8),
@@ -108,7 +220,7 @@ def source_process(session, data, keys=None):
     return source
 
 
-def fund_process(session, data, keys=None):
+def fund_process(session, data: dict, keys=None):
     if not keys:
         keys = data.keys()
 
@@ -131,70 +243,72 @@ def fund_process(session, data, keys=None):
     return fund
 
 
-def author_process(session, data, log=False):
+def author_process(session, data: dict):
     authors_list = []
-    auth_ids = []
+    author_ids = []
     new_institutions = []
+    author_url = 'https://www.scopus.com/authid/detail.uri?authorId='
+    if not data['author']:  # data doesn't have any author info: can't go on
+        return authors_list
+    
     for auth in data['author']:
         keys = auth.keys()
-        author_id_scp = int(auth['authid'])
-        if author_id_scp in auth_ids:  # repeated author in the same paper!
+        author_id_scp = key_get(auth, keys, 'authid')
+        if not author_id_scp:  # Scopus Author ID not found: go to next author
             continue
-        else:
-            auth_ids.append(author_id_scp)
-        if log:
-            print(f'AUTHOR {author_id_scp}')
-        author_no = int(auth['@seq'])
+        author_id_scp = int(author_id_scp)
+        
+        # In some cases, the name of an author is repeated more than once
+        # in the paper data dictionary. The 'author_ids' variable is used
+        # to make a unique list of authors for each paper. Note that this
+        # would cause the 'total_author' attribute of the paper to be wrong.
+
+        # TODO: think of a way of correcting the Paper.total_author attribute
+        if author_id_scp in author_ids:
+            continue
+        author_ids.append(author_id_scp)
+
+        author_no = int(auth['@seq'])  # position of author in the paper
         author = session.query(Author) \
             .filter(Author.id_scp == author_id_scp) \
             .first()
-        if not author:
+        if not author:  # author not in database, let's create one
             author = Author(
                 id_scp=author_id_scp,
                 first=key_get(auth, keys, 'given-name'),
                 last=key_get(auth, keys, 'surname'),
                 initials=key_get(auth, keys, 'initials')
             )
+            # add the first profile for this author
             author_profile = Author_Profile(
-                address=f'https://www.scopus.com/authid/detail.uri?authorId={author_id_scp}',
+                address=author_url + str(author_id_scp),
                 type='Scopus Profile',
             )
             author.profiles.append(author_profile)
-            inst_ids = key_get(auth, keys, 'afid', many=True)
-            if log:
-                print(
-                    f'AUTHOR not found in DB. Added + Profile. inst_id: {inst_ids}')
-        else:
-            inst_ids = key_get(auth, keys, 'afid', many=True)
-            if log:
-                print(f'AUTHOR already exists. inst_id: {inst_ids}')
-
+        
+        # get a list of all institution ids for the author in the paper
+        inst_ids = key_get(auth, keys, 'afid', many=True)
         if inst_ids:
             for inst_id in inst_ids:
+                # Since all of the institutions mentioned in a paper are
+                # added to the database together, we must have a list of
+                # to-be-added institutions so that we don't try to add
+                # the same institution to the database twice. The variable
+                # 'new_institutions' is used to acheive this.
                 [institution, department] = institution_process(
-                    session, data, inst_id, new_institutions, log=log)
+                    session, data, inst_id, new_institutions)
+                
                 if department:
                     author.departments.append(department)
-
-                if institution:
-                    if not new_institutions:
+                if institution:  # TODO: is this the best way to check? Test.
+                    if institution not in new_institutions:
                         new_institutions.append(institution)
-                    else:
-                        if institution.id_scp not in [inst.id_scp for inst in new_institutions]:
-                            new_institutions.append(institution)
-
-                if log:
-                    print(f'Department: {department}')
-            if log:
-                print(f'All AUTHOR departments: {author.departments}')
-        if log:
-            print()
+                    
         authors_list.append([author_no, author])
-    # as of now, if there are repeated authors in the same paper, "total_author" won't be updated
     return authors_list
 
 
-def institution_process(session, data, inst_id, new_institutions=[], log=False):
+def institution_process(session, data: dict, inst_id: int, new_institutions: list = [], log: bool = False):
     if log:
         print('Processing institutions and departments')
     department = None
@@ -297,7 +411,7 @@ def ext_country_process(session, file_path: str, encoding: str = 'utf-8-sig'):
             country = session.query(Country) \
                 .filter(Country.name == country_name) \
                 .first()
-            if not country:  # country not in db, let's create it
+            if not country:  # country not in database, let's create it
                 country = Country(
                     name=country_name, domain=row['domain'].strip(),
                     region=row['region'].strip(),
@@ -347,7 +461,7 @@ def ext_subject_process(session, file_path: str, encoding: str = 'utf-8-sig'):
             subject = session.query(Subject) \
                 .filter(Subject.asjc == asjc) \
                 .first()
-            if not subject:  # subject not in db, let's create it
+            if not subject:  # subject not in database, let's create it
                 subject = Subject(
                     asjc=asjc,
                     top=row['top'], middle=row['middle'], low=row['low']
@@ -411,7 +525,7 @@ def ext_source_process(session, file_path: str, src_type: str = 'Journal',
             source = session.query(Source) \
                 .filter(Source.id_scp == source_id_scp) \
                 .first()
-            if not source:  # source not in db, let's create it
+            if not source:  # source not in database, let's create it
                 if src_type == 'Journal':
                     source = Source(
                         id_scp=row['id_scp'], title=row['title'],
