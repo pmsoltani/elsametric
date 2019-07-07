@@ -1,7 +1,9 @@
 import io
 import csv
+import json
+import datetime
 
-from functions import key_get, strip, country_names, nullify
+from functions import data_inspector, key_get, strip, country_names, nullify
 from keyword_ import Keyword
 from source import Source
 from source_metric import Source_Metric
@@ -14,6 +16,49 @@ from country import Country
 from subject import Subject
 from associations import Paper_Author
 from paper import Paper
+
+
+def file_process(session, file_path, encoding, retrieval_time):
+    bad_papers = []
+    papers_list = []
+    minor_warnings = [
+        'eid', 'dc:title', 'subtype', 'author-count', 'openaccess', 
+        'citedby-count', 'source-id', 'prism:publicationName', 'author:afid'
+    ]
+    with io.open(file_path, 'r', encoding=encoding) as raw:
+        data = json.load(raw)
+        data = data['search-results']['entry']
+        
+        for cnt, entry in enumerate(data):
+            warnings = data_inspector(entry)
+            try:
+                keys = entry.keys()
+                if 'dc:identifier' in warnings:
+                    # paper has no Scopus ID, can't go on
+                    bad_papers.append(
+                        {'paper_no': cnt,
+                         'problem': [warn for warn in warnings]})
+                    continue
+                
+                for warn in minor_warnings:
+                    if warn in warnings:  # minor warning! not important
+                        
+                if warnings:
+                    bad_papers.append(
+                        {'paper_no': cnt, 'id_scp': entry['dc:identifier'], 
+                        'problem': [warn for warn in warnings]}
+                    )
+                    continue
+                
+                papers_list.append(
+                    paper_process(session, entry, retrieval_time, keys)
+                ) 
+
+            except Exception as err:
+                bad_papers.append(
+                    {'paper_no': cnt, 'id_scp': entry['dc:identifier'],
+                     'problem': [f'ERROR! Type: {type(err)}, Message: {err}']}
+                )
 
 
 def paper_process(session, data: dict, retrieval_time: str, keys=None):
