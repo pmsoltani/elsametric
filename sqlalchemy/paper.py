@@ -24,7 +24,7 @@ class Paper(Base):
         BOOLEAN(create_constraint=True, name='open_access_check'), 
         nullable=False
     )
-    cited_cnt = Column(SMALLINT(unsigned=True), nullable=False)
+    cited_cnt = Column(SMALLINT(unsigned=True), nullable=True)
     url = Column(VARCHAR(256), nullable=False, unique=True)
     article_no = Column(VARCHAR(45), nullable=True)
     date = Column(DATE(), nullable=False)
