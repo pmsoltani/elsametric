@@ -21,9 +21,9 @@ class Fund(Base):
         BIGINT(unsigned=True),
         primary_key=True, autoincrement=True, nullable=False
     )
-    id_scp = Column(VARCHAR(45), nullable=True)
+    id_scp = Column(VARCHAR(256), nullable=True)
     agency = Column(VARCHAR(256), nullable=True)
-    agency_acronym = Column(VARCHAR(20), nullable=True)
+    agency_acronym = Column(VARCHAR(256), nullable=True)
     
     # Relationships
     papers = relationship('Paper', back_populates='fund')
