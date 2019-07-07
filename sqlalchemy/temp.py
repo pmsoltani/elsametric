@@ -1,7 +1,6 @@
 import io
 import csv
 import json
-import datetime
 
 from functions import data_inspector, key_get, strip, country_names, nullify
 from keyword_ import Keyword
@@ -18,47 +17,108 @@ from associations import Paper_Author
 from paper import Paper
 
 
-def file_process(session, file_path, encoding, retrieval_time):
-    bad_papers = []
-    papers_list = []
+def file_process(session, file_path: str, retrieval_time: str,
+                 encoding: str = 'utf8'):
+    """Reads a JSON formatted file and creates 'Paper' objects from it
+
+    This function is the upstream of the 'paper_process' function. It
+    reads a JSON formatted file located on 'file_path' using 'encoding'
+    and then tries to create 'Paper' objects from it using the following
+    steps for each entry:
+        1. Inspect the entry for possible issues such as lack of paper 
+        title, or Scopus ID. If there are any issues (warnings), a list
+        of 'bad_papers' will be updated with the details of the issues.
+        2. Decide it the issues are minor or major. Major errors are the
+        ones that would stop the program from successfully create a 
+        Paper object. Some of these issues include lack of Scopus ID, 
+        author, and affiliation data. Minor issues are those missing
+        data which can be safely replaced with default values; like 
+        paper or source title, which are later on replaced with:
+        'NOT AVAILABLE'. Another example is the open access status of 
+        the paper, which will be defaulted to '0' (closed access).
+        3. After ignoring the minor issues, if there are any warnings
+        left, they would be considered as major and would cause the
+        function to seek out the next paper within the file to process.
+        If however, there are no remaining warnings, the function will
+        attempt to call the 'paper_process' function.
+        4. After iterating through all entries within the file, the 
+        function will return a tuple containing a dict of bad_papers
+        along with the file_path, and the list of created 'Paper' 
+        objects. If there is an exception, the function will create a 
+        report and returns it in a tuple along with an empty list (for
+        Paper objects).
+
+    Parameters:
+        session: a session instance of SQLAlchemy session factory to
+            interact with the database
+        file_path (str): the path to a JSON formatted file exported from
+            Scopus API containing information about some papers
+        retrieval_time (str): a 'datatime' string pointing to the time
+            that the data was retrieved from the Scopus API
+        encoding (str): encoding to be used when reading the JSON file
+
+    Returns:
+        tuple: a tuple containing a dictionary of problems encountered
+            when processing the papers and a list of 'Paper' objects
+    """
+
+    papers_list = []  # a list of 'Paper' objects to be added to the database
+    bad_papers = []  # a list of all papers with warnings
     minor_warnings = [
-        'eid', 'dc:title', 'subtype', 'author-count', 'openaccess', 
-        'citedby-count', 'source-id', 'prism:publicationName', 'author:afid'
-    ]
+        'eid', 'dc:title', 'subtype', 'author-count', 'openaccess',
+        'citedby-count', 'source-id', 'prism:publicationName', 'author:afid']
+
     with io.open(file_path, 'r', encoding=encoding) as raw:
         data = json.load(raw)
         data = data['search-results']['entry']
-        
+
         for cnt, entry in enumerate(data):
             warnings = data_inspector(entry)
+            if warnings:
+                bad_papers.append(
+                    {'#': cnt, 'warnings': [warn for warn in warnings]})
+
+                if 'dc:identifier' in warnings:
+                    # Paper has no Scopus ID, this is a serious problem!
+                    # The only way around it is to use 'eid' (if available):
+                    # eid = 2-s2.0-{Scopus ID}
+                    if 'eid' in warnings:  # 'eid' also not found: can't go on
+                        continue
+
+                    # replace '2-s2.0-' with 'SCOPUS_ID:' to form Scopus ID
+                    entry['dc:identifier'] = entry['eid'] \
+                        .replace('2-s2.0-', 'SCOPUS_ID:')
+                    warnings.remove('dc:identifier')  # warning dealt with
+
+                bad_papers[-1]['id_scp'] = entry['dc:identifier']
+
+                for minor_warning in minor_warnings:
+                    # minor warnings won't cause any problem for the program flow
+                    if minor_warning in warnings:
+                        warnings.remove(minor_warning)
+
+                if warnings:  # any remaining warnings are major: can't go on
+                    continue
+
+            # At this point, we have no warnings. Meaning that either there were
+            # no warnings to begin with, or the program can deal with them.
             try:
                 keys = entry.keys()
-                if 'dc:identifier' in warnings:
-                    # paper has no Scopus ID, can't go on
-                    bad_papers.append(
-                        {'paper_no': cnt,
-                         'problem': [warn for warn in warnings]})
-                    continue
-                
-                for warn in minor_warnings:
-                    if warn in warnings:  # minor warning! not important
-                        
-                if warnings:
-                    bad_papers.append(
-                        {'paper_no': cnt, 'id_scp': entry['dc:identifier'], 
-                        'problem': [warn for warn in warnings]}
-                    )
-                    continue
-                
                 papers_list.append(
-                    paper_process(session, entry, retrieval_time, keys)
-                ) 
+                    paper_process(session, entry, retrieval_time, keys))
 
-            except Exception as err:
-                bad_papers.append(
-                    {'paper_no': cnt, 'id_scp': entry['dc:identifier'],
-                     'problem': [f'ERROR! Type: {type(err)}, Message: {err}']}
-                )
+            except Exception as err:  # uh oh
+                problems = {
+                    'file': file_path,
+                    '#': cnt, 'id_scp': entry['dc:identifier'],
+                    'error_type': type(err), 'error_msg': err,
+                }
+                return (problems, [])  # no need to return the 'papers_list'
+
+    problems = {}
+    if bad_papers:
+        problems = {'file': file_path, 'papers': bad_papers}
+    return (problems, papers_list)
 
 
 def paper_process(session, data: dict, retrieval_time: str, keys=None):
@@ -107,6 +167,7 @@ def paper_process(session, data: dict, retrieval_time: str, keys=None):
 
     # An upstream function already confirmed that the paper does have a
     # Scopus ID, otherwise we couldn't go on.
+    # Scopus ID has the form 'SCOPUS_ID:123456789'. We need the part after colon.
     paper_id_scp = int(data['dc:identifier'].split(':')[1])
     paper = session.query(Paper) \
         .filter(Paper.id_scp == paper_id_scp) \
@@ -277,7 +338,7 @@ def fund_process(session, data: dict, keys=None):
         fund-no: a code-like string
         fund-sponsor: the name of the funding agency
         fund-acr: the acronym of the funding agency
-    
+
     Each of these can be absent from the data. An agency can have many
     funds and a fund-no can belong to multiple agencies. This means that
     the database cannot have a unique constrain on any columns, alone.
@@ -301,7 +362,7 @@ def fund_process(session, data: dict, keys=None):
     if fund_id_scp == 'undefined':
         fund_id_scp = None
     agency = key_get(data, keys, 'fund-sponsor')
-    
+
     fund = None
     if (not fund_id_scp) and (not agency):
         return fund
@@ -322,13 +383,20 @@ def fund_process(session, data: dict, keys=None):
             .first()
     else:
         pass
-    
+
     if not fund:
+        # MySQL's Unique Constraints accept rows with one column being null
+        # and the other have repeated values. So we must change None to 
+        # 'NOT AVAILABLE'. Note that only one of these would change.
+        if not fund_id_scp:
+            fund_id_scp = 'NOT AVAILABLE'
+        if not agency:
+            agency = 'NOT AVAILABLE'
         fund = Fund(
             id_scp=fund_id_scp,
             agency=agency, agency_acronym=agency_acronym
         )
-    
+
     return fund
 
 
@@ -462,7 +530,7 @@ def institution_process(session, data: dict, inst_id: int,
         tuple: in the format (Institution, Department) to be added to 
             the current Author
     """
-    
+
     institution = None
     department = None
     if not data['affiliation']:  # no institution info available: can't go on
@@ -500,7 +568,8 @@ def institution_process(session, data: dict, inst_id: int,
             # database's 'not null' constraint on that column(s).
             institution = Institution(
                 id_scp=institution_id_scp,
-                name=key_get(affil, keys, 'affilname', default='NOT AVAILABLE'),
+                name=key_get(affil, keys, 'affilname',
+                             default='NOT AVAILABLE'),
                 city=key_get(affil, keys, 'affiliation-city'),
             )
             country_name = country_names(
