@@ -139,19 +139,6 @@ for file in files:
                     continue
                 
                 paper = paper_process(session, entry, retrieval_time, keys)
-                
-                if not paper.source:
-                    paper.source = source_process(session, entry, keys)
-                # if not paper.fund:
-                #     paper.fund = fund_process(session, entry, keys)
-                if not paper.keywords:
-                    paper.keywords = keyword_process(session, entry, keys)
-                if not paper.authors:
-                    authors_list = author_process(session, entry, log=False)
-                    for auth in authors_list:
-                        paper_author = Paper_Author(author_no=auth[0])
-                        paper_author.author = auth[1]
-                        paper.authors.append(paper_author)
 
                 session.add(paper)
                 session.commit()
