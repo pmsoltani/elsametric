@@ -108,9 +108,8 @@ def paper_process(session, data: dict, retrieval_time: str, keys=None):
     if not paper.source:
         paper.source = source_process(session, data, keys)
 
-    # FIXME: fund_procees needs re-thinking
-    # if not paper.fund:
-    #     paper.fund = fund_process(session, data, keys)
+    if not paper.fund:
+        paper.fund = fund_process(session, data, keys)
 
     # NOTE: this is an 'all-or-nothing' check, which could cause problems
     if not paper.keywords:
@@ -181,7 +180,7 @@ def keyword_process(session, data: dict, keys=None, separator: str = '|'):
 
 
 def source_process(session, data: dict, keys=None):
-    """Returns a single Source object to be added to a Paper object 
+    """Returns a Source object to be added to a Paper object 
 
     Receives a dictionary containing information about a paper and 
     extracts the paper's source from it. 
@@ -195,7 +194,7 @@ def source_process(session, data: dict, keys=None):
             key_get helper function
 
     Returns:
-        Source: a single 'Source' object to be added to a 'Paper' object
+        Source: a 'Source' object to be added to a 'Paper' object
     """
 
     source = None
@@ -224,6 +223,32 @@ def source_process(session, data: dict, keys=None):
 
 
 def fund_process(session, data: dict, keys=None):
+    """Returns a single Source object to be added to a Paper object 
+
+    Receives a dictionary containing information about a paper and 
+    extracts the paper's funding info from it.
+
+    Funding data from the Scopus API has 3 keys:
+        fund-no: a code-like string
+        fund-sponsor: the name of the funding agency
+        fund-acr: the acronym of the funding agency
+    
+    Each of these can be absent from the data. An agency can have many
+    funds and a fund-no can belong to multiple agencies. This means that
+    the database cannot have a unique constrain on any columns, alone.
+
+    Parameters:
+        session: a session instance of SQLAlchemy session factory to
+            interact with the database
+        data (dict): a pre-checked dictionary containing information 
+            about a paper registered in the Scopus database
+        keys: the keys from the data dictionary, to be used by the 
+            key_get helper function
+
+    Returns:
+        Fund: a 'Fund' object to be added to a 'Paper' object
+    """
+
     if not keys:
         keys = data.keys()
 
@@ -231,18 +256,34 @@ def fund_process(session, data: dict, keys=None):
     if fund_id_scp == 'undefined':
         fund_id_scp = None
     agency = key_get(data, keys, 'fund-sponsor')
+    
+    fund = None
+    if (not fund_id_scp) and (not agency):
+        return fund
+
     agency_acronym = key_get(data, keys, 'fund-acr')
 
-    fund = None
-    if fund_id_scp or agency:
+    if fund_id_scp and agency:
         fund = session.query(Fund) \
             .filter(Fund.id_scp == fund_id_scp, Fund.agency == agency) \
             .first()
-        if not fund:
-            fund = Fund(
-                id_scp=fund_id_scp,
-                agency=agency, agency_acronym=agency_acronym
-            )
+    elif fund_id_scp:
+        fund = session.query(Fund) \
+            .filter(Fund.id_scp == fund_id_scp) \
+            .first()
+    elif agency:
+        fund = session.query(Fund) \
+            .filter(Fund.agency == agency) \
+            .first()
+    else:
+        pass
+    
+    if not fund:
+        fund = Fund(
+            id_scp=fund_id_scp,
+            agency=agency, agency_acronym=agency_acronym
+        )
+    
     return fund
 
 
