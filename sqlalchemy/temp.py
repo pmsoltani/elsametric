@@ -548,7 +548,13 @@ def institution_process(session, data: dict, inst_id: int,
         institution = session.query(Institution) \
             .filter(Institution.id_scp == institution_id_scp) \
             .first()
-        if not institution:  # institution not in database
+        if institution:  # institution found in database
+            # It should already have an 'Undefined' department.
+            department = session.query(Department) \
+                .with_parent(institution, Institution.departments) \
+                .filter(Department.name == 'Undefined') \
+                .first()
+        else:  # institution not in database
             # Before creating a new institution, search for it in the
             # 'new_institutions' list, which contain institutions that are going
             # to be added to the database (but not added yet).
@@ -556,30 +562,26 @@ def institution_process(session, data: dict, inst_id: int,
                 filter(lambda inst: inst.id_scp == inst_id, new_institutions),
                 None
             )
-        if institution:  # institution found in 'new_institutions' list!
-            # Institutions in the database or the 'new_institutions' list should
-            # already have an 'Undefined' department.
-            department = session.query(Department) \
-                .with_parent(institution, Institution.departments) \
-                .filter(Department.name == 'Undefined') \
-                .first()
-        if not institution:  # inst. not in 'new_institutions' list, creating one
-            # The default argument for the 'key_get' function is because of the
-            # database's 'not null' constraint on that column(s).
-            institution = Institution(
-                id_scp=institution_id_scp,
-                name=key_get(affil, keys, 'affilname',
-                             default='NOT AVAILABLE'),
-                city=key_get(affil, keys, 'affiliation-city'),
-            )
-            country_name = country_names(
-                key_get(affil, keys, 'affiliation-country'))
-            if country_name:
-                country = session.query(Country) \
-                    .filter(Country.name == country_name) \
-                    .first()
-                institution.country = country  # country either found or None
-
+            if institution:  # institution found in the 'new_institutions' list
+                # Institutions in the 'new_institutions' list are just created,
+                # so they should have only an 'Undefined' department.
+                department = institution.departments[0]
+            else:  # institution not in 'new_institutions' list, creating one
+                # The default argument for the 'key_get' function is because of 
+                # the database's 'not null' constraint on that column(s).
+                institution = Institution(
+                    id_scp=institution_id_scp,
+                    name=key_get(affil, keys, 'affilname',
+                                default='NOT AVAILABLE'),
+                    city=key_get(affil, keys, 'affiliation-city'),
+                )
+                country_name = country_names(
+                    key_get(affil, keys, 'affiliation-country'))
+                if country_name:
+                    country = session.query(Country) \
+                        .filter(Country.name == country_name) \
+                        .first()
+                    institution.country = country  # either found or None
         if not department:
             # Either an institution already in 'new_institutions' list or
             # the database doesn't have an 'Undefined' department, or we are yet
