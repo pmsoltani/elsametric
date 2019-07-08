@@ -25,21 +25,21 @@ def file_process(session, file_path: str, retrieval_time: str,
     reads a JSON formatted file located on 'file_path' using 'encoding'
     and then tries to create 'Paper' objects from it using the following
     steps for each entry:
-        1. Inspect the entry for possible issues such as lack of paper 
-        title, or Scopus ID. If there are any issues (warnings), a list
-        of 'bad_papers' will be updated with the details of the issues.
-        2. Decide it the issues are minor or major. Major errors are the
-        ones that would stop the program from successfully create a 
-        Paper object. Some of these issues include lack of Scopus ID, 
-        author, and affiliation data. Minor issues are those missing
-        data which can be safely replaced with default values; like 
-        paper or source title, which are later on replaced with:
-        'NOT AVAILABLE'. Another example is the open access status of 
+        1. Inspect the entry for possible issues such as lack of 'paper 
+        title', or Scopus ID. If there are any issues, the 'bad_papers' 
+        list will be updated with the details of those issues.
+        2. Decide if the issues are minor or major. Major ones will stop
+        the program from successfully create a Paper object. Some of 
+        these issues include lack of Scopus ID, 'author', and 
+        'affiliation' data. Minor issues are the missing data points 
+        which can be safely replaced with default values; like 'paper 
+        title' or 'source title', which are replaced with a default 
+        value later on. Another example is the 'open access' status of 
         the paper, which will be defaulted to '0' (closed access).
-        3. After ignoring the minor issues, if there are any warnings
+        3. After ignoring the minor issues, if there are any issues
         left, they would be considered as major and would cause the
         function to seek out the next paper within the file to process.
-        If however, there are no remaining warnings, the function will
+        If however, there are no remaining issues, the function will
         attempt to call the 'paper_process' function.
         4. After iterating through all entries within the file, the 
         function will return a tuple containing a dict of bad_papers
@@ -63,8 +63,8 @@ def file_process(session, file_path: str, retrieval_time: str,
     """
 
     papers_list = []  # a list of 'Paper' objects to be added to the database
-    bad_papers = []  # a list of all papers with warnings
-    minor_warnings = [
+    bad_papers = []  # a list of all papers with issues
+    minor_issues = [
         'eid', 'dc:title', 'subtype', 'author-count', 'openaccess',
         'citedby-count', 'source-id', 'prism:publicationName', 'author:afid']
 
@@ -73,37 +73,37 @@ def file_process(session, file_path: str, retrieval_time: str,
         data = data['search-results']['entry']
 
         for cnt, entry in enumerate(data):
-            warnings = data_inspector(entry)
-            if warnings:
+            keys = entry.keys()
+            issues = data_inspector(entry, keys)
+            if issues:
                 bad_papers.append(
-                    {'#': cnt, 'warnings': [warn for warn in warnings]})
+                    {'#': cnt, 'issues': [issue for issue in issues]})
 
-                if 'dc:identifier' in warnings:
+                if 'dc:identifier' in issues:
                     # Paper has no Scopus ID, this is a serious problem!
                     # The only way around it is to use 'eid' (if available):
                     # eid = 2-s2.0-{Scopus ID}
-                    if 'eid' in warnings:  # 'eid' also not found: can't go on
+                    if 'eid' in issues:  # 'eid' also not found: can't go on
                         continue
 
                     # replace '2-s2.0-' with 'SCOPUS_ID:' to form Scopus ID
                     entry['dc:identifier'] = entry['eid'] \
                         .replace('2-s2.0-', 'SCOPUS_ID:')
-                    warnings.remove('dc:identifier')  # warning dealt with
+                    issues.remove('dc:identifier')  # issue dealt with
 
                 bad_papers[-1]['id_scp'] = entry['dc:identifier']
 
-                for minor_warning in minor_warnings:
-                    # minor warnings won't cause any problem for the program flow
-                    if minor_warning in warnings:
-                        warnings.remove(minor_warning)
+                for minor_issue in minor_issues:
+                    # minor issues won't cause any problem for the program flow
+                    if minor_issue in issues:
+                        issues.remove(minor_issue)
 
-                if warnings:  # any remaining warnings are major: can't go on
+                if issues:  # any remaining issues are major: can't go on
                     continue
 
-            # At this point, we have no warnings. Meaning that either there were
-            # no warnings to begin with, or the program can deal with them.
+            # At this point, we have no issues. Meaning that either there were
+            # no issues to begin with, or the program can deal with them.
             try:
-                keys = entry.keys()
                 papers_list.append(
                     paper_process(session, entry, retrieval_time, keys))
 
@@ -190,7 +190,7 @@ def paper_process(session, data: dict, retrieval_time: str, keys=None):
             eid=key_get(data, keys, 'eid', default=f'2-s2.0-{paper_id_scp}'),
             title=strip(
                 key_get(data, keys, 'dc:title', default='NOT AVAILABLE'),
-                max_length=512, accepted_chars=''
+                accepted_chars='', max_len=512
             ),  # yeah... some paper titles are even longer than 512 chars!
             type=key_get(data, keys, 'subtype', default='na'),
             type_description=key_get(data, keys, 'subtypeDescription'),
@@ -203,7 +203,7 @@ def paper_process(session, data: dict, retrieval_time: str, keys=None):
             doi=key_get(data, keys, 'prism:doi'),
             volume=strip(
                 key_get(data, keys, 'prism:volume'),
-                max_length=45, accepted_chars=''
+                accepted_chars='', max_len=45
             ),
             issue=key_get(data, keys, 'prism:issueIdentifier'),
             date=key_get(data, keys, 'prism:coverDate'),
@@ -321,9 +321,9 @@ def source_process(session, data: dict, keys=None):
             title=key_get(
                 data, keys, 'prism:publicationName', default='NOT AVAILABLE'),
             type=key_get(data, keys, 'prism:aggregationType'),
-            issn=strip(key_get(data, keys, 'prism:issn'), max_length=8),
-            e_issn=strip(key_get(data, keys, 'prism:eIssn'), max_length=8),
-            isbn=strip(key_get(data, keys, 'prism:isbn'), max_length=13),
+            issn=strip(key_get(data, keys, 'prism:issn'), max_len=8),
+            e_issn=strip(key_get(data, keys, 'prism:eIssn'), max_len=8),
+            isbn=strip(key_get(data, keys, 'prism:isbn'), max_len=13),
         )
     return source
 
@@ -474,7 +474,6 @@ def author_process(session, data: dict):
             author.profiles.append(author_profile)
 
         # get a list of all institution ids for the author in the paper
-        # function 'key_get' with argument 'many=True' returns a list of integers
         inst_ids = key_get(auth, keys, 'afid', many=True)
         if inst_ids:
             for inst_id in inst_ids:
@@ -484,7 +483,7 @@ def author_process(session, data: dict):
                 # the same institution to the database twice. The variable
                 # 'new_institutions' is used to acheive this.
                 (institution, department) = institution_process(
-                    session, data, inst_id, new_institutions)
+                    session, data, int(inst_id), new_institutions)
 
                 if department:
                     author.departments.append(department)
