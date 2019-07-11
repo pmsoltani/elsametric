@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey
+from sqlalchemy import Column, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import DECIMAL, INTEGER, VARCHAR, YEAR
 
@@ -6,6 +6,12 @@ from base import Base
 
 class Source_Metric(Base):
     __tablename__ = 'source_metric'
+    __table_args__ = (
+        UniqueConstraint(
+            'source_id', 'type', 'year',
+            name='uq_sourcemetric_sourceid_type_year'
+        ),
+    )
 
     id = Column(
         INTEGER(unsigned=True),
