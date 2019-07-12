@@ -164,7 +164,7 @@ def country_names(name: str):
     return name
 
 
-def nullify(data: dict, null_types: list = [None, '', ' ', '-']):
+def nullify(data: dict, null_types: list = [None, '', ' ', '-', '#N/A']):
     """Changes the null-looking values in a dictionary to None
 
     The function receives a dictionary and looping through its items. If
