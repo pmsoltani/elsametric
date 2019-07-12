@@ -695,8 +695,8 @@ def ext_subject_process(session, file_path: str, encoding: str = 'utf-8-sig'):
     return subjects_list
 
 
-def ext_source_process(session, file_path: str, src_type: str = 'Journal',
-                       chunk_size: int = 1000, batch_no: int = 0, encoding: str = 'utf-8-sig'):
+def ext_source_process(session, file_path: str, src_type: str = '', 
+                       encoding: str = 'utf-8-sig'):
     """Imports a list of sources to database
 
     Reads a .csv file and creates 'Source' objects which represent
@@ -704,7 +704,7 @@ def ext_source_process(session, file_path: str, src_type: str = 'Journal',
     should have the following attributes:
         id_scp: a unique id assigned to each source by Scopus
         title: title of the source
-        type: type of the source (Journal, Conference Proceedings, ...)
+        type: type of the source (Journal, Conference Proceeding, ...)
         issn: issn of the source
         e_issn: electronic issn of the source
         publisher: source's publisher
@@ -724,7 +724,7 @@ def ext_source_process(session, file_path: str, src_type: str = 'Journal',
         file_path (str): the path to a .csv file containing a list of
             subjects with details
         src_type (str): used to distinguish between files for conference
-            proceedings & other source types which are located in 
+            proceeding & other source types which are located in 
             separate files
         chunk_size (int): used to break the .csv files into several 
             chunks, since they are very large,
@@ -736,58 +736,69 @@ def ext_source_process(session, file_path: str, src_type: str = 'Journal',
     """
 
     sources_list = []
-    batch_max = chunk_size * batch_no
-    batch_min = chunk_size * (batch_no - 1)
-    with io.open(file_path, 'r', encoding=encoding) as csvFile:
-        reader = csv.DictReader(csvFile)
-        for cnt, row in enumerate(reader):
-            if batch_no:  # 'cnt' is used to know if a row should be processed
-                if (cnt >= batch_max) or (cnt < batch_min):
+
+    subjects = session.query(Subject).all()
+    # Turn 'subjects' which is a list of 'Subject' objects, into a dict:
+    # {asjc1: Subject1, asjc2: Subject2, ...}
+    subjects = {subject.asjc: subject for subject in subjects}
+
+    rows = get_row(file_path, encoding)
+    for row in rows:
+        nullify(row)
+        source_id_scp = row['id_scp']
+        source = session.query(Source) \
+            .filter(Source.id_scp == source_id_scp) \
+            .first()
+        if source:  # source found in database, skipping
+            continue
+        
+        # source not in database, let's create it
+        if src_type != 'Conference Proceeding':
+            source = Source(
+                id_scp=row['id_scp'], title=row['title'],
+                type=row['type'], issn=row['issn'],
+                e_issn=row['e_issn'], publisher=row['publisher'])
+            # adding country info to the source
+            country_name = country_names(row['country'])
+            if country_name:
+                country = session.query(Country) \
+                    .filter(Country.name == country_name) \
+                    .first()
+                source.country = country  # country either found or None
+        else:
+            # NOTE: The Scopus data for conference proceedings doesn't 
+            # include country info.
+            source = Source(
+                id_scp=row['id_scp'], title=row['title'],
+                type=src_type, issn=row['issn'],
+            )
+
+        # adding subject info to the source
+        if row['asjc']:
+            for asjc in row['asjc'].split(';'):
+                try:
+                    subject = subjects[int(asjc)]
+                    if subject not in source.subjects:
+                        # there may be repeated subjects for one source
+                        source.subjects.append(subject)
+                except (ValueError, KeyError):
+                    # ValueError: There was a problem converting 'asjc' 
+                    # to integer; perhaps it was an empty string or 
+                    # something like ';' or ' '.
+                    # KeyError: The asjc code not wasn't found in the
+                    # database, which is unusual & unlikely.
                     continue
 
-            nullify(row)
-            source_id_scp = row['id_scp']
-            source = session.query(Source) \
-                .filter(Source.id_scp == source_id_scp) \
-                .first()
-            if not source:  # source not in database, let's create it
-                if src_type == 'Journal':
-                    source = Source(
-                        id_scp=row['id_scp'], title=row['title'],
-                        type=row['type'], issn=row['issn'],
-                        e_issn=row['e_issn'], publisher=row['publisher'])
-
-                    # 'source' table is related to the 'country' table
-                    country_name = country_names(row['country'])
-                    if country_name:
-                        country = session.query(Country) \
-                            .filter(Country.name == country_name) \
-                            .first()
-                        source.country = country  # country either found or None
-                else:
-                    source = Source(
-                        id_scp=row['id_scp'], title=row['title'],
-                        type='Conference Proceedings', issn=row['issn'],
-                    )
-
-                if row['asjc']:  # 'source' is related to the 'subject' table
-                    for asjc in row['asjc'].split(';'):
-                        if not asjc:
-                            continue
-                        subject = session.query(Subject) \
-                            .filter(Subject.asjc == int(asjc)) \
-                            .first()
-                        if subject:
-                            source.subjects.append(subject)
-
-                sources_list.append(source)
+        sources_list.append(source)
     return sources_list
 
 
-def ext_source_metric_process(session, file_path: str, file_year: int,
+def ext_scimago_process(session, file_path: str, file_year: int,
                               chunk_size: int = 1000, batch_no: int = 0,
                               encoding: str = 'utf-8-sig', delimiter: str = ';'):
     """Adds source metrics to database
+
+    DEPRECATED FUNCTION: use 'ext_source_metric_process' function.
 
     Reads a .csv file and creates/updates 'Source' objects. The returned
     list of objects will have source metrics data in them, which will be
@@ -849,7 +860,7 @@ def ext_source_metric_process(session, file_path: str, file_year: int,
 
                 # some minor modifications to keep the database clean
                 if source.type == 'conference and proceedings':
-                    source.type = 'Conference Proceedings'
+                    source.type = 'Conference Proceeding'
                 if source.type:
                     source.type = source.type.title()
 
@@ -1056,7 +1067,7 @@ def ext_faculty_process(session, file_path: str, dept_file_path: str,
     return faculties_list
 
 
-def ext_department_process(file_path: str, encoding='utf-8-sig'):
+def ext_department_process(file_path: str, encoding: str = 'utf-8-sig'):
     """Returns a dictionary of department data
 
     This function is a helper tool for the function ext_faculty_process.
@@ -1080,3 +1091,96 @@ def ext_department_process(file_path: str, encoding='utf-8-sig'):
             departments[row['Abbreviation']] = {
                 'name': row['Full Name'], 'type': row['Type']}
     return departments
+
+
+def get_row(file_path: str, encoding: str = 'utf-8-sig', delimiter: str = ','):
+    with io.open(file_path, 'r', encoding=encoding) as csvFile:
+        reader = csv.DictReader(csvFile, delimiter=delimiter)
+        for row in reader:
+            yield row
+
+
+def ext_source_metric_process(session, file_path: str, file_year: int, 
+                              encoding: str = 'utf-8-sig'):
+    sources_list = []
+    
+    subjects = session.query(Subject).all()
+    # Turn 'subjects' which is a list of 'Subject' objects, into a dict:
+    # {asjc1: Subject1, asjc2: Subject2, ...}
+    subjects = {subject.asjc: subject for subject in subjects}
+
+    metric_types = {
+        'citescore': 'CiteScore', 'percentile': 'Percentile',
+        'citations': 'Citations', 'documents': 'Documents',
+        'percent_cited': 'Percent Cited', 'snip': 'SNIP', 'sjr': 'SJR'}
+    
+    rows = get_row(file_path, encoding)
+    for row in rows:
+        if not row['id_scp']:
+            continue
+        
+        nullify(row)
+        keys = row.keys()
+        source_id_scp = row['id_scp']
+        source = session.query(Source) \
+            .filter(Source.id_scp == source_id_scp) \
+            .first()
+        if not source:  # source not in database, let's create it
+            publisher = key_get(row, keys, 'publisher')
+            source = Source(
+                id_scp=source_id_scp,
+                title=key_get(row, keys, 'title', default='NOT AVAILABLE'),
+                type=key_get(row, keys, 'type'),
+                issn=strip(key_get(row, keys, 'issn'), max_len=8),
+                e_issn=strip(key_get(row, keys, 'e_issn'), max_len=8),
+                publisher=publisher
+            )
+            
+            if publisher:
+                # trying to find country using publisher of other sources
+                query = session.query(Source) \
+                    .filter(
+                        Source.publisher == publisher, Source.country != None) \
+                    .first()
+                if query:
+                    source.country = query.country
+        
+        if not source.publisher:
+            source.publisher = key_get(row, keys, 'publisher')
+        
+        if row['asjc']:
+            asjc = int(row['asjc'])
+            if asjc not in [subj.asjc for subj in source.subjects]:
+                try:
+                    source.subjects.append(subjects[asjc])
+                except KeyError:
+                    # The asjc code not wasn't found in the database, 
+                    # which is unusual & unlikely.
+                    # Rolling back the change made to 'source.subjects':
+                    if source.subjects == []:
+                        source.subjects = None
+        
+        # processing metrics
+        # creating a dict out of metrics already attached to the source
+        source_metrics = {}  
+        for metric in source.metrics:
+            if metric.year == file_year:
+                source_metrics[metric.type] = metric
+        
+        for metric in metric_types:
+            try:
+                metric_value = float(row[metric])
+            except:  # value not available
+                continue
+            metric = metric_types[metric]  # using pre-defined names for metrics
+            if metric not in source_metrics.keys():
+                source.metrics.append(
+                    Source_Metric(
+                        type=metric, value=metric_value, year=file_year))
+            else:
+                if source_metrics[metric].value < metric_value:
+                    source_metrics[metric].value = metric_value
+        
+        sources_list.append(source)
+    return sources_list
+

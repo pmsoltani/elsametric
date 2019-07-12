@@ -21,64 +21,53 @@ from temp import ext_faculty_process
 Base.metadata.create_all(engine)
 session = Session()
 
-t0 = time.time()
+t0 = time.time()  # timing the entire process
 
 # ==============================================================================
 # External Datasets
 # ==============================================================================
 
-# # countries
-# print('@ countries')
-# session.bulk_save_objects(
-#     ext_country_process(session, os.path.join('data', 'countries.csv')))
-# session.commit()
-# print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
+# countries
+print('@ countries')
+session.bulk_save_objects(
+    ext_country_process(session, os.path.join('data', 'countries.csv')))
+session.commit()
+print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
 
-# # subjects
-# print('@ subjects')
-# session.bulk_save_objects(
-#     ext_subject_process(session, os.path.join('data', 'subjects.csv')))
-# session.commit()
-# print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
+# subjects
+print('@ subjects')
+session.bulk_save_objects(
+    ext_subject_process(session, os.path.join('data', 'subjects.csv')))
+session.commit()
+print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
 
-# max_rows = 50000  # an estimate of available sources within a .csv file
-# max_inserts = 1000  # the size of chunks for big .csv files
-# total_batches = max_rows // max_inserts
+# sources: journals
+print('@ journals')
+sources_list = ext_source_process(
+    session, os.path.join('data', 'sources.csv'), 
+    src_type='Journal')
+if sources_list:
+    session.add_all(sources_list)
+session.commit()
+print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
 
-# # sources: journals
-# print('@ journals')
-# for i in range(total_batches):
-#     sources_list = ext_source_process(
-#         session, os.path.join('data', 'sources.csv'), 
-#         src_type='Journal', 
-#         chunk_size=max_inserts, batch_no=(i + 1))
-#     if sources_list:
-#         session.add_all(sources_list)
-#     session.commit()
-# print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
+# sources: conference proceedings
+print('@ conference proceedings')
+sources_list = ext_source_process(
+    session, os.path.join('data', 'conferences.csv'), 
+    src_type='Conference Proceeding')
+if sources_list:
+    session.add_all(sources_list)
+session.commit()
+print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
 
-# # sources: conference proceedings
-# print('@ conference proceedings')
-# for i in range(total_batches):
-#     sources_list = ext_source_process(
-#         session, os.path.join('data', 'conferences.csv'),
-#         src_type='Conference Proceedings', 
-#         chunk_size=max_inserts, batch_no=(i + 1))
-#     if sources_list:
-#         session.add_all(sources_list)
-#     session.commit()
-# print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
-
-# # source metrics
-# print('@ source metrics')
-# for y in range(2018, 2010, -1):
-#     for i in range(total_batches):
-#         sources_list = ext_source_metric_process(
-#             session, os.path.join('data', f'scimagojr {y}.csv'), y,
-#             chunk_size=max_inserts, batch_no=(i + 1)
-#         )
-#         session.commit()
-# print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
+# metrics1
+print('@ metrics1')
+for y in range(2018, 2010, -1):
+    sources_list = ext_source_metric_process(
+        session, os.path.join('data', f'{y}.csv'), y)
+session.commit()
+print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
 
 # ==============================================================================
 # Papers
@@ -140,17 +129,15 @@ print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
 # Faculties
 # ==============================================================================
 
-# print('@ faculties')
-# inst_id = 60027666
-# faculties_list = ext_faculty_process(
-#     session, 
-#     os.path.join('data', 'Faculties.csv'), 
-#     os.path.join('data', 'Departments.csv'),
-#     institution_id_scp=inst_id
-# )
-
-# session.commit()
-# print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
-
+print('@ faculties')
+inst_id = 60027666
+faculties_list = ext_faculty_process(
+    session, 
+    os.path.join('data', 'Faculties.csv'), 
+    os.path.join('data', 'Departments.csv'),
+    institution_id_scp=inst_id
+)
+session.commit()
+print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
 
 session.close()
