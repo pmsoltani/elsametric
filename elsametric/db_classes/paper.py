@@ -3,8 +3,8 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import \
     BIGINT, BOOLEAN, DATE, DATETIME, INTEGER, SMALLINT, TEXT, VARCHAR
 
-from base import Base
-from associations import Paper_Keyword, Paper_Author
+from db_classes.base import Base
+from db_classes.associations import Paper_Keyword, Paper_Author
 
 class Paper(Base):
     __tablename__ = 'paper'
@@ -21,7 +21,7 @@ class Paper(Base):
     abstract = Column(TEXT(), nullable=True)
     total_author = Column(SMALLINT(unsigned=True), nullable=False)
     open_access = Column(
-        BOOLEAN(create_constraint=True, name='open_access_check'), 
+        BOOLEAN(create_constraint=True, name='open_access_check'),
         nullable=False
     )
     cited_cnt = Column(SMALLINT(unsigned=True), nullable=True)
@@ -52,12 +52,12 @@ class Paper(Base):
     keywords = relationship(
         'Keyword', secondary=Paper_Keyword, back_populates='papers')
     authors = relationship('Paper_Author', back_populates='paper')
-    
+
     def __init__(
-        self, id_scp, eid, title, type, total_author, open_access, cited_cnt, 
-        url, date, retrieval_time, type_description=None, abstract=None, 
-        article_no=None, fund_id=None, source_id=None, doi=None, volume=None, 
-        issue=None, page_range=None, create_time=None, update_time=None, 
+            self, id_scp, eid, title, type, total_author, open_access, cited_cnt,
+            url, date, retrieval_time, type_description=None, abstract=None,
+            article_no=None, fund_id=None, source_id=None, doi=None, volume=None,
+            issue=None, page_range=None, create_time=None, update_time=None,
     ):
         self.id_scp = id_scp
         self.eid = eid

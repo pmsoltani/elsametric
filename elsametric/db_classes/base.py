@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 path = os.path.abspath(__file__)
 for d in range(3):  # going up 2 directories
     path = os.path.dirname(path)
+
 config_path = os.path.join(path, 'config.json')
 with open(config_path, 'r') as config_file:
     config = json.load(config_file)

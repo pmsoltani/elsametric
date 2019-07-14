@@ -2,7 +2,7 @@ from sqlalchemy import Column, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import DECIMAL, INTEGER, VARCHAR, YEAR
 
-from base import Base
+from db_classes.base import Base
 
 class Source_Metric(Base):
     __tablename__ = 'source_metric'
@@ -23,10 +23,10 @@ class Source_Metric(Base):
     type = Column(VARCHAR(45), nullable=False)
     value = Column(DECIMAL(13, 3), nullable=False)
     year = Column(YEAR(4), nullable=False)
-    
+
     # Relationships
     source = relationship('Source', back_populates='metrics')
-    
+
     def __init__(self, type, value, year):
         self.type = type
         self.value = value

@@ -2,17 +2,17 @@ from sqlalchemy import Column, CheckConstraint, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import BIGINT, VARCHAR
 
-from base import Base
+from db_classes.base import Base
 
 class Fund(Base):
     __tablename__ = 'fund'
     __table_args__ = (
         CheckConstraint(
-            'NOT(id_scp IS NULL AND agency IS NULL)', 
+            'NOT(id_scp IS NULL AND agency IS NULL)',
             name='ck_fund_idscp_agency'
         ),
         UniqueConstraint(
-            'id_scp', 'agency', 
+            'id_scp', 'agency',
             name='uq_fund_idscp_agency'
         ),
     )
@@ -24,10 +24,10 @@ class Fund(Base):
     id_scp = Column(VARCHAR(256), nullable=True)
     agency = Column(VARCHAR(256), nullable=True)
     agency_acronym = Column(VARCHAR(256), nullable=True)
-    
+
     # Relationships
     papers = relationship('Paper', back_populates='fund')
-    
+
     def __init__(self, id_scp=None, agency=None, agency_acronym=None):
         self.id_scp = id_scp
         self.agency = agency

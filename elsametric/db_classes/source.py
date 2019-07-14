@@ -2,8 +2,8 @@ from sqlalchemy import Column, ForeignKey, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import BIGINT, DATETIME, INTEGER, VARCHAR
 
-from base import Base
-from associations import Source_Subject
+from db_classes.base import Base
+from db_classes.associations import Source_Subject
 
 class Source(Base):
     __tablename__ = 'source'
@@ -39,8 +39,8 @@ class Source(Base):
     metrics = relationship('Source_Metric', back_populates='source')
 
     def __init__(
-        self, id_scp, title, type=None, issn=None, e_issn=None, isbn=None, 
-        publisher=None, country_id=None, create_time=None, update_time=None
+            self, id_scp, title, type=None, issn=None, e_issn=None, isbn=None,
+            publisher=None, country_id=None, create_time=None, update_time=None
     ):
         self.id_scp = id_scp
         self.title = title
@@ -50,6 +50,6 @@ class Source(Base):
         self.e_issn = e_issn
         self.isbn = isbn
         self.publisher = publisher
-        self.country_id = country_id 
+        self.country_id = country_id
         self.create_time = create_time
         self.update_time = update_time

@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import \
     BIGINT, DATETIME, DECIMAL, INTEGER, VARCHAR
 
-from base import Base
+from db_classes.base import Base
 
 class Institution(Base):
     __tablename__ = 'institution'
@@ -37,9 +37,9 @@ class Institution(Base):
     # aliases = relationship('Institution_Alias', back_populates='institution')
 
     def __init__(
-        self, id_scp, name, abbreviation=None, city=None, country_id=None, 
-        url=None, type=None, lat=None, lng=None, 
-        create_time=None, update_time=None
+            self, id_scp, name, abbreviation=None, city=None, country_id=None,
+            url=None, type=None, lat=None, lng=None,
+            create_time=None, update_time=None
     ):
         self.id_scp = id_scp
         self.name = name

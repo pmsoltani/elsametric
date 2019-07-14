@@ -2,7 +2,7 @@ from sqlalchemy import Column, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import BIGINT, INTEGER, VARCHAR
 
-from base import Base
+from db_classes.base import Base
 
 class Author_Profile(Base):
     __tablename__ = 'author_profile'
@@ -19,7 +19,7 @@ class Author_Profile(Base):
 
     # Relationships
     author = relationship('Author', back_populates='profiles')
-    
+
     def __init__(self, address, type, author_id=None):
         self.author_id = author_id
         self.address = address

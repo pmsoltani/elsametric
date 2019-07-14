@@ -1,50 +1,35 @@
 from sqlalchemy import extract
-from elsametric.db_classes.base import Session, engine, Base
+from db_classes.base import Session
 
-from elsametric.db_classes.keyword_ import Keyword
-from elsametric.db_classes.source import Source
-from elsametric.db_classes.source_metric import Source_Metric
-from elsametric.db_classes.fund import Fund
-from elsametric.db_classes.author import Author
-from elsametric.db_classes.author_profile import Author_Profile
-from elsametric.db_classes.institution import Institution
-from elsametric.db_classes.department import Department
-from elsametric.db_classes.country import Country
-from elsametric.db_classes.subject import Subject
-from elsametric.db_classes.paper import Paper
+from db_classes.author import Author
+from db_classes.author_profile import Author_Profile
+from db_classes.country import Country
+from db_classes.department import Department
+from db_classes.fund import Fund
+from db_classes.institution import Institution
+from db_classes.keyword_ import Keyword
+from db_classes.paper import Paper
+from db_classes.source import Source
+from db_classes.source_metric import Source_Metric
+from db_classes.subject import Subject
+
+# ==============================================================================
+# Queries
+# ==============================================================================
 
 session = Session()
 
-# papers = session.query(Paper) \
-#     .filter() .filter(
-#         extract('year',  Paper.date) >= 2011,
-#         extract('year',  Paper.date) <= 2018,
-#     ) \
-#     .all()
-# print(len(papers))
-# cnt = 0
-# iran_p = []
-# for paper in papers:
-#     if paper.source:
-#         if paper.source.country:
-#             if paper.source.country.domain == 'IR':
-#                 ls = [paper.id, paper.title,
-#                       paper.source.title, paper.source.publisher]
-#                 # print(ls)
-#                 iran_p.append(ls)
-#                 cnt += 1
-# print(f'{cnt}, {round(100 * cnt / len(papers), 2)}%')
-
-# foreign = []
-# for p in papers:
-#     for pa in p.authors:
-#         if not pa.author.departments:
-#             continue
-#         if all('Sharif' not in d.institution.name for d in pa.author.departments):
-#             foreign.append(p)
-#             break
-# print(
-#     f'Papers with foreign authors: {len(foreign)} ({round(100 * len(foreign) / len(papers), 2)}%)')
+authors = session.query(Author)
+profiles = session.query(Author_Profile)
+countries = session.query(Country)
+departments = session.query(Department)
+funds = session.query(Fund)
+institutions = session.query(Institution)
+keywords = session.query(Keyword)
+papers = session.query(Paper)
+sources = session.query(Source)
+metrics = session.query(Source_Metric)
+subjects = session.query(Subject)
 
 # ==============================================================================
 # Playground
@@ -52,8 +37,8 @@ session = Session()
 
 papers = session.query(Paper) \
     .filter(
-        extract('year',  Paper.date) >= 2011,
-        extract('year',  Paper.date) <= 2018,
+        extract('year', Paper.date) >= 2011,
+        extract('year', Paper.date) <= 2018,
         Paper.id_scp == 84881620249
     ).first()
 papers = session.query(Paper).get(1)

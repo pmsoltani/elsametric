@@ -3,8 +3,8 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import \
     BIGINT, CHAR, DATETIME, ENUM, INTEGER, VARCHAR
 
-from base import Base
-from associations import Author_Department, Paper_Author
+from db_classes.base import Base
+from db_classes.associations import Author_Department, Paper_Author
 
 class Author(Base):
     __tablename__ = 'author'
@@ -38,10 +38,11 @@ class Author(Base):
     profiles = relationship('Author_Profile', back_populates='author')
     departments = relationship(
         'Department', secondary=Author_Department, back_populates='authors')
-    
+
     def __init__(
-        self, id_scp, first=None, middle=None, last=None, initials=None, 
-        sex=None, type=None, rank=None, inst_id=None, create_time=None, update_time=None
+            self, id_scp, first=None, middle=None, last=None, initials=None,
+            sex=None, type=None, rank=None, inst_id=None,
+            create_time=None, update_time=None
     ):
         self.id_scp = id_scp
         self.first = first

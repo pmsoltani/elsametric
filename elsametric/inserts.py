@@ -7,11 +7,6 @@ import datetime
 from elsametric.db_classes.base import engine, Session, Base
 
 from elsametric.helpers.process import file_process
-from elsametric.helpers.process import paper_process
-from elsametric.helpers.process import keyword_process
-from elsametric.helpers.process import source_process
-from elsametric.helpers.process import fund_process
-from elsametric.helpers.process import author_process
 from elsametric.helpers.process import ext_country_process
 from elsametric.helpers.process import ext_subject_process
 from elsametric.helpers.process import ext_source_process
@@ -44,7 +39,7 @@ print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
 # sources: journals
 print('@ journals')
 sources_list = ext_source_process(
-    session, os.path.join('data', 'sources.csv'), 
+    session, os.path.join('data', 'sources.csv'),
     src_type='Journal')
 if sources_list:
     session.add_all(sources_list)
@@ -54,7 +49,7 @@ print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
 # sources: conference proceedings
 print('@ conference proceedings')
 sources_list = ext_source_process(
-    session, os.path.join('data', 'conferences.csv'), 
+    session, os.path.join('data', 'conferences.csv'),
     src_type='Conference Proceeding')
 if sources_list:
     session.add_all(sources_list)
@@ -92,7 +87,7 @@ for institution_name in institution_names:
         # skipping files like 'thumbs.db'
         if file.split('.')[1] not in ['json', 'txt']:
             continue
-        
+
         print(file)
         file_path = os.path.join(path, file)
         retrieval_time = datetime.datetime \
@@ -107,18 +102,18 @@ for institution_name in institution_names:
             print(problems['error_type'])
             print(problems['error_msg'])
             break
-        
+
         if papers_list:
             session.add_all(papers_list)
         if problems:
             all_bad_papers.append(problems)
-        
+
         session.commit()
-    
+
     if all_bad_papers:
         log_file_path = f'bad_papers_{institution_name}_{int(time.time())}.json'
         with io.open(os.path.join('logs', log_file_path),
-                    'w', encoding='utf8') as log:
+                     'w', encoding='utf8') as log:
             json.dump(all_bad_papers, log, indent=4)
 
 session.close()
@@ -132,8 +127,8 @@ print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
 print('@ faculties')
 inst_id = 60027666
 faculties_list = ext_faculty_process(
-    session, 
-    os.path.join('data', 'Faculties.csv'), 
+    session,
+    os.path.join('data', 'Faculties.csv'),
     os.path.join('data', 'Departments.csv'),
     institution_id_scp=inst_id
 )

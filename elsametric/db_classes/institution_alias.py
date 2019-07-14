@@ -2,7 +2,7 @@
 # from sqlalchemy.orm import relationship
 # from sqlalchemy.dialects.mysql import BIGINT, INTEGER, VARCHAR
 
-# from base import Base
+# from db_classes.base import Base
 
 # class Institution_Alias(Base):
 #     __tablename__ = 'institution_alias'

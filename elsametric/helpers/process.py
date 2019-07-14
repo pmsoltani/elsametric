@@ -27,18 +27,18 @@ def get_row(file_path: str, encoding: str = 'utf-8-sig', delimiter: str = ','):
 
     This simple function is used to yield a .csv file in 'file_path',
     row-by-row, so as not to consume too much memory.
-    
+
     Parameters:
         file_path (str): the path to the .csv file
         encoding (str): encoding to be used when reading the .csv file
         delimiter (str): the delimiter used in the .csv file
-    
+
     Yields:
         row: a row of the .csv file
     """
 
-    with io.open(file_path, 'r', encoding=encoding) as csvFile:
-        reader = csv.DictReader(csvFile, delimiter=delimiter)
+    with io.open(file_path, 'r', encoding=encoding) as csv_file:
+        reader = csv.DictReader(csv_file, delimiter=delimiter)
         for row in reader:
             yield row
 
@@ -51,26 +51,26 @@ def file_process(session, file_path: str, retrieval_time: str,
     reads a JSON formatted file located on 'file_path' using 'encoding'
     and then tries to create 'Paper' objects from it using the following
     steps for each entry:
-        1. Inspect the entry for possible issues such as lack of 'paper 
-        title', or Scopus ID. If there are any issues, the 'bad_papers' 
+        1. Inspect the entry for possible issues such as lack of 'paper
+        title', or Scopus ID. If there are any issues, the 'bad_papers'
         list will be updated with the details of those issues.
         2. Decide if the issues are minor or major. Major ones will stop
-        the program from successfully create a Paper object. Some of 
-        these issues include lack of Scopus ID, 'author', and 
-        'affiliation' data. Minor issues are the missing data points 
-        which can be safely replaced with default values; like 'paper 
-        title' or 'source title', which are replaced with a default 
-        value later on. Another example is the 'open access' status of 
+        the program from successfully create a Paper object. Some of
+        these issues include lack of Scopus ID, 'author', and
+        'affiliation' data. Minor issues are the missing data points
+        which can be safely replaced with default values; like 'paper
+        title' or 'source title', which are replaced with a default
+        value later on. Another example is the 'open access' status of
         the paper, which will be defaulted to '0' (closed access).
         3. After ignoring the minor issues, if there are any issues
         left, they would be considered as major and would cause the
         function to seek out the next paper within the file to process.
         If however, there are no remaining issues, the function will
         attempt to call the 'paper_process' function.
-        4. After iterating through all entries within the file, the 
+        4. After iterating through all entries within the file, the
         function will return a tuple containing a dict of bad_papers
-        along with the file_path, and the list of created 'Paper' 
-        objects. If there is an exception, the function will create a 
+        along with the file_path, and the list of created 'Paper'
+        objects. If there is an exception, the function will create a
         report and returns it in a tuple along with an empty list (for
         Paper objects).
 
@@ -94,8 +94,8 @@ def file_process(session, file_path: str, retrieval_time: str,
         'eid', 'dc:title', 'subtype', 'author-count', 'openaccess',
         'citedby-count', 'source-id', 'prism:publicationName', 'author:afid']
 
-    with io.open(file_path, 'r', encoding=encoding) as raw:
-        data = json.load(raw)
+    with io.open(file_path, 'r', encoding=encoding) as raw_file:
+        data = json.load(raw_file)
         data = data['search-results']['entry']
 
         for cnt, entry in enumerate(data):
@@ -150,30 +150,30 @@ def file_process(session, file_path: str, retrieval_time: str,
 def paper_process(session, data: dict, retrieval_time: str, keys=None):
     """Imports a paper to database
 
-    Receives a dictionary containing information about a paper and 
+    Receives a dictionary containing information about a paper and
     creates a 'Paper' object to be added to the database, if not found.
 
     Is is assumed that an upstream check has been performed on the input
-    data and the availablity of some key nodes in the dictionary (such 
+    data and the availablity of some key nodes in the dictionary (such
     as paper's Scopus ID) has been confirmed.
 
-    The function performs other checks on the data as well, such as 
-    restricting the length of some of the string attributes (including 
+    The function performs other checks on the data as well, such as
+    restricting the length of some of the string attributes (including
     paper title).
 
-    At the end, the Paper object will be examined to check whether it 
-    has source, fund, keyword, and author information. If not present, 
-    each of these will be added to the Paper object using separate 
+    At the end, the Paper object will be examined to check whether it
+    has source, fund, keyword, and author information. If not present,
+    each of these will be added to the Paper object using separate
     functions.
 
     Parameters:
         session: a session instance of SQLAlchemy session factory to
             interact with the database
-        data (dict): a pre-checked dictionary containing information 
+        data (dict): a pre-checked dictionary containing information
             about a paper registered in the Scopus database
         retrieval_time (str): a 'datatime' string pointing to the time
             that the data was retrieved from the Scopus API
-        keys: the keys from the data dictionary, to be used by the 
+        keys: the keys from the data dictionary, to be used by the
             key_get helper function
 
     Returns:
@@ -263,8 +263,8 @@ def paper_process(session, data: dict, retrieval_time: str, keys=None):
 def keyword_process(session, data: dict, keys=None, separator: str = '|'):
     """Returns a list of Keyword objects to be added to a Paper object
 
-    Receives a dictionary containing information about a paper and 
-    extracts the paper's keywords from it. 
+    Receives a dictionary containing information about a paper and
+    extracts the paper's keywords from it.
 
     The function then adds all unique keywords to a list which will be
     added to the upstream Paper object.
@@ -272,15 +272,15 @@ def keyword_process(session, data: dict, keys=None, separator: str = '|'):
     Parameters:
         session: a session instance of SQLAlchemy session factory to
             interact with the database
-        data (dict): a pre-checked dictionary containing information 
+        data (dict): a pre-checked dictionary containing information
             about a paper registered in the Scopus database
-        keys: the keys from the data dictionary, to be used by the 
+        keys: the keys from the data dictionary, to be used by the
             key_get helper function
-        separator (str): used to split the string from Scopus API which 
+        separator (str): used to split the string from Scopus API which
             has concatenated the keywords using the '|' character
 
     Returns:
-        list: a list of unique 'Keyword' objects to be added to a 
+        list: a list of unique 'Keyword' objects to be added to a
             'Paper' object
     """
 
@@ -312,17 +312,17 @@ def keyword_process(session, data: dict, keys=None, separator: str = '|'):
 
 
 def source_process(session, data: dict, keys=None):
-    """Returns a Source object to be added to a Paper object 
+    """Returns a Source object to be added to a Paper object
 
-    Receives a dictionary containing information about a paper and 
-    extracts the paper's source from it. 
+    Receives a dictionary containing information about a paper and
+    extracts the paper's source from it.
 
     Parameters:
         session: a session instance of SQLAlchemy session factory to
             interact with the database
-        data (dict): a pre-checked dictionary containing information 
+        data (dict): a pre-checked dictionary containing information
             about a paper registered in the Scopus database
-        keys: the keys from the data dictionary, to be used by the 
+        keys: the keys from the data dictionary, to be used by the
             key_get helper function
 
     Returns:
@@ -355,9 +355,9 @@ def source_process(session, data: dict, keys=None):
 
 
 def fund_process(session, data: dict, keys=None):
-    """Returns a single Source object to be added to a Paper object 
+    """Returns a single Source object to be added to a Paper object
 
-    Receives a dictionary containing information about a paper and 
+    Receives a dictionary containing information about a paper and
     extracts the paper's funding info from it.
 
     Funding data from the Scopus API has 3 keys:
@@ -372,9 +372,9 @@ def fund_process(session, data: dict, keys=None):
     Parameters:
         session: a session instance of SQLAlchemy session factory to
             interact with the database
-        data (dict): a pre-checked dictionary containing information 
+        data (dict): a pre-checked dictionary containing information
             about a paper registered in the Scopus database
-        keys: the keys from the data dictionary, to be used by the 
+        keys: the keys from the data dictionary, to be used by the
             key_get helper function
 
     Returns:
@@ -412,7 +412,7 @@ def fund_process(session, data: dict, keys=None):
 
     if not fund:
         # MySQL's Unique Constraints accept rows with one column being null
-        # and the other have repeated values. So we must change None to 
+        # and the other have repeated values. So we must change None to
         # 'NOT AVAILABLE'. Note that only one of these would change.
         if not fund_id_scp:
             fund_id_scp = 'NOT AVAILABLE'
@@ -429,27 +429,27 @@ def fund_process(session, data: dict, keys=None):
 def author_process(session, data: dict):
     """Returns a list of Author objects to be added to a Paper object
 
-    Receives a dictionary containing information about a paper and 
+    Receives a dictionary containing information about a paper and
     extracts the author's info from it, in the form of a list of Author
     objects.
 
     For each author mentioned in the paper, the function tries to find
-    that author in the database. Failing that, it then attempts to 
-    create an 'Author' object and append the authors Scopus profile to 
+    that author in the database. Failing that, it then attempts to
+    create an 'Author' object and append the authors Scopus profile to
     that object using a 'Author_Profile' object.
 
     The function then retrieves a list of Scopus Affiliation IDs for the
     current author and for each affiliation (institution), calls the
-    'institution_process' helper function to get the repective 
+    'institution_process' helper function to get the repective
     institution and department objects for that author.
 
-    At the end, the function returns a list of authors, all of them 
+    At the end, the function returns a list of authors, all of them
     having profiles, institutions, and departments.
 
     Parameters:
         session: a session instance of SQLAlchemy session factory to
             interact with the database
-        data (dict): a pre-checked dictionary containing information 
+        data (dict): a pre-checked dictionary containing information
             about a paper registered in the Scopus database
 
     Returns:
@@ -513,7 +513,7 @@ def author_process(session, data: dict):
 
                 if department:
                     author.departments.append(department)
-                if institution:  # TODO: is this the best way to check? Test.
+                if institution:
                     if institution not in new_institutions:
                         new_institutions.append(institution)
 
@@ -522,11 +522,11 @@ def author_process(session, data: dict):
 
 
 def institution_process(session, data: dict, inst_id: int,
-                        new_institutions: list = []):
+                        new_institutions: list):
     """Returns a tuple of (Institution, Department) objects
 
-    Receives a dictionary containing information about a paper and 
-    extracts the author's affiliation info from it, using the provided 
+    Receives a dictionary containing information about a paper and
+    extracts the author's affiliation info from it, using the provided
     'inst_id' (Scopus Affiliation ID).
 
     The function loops through the affiliation data of the paper and if
@@ -536,10 +536,10 @@ def institution_process(session, data: dict, inst_id: int,
 
     For new institutions, the function creates and appends a Department
     object to it. Since the Scopus API does not provide any information
-    regarding the author's department within the institution, the 
+    regarding the author's department within the institution, the
     function creates a pseudo-department named 'Undefined'.
 
-    Authors' true departments can be reconciled later on, using 
+    Authors' true departments can be reconciled later on, using
     third-party data.
 
     In the end, the function returns a tuple in the format:
@@ -548,11 +548,11 @@ def institution_process(session, data: dict, inst_id: int,
     Parameters:
         session: a session instance of SQLAlchemy session factory to
             interact with the database
-        data (dict): a pre-checked dictionary containing information 
+        data (dict): a pre-checked dictionary containing information
             about a paper registered in the Scopus database
 
     Returns:
-        tuple: in the format (Institution, Department) to be added to 
+        tuple: in the format (Institution, Department) to be added to
             the current Author
     """
 
@@ -592,12 +592,12 @@ def institution_process(session, data: dict, inst_id: int,
                 # so they should have only an 'Undefined' department.
                 department = institution.departments[0]
             else:  # institution not in 'new_institutions' list, creating one
-                # The default argument for the 'key_get' function is because of 
+                # The default argument for the 'key_get' function is because of
                 # the database's 'not null' constraint on that column(s).
                 institution = Institution(
                     id_scp=institution_id_scp,
                     name=key_get(affil, keys, 'affilname',
-                                default='NOT AVAILABLE'),
+                                 default='NOT AVAILABLE'),
                     city=key_get(affil, keys, 'affiliation-city'),
                 )
                 country_name = country_names(
@@ -719,7 +719,7 @@ def ext_subject_process(session, file_path: str, encoding: str = 'utf-8-sig'):
     return subjects_list
 
 
-def ext_source_process(session, file_path: str, src_type: str = '', 
+def ext_source_process(session, file_path: str, src_type: str = '',
                        encoding: str = 'utf-8-sig'):
     """Imports a list of sources to database
 
@@ -748,9 +748,9 @@ def ext_source_process(session, file_path: str, src_type: str = '',
         file_path (str): the path to a .csv file containing a list of
             subjects with details
         src_type (str): used to distinguish between files for conference
-            proceeding & other source types which are located in 
+            proceeding & other source types which are located in
             separate files
-        chunk_size (int): used to break the .csv files into several 
+        chunk_size (int): used to break the .csv files into several
             chunks, since they are very large,
         batch_no (int): the number of the chunk to be processed
         encoding (str): encoding to be used when reading the .csv file
@@ -775,7 +775,7 @@ def ext_source_process(session, file_path: str, src_type: str = '',
             .first()
         if source:  # source found in database, skipping
             continue
-        
+
         # source not in database, let's create it
         if src_type != 'Conference Proceeding':
             source = Source(
@@ -790,7 +790,7 @@ def ext_source_process(session, file_path: str, src_type: str = '',
                     .first()
                 source.country = country  # country either found or None
         else:
-            # NOTE: The Scopus data for conference proceedings doesn't 
+            # NOTE: The Scopus data for conference proceedings doesn't
             # include country info.
             source = Source(
                 id_scp=row['id_scp'], title=row['title'],
@@ -806,8 +806,8 @@ def ext_source_process(session, file_path: str, src_type: str = '',
                         # there may be repeated subjects for one source
                         source.subjects.append(subject)
                 except (ValueError, KeyError):
-                    # ValueError: There was a problem converting 'asjc' 
-                    # to integer; perhaps it was an empty string or 
+                    # ValueError: There was a problem converting 'asjc'
+                    # to integer; perhaps it was an empty string or
                     # something like ';' or ' '.
                     # KeyError: The asjc code not wasn't found in the
                     # database, which is unusual & unlikely.
@@ -887,7 +887,7 @@ def ext_source_metric_process(session, file_path: str, file_year: int,
         for metric in metric_types:
             try:
                 metric_value = float(row[metric])
-            except:  # value not available
+            except (KeyError, ValueError):  # value not available
                 continue
             # using pre-defined names for metrics
             metric = metric_types[metric]
@@ -923,14 +923,14 @@ def ext_scimago_process(session, file_path: str, file_year: int,
             sources along with metric details
         file_year (int): an integer to indicate the year that the metric
             was evaluated for the source
-        chunk_size (int): used to break the .csv files into several 
+        chunk_size (int): used to break the .csv files into several
             chunks, since they are very large,
         batch_no (int): the number of the chunk to be processed
         encoding (str): encoding to be used when reading the .csv file
         delimiter (str): Scimago .csv files use semicolon as delimiter
 
     Returns:
-        list: a list of 'Source' objects which now have metrics, to be 
+        list: a list of 'Source' objects which now have metrics, to be
             added to the database
     """
 
@@ -941,7 +941,7 @@ def ext_scimago_process(session, file_path: str, file_year: int,
         'Total Cites (3years)', 'Citable Docs. (3years)',
         'Cites / Doc. (2years)', 'Ref. / Doc.', 'Categories',
     ]
-    rows = get_row(file_path, encoding, ';')
+    rows = get_row(file_path, encoding, delimiter)
     for row in rows:
         keys = row.keys()
         nullify(row)
@@ -993,8 +993,6 @@ def ext_scimago_process(session, file_path: str, file_year: int,
                     if subject:
                         source.subjects.append(subject)
 
-        # TODO: This 'if' is too broad. Use query to search whether metrics
-        #       are available in the current year
         if not source.metrics:
             total_docs = 0  # used to calculate the CiteScore
             total_cites = 0  # used to calculate the CiteScore
@@ -1068,7 +1066,7 @@ def ext_faculty_process(session, file_path: str, dept_file_path: str,
         encoding (str): encoding to be used when reading the .csv file
 
     Returns:
-        list: a list of 'Author' objects which now have represent 
+        list: a list of 'Author' objects which now have represent
             faculty members of the institution
     """
 

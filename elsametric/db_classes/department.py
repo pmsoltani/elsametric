@@ -2,8 +2,8 @@ from sqlalchemy import Column, ForeignKey, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import DATETIME, DECIMAL, INTEGER, VARCHAR
 
-from base import Base
-from associations import Author_Department
+from db_classes.base import Base
+from db_classes.associations import Author_Department
 
 class Department(Base):
     __tablename__ = 'department'
@@ -35,8 +35,8 @@ class Department(Base):
         'Author', secondary=Author_Department, back_populates='departments')
 
     def __init__(
-        self, name, institution_id=None, abbreviation=None, type=None, 
-        lat=None, lng=None, create_time=None, update_time=None
+            self, name, institution_id=None, abbreviation=None, type=None,
+            lat=None, lng=None, create_time=None, update_time=None
     ):
         self.institution_id = institution_id
         self.name = name

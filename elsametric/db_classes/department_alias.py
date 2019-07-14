@@ -2,7 +2,7 @@
 # from sqlalchemy.orm import relationship
 # from sqlalchemy.dialects.mysql import INTEGER, VARCHAR
 
-# from base import Base
+# from db_classes.base import Base
 
 # class Department_Alias(Base):
 #     __tablename__ = 'department_alias'
@@ -16,7 +16,7 @@
 #     institution_id = Column(
 #         INTEGER(unsigned=True), ForeignKey('institution.id'), primary_key=True)
 #     alias = Column(VARCHAR(128), nullable=False)
-    
+
 #     # Relationships
 #     department = relationship('Department', back_populates='aliases')
 

@@ -2,7 +2,7 @@ from sqlalchemy import Column
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import INTEGER, VARCHAR
 
-from base import Base
+from db_classes.base import Base
 
 class Country(Base):
     __tablename__ = 'country'
@@ -15,11 +15,11 @@ class Country(Base):
     domain = Column(VARCHAR(2), nullable=False, unique=True)
     region = Column(VARCHAR(10), nullable=False)
     sub_region = Column(VARCHAR(45), nullable=True)
-    
+
     # Relationships
     sources = relationship('Source', back_populates='country')
     institutions = relationship('Institution', back_populates='country')
-    
+
     def __init__(self, name, domain, region, sub_region=None):
         self.name = name
         self.domain = domain

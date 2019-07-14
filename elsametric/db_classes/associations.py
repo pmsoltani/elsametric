@@ -2,7 +2,7 @@ from sqlalchemy import Column, Table, ForeignKey, ForeignKeyConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import BIGINT, INTEGER, SMALLINT
 
-from base import Base
+from db_classes.base import Base
 
 Source_Subject = Table(
     'source_subject', Base.metadata,
@@ -29,7 +29,7 @@ Author_Department = Table(
 
 class Paper_Author(Base):
     __tablename__ = 'paper_author'
-    
+
     paper_id = Column(
         INTEGER(unsigned=True), ForeignKey('paper.id'), primary_key=True)
     author_id = Column(
