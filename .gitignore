@@ -11,6 +11,8 @@
 /__pycache__
 /.vscode
 /sqlalchemy/__pycache__
+elsametric/__pycache__
+elsametric/db_classes/__pycache__
 
 # production
 
