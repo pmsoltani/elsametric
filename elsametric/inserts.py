@@ -4,7 +4,7 @@ import io
 import time
 import datetime
 
-from base import Session, engine, Base
+from elsametric.db_classes.base import engine, Session, Base
 
 from temp import file_process
 from temp import paper_process
