@@ -180,5 +180,3 @@ def nullify(data: dict, null_types: list = [None, '', ' ', '-', '#N/A']):
     for key in data:
         if data[key] in null_types:
             data[key] = None
-
-

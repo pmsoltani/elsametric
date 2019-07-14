@@ -2,19 +2,45 @@ import io
 import csv
 import json
 
-from functions import data_inspector, key_get, strip, country_names, nullify
-from keyword_ import Keyword
-from source import Source
-from source_metric import Source_Metric
-from fund import Fund
-from author import Author
-from author_profile import Author_Profile
-from institution import Institution
-from department import Department
-from country import Country
-from subject import Subject
-from associations import Paper_Author
-from paper import Paper
+from elsametric.helpers.functions import country_names
+from elsametric.helpers.functions import data_inspector
+from elsametric.helpers.functions import key_get
+from elsametric.helpers.functions import nullify
+from elsametric.helpers.functions import strip
+
+from elsametric.db_classes.associations import Paper_Author
+from elsametric.db_classes.author import Author
+from elsametric.db_classes.author_profile import Author_Profile
+from elsametric.db_classes.country import Country
+from elsametric.db_classes.department import Department
+from elsametric.db_classes.fund import Fund
+from elsametric.db_classes.institution import Institution
+from elsametric.db_classes.keyword_ import Keyword
+from elsametric.db_classes.paper import Paper
+from elsametric.db_classes.source import Source
+from elsametric.db_classes.source_metric import Source_Metric
+from elsametric.db_classes.subject import Subject
+
+
+def get_row(file_path: str, encoding: str = 'utf-8-sig', delimiter: str = ','):
+    """Yields a row from a .csv file
+
+    This simple function is used to yield a .csv file in 'file_path',
+    row-by-row, so as not to consume too much memory.
+    
+    Parameters:
+        file_path (str): the path to the .csv file
+        encoding (str): encoding to be used when reading the .csv file
+        delimiter (str): the delimiter used in the .csv file
+    
+    Yields:
+        row: a row of the .csv file
+    """
+
+    with io.open(file_path, 'r', encoding=encoding) as csvFile:
+        reader = csv.DictReader(csvFile, delimiter=delimiter)
+        for row in reader:
+            yield row
 
 
 def file_process(session, file_path: str, retrieval_time: str,
@@ -628,21 +654,20 @@ def ext_country_process(session, file_path: str, encoding: str = 'utf-8-sig'):
     """
 
     countries_list = []
-    with io.open(file_path, 'r', encoding=encoding) as csvFile:
-        reader = csv.DictReader(csvFile)
-        for row in reader:
-            nullify(row)
-            country_name = country_names(row['name']).strip()
-            country = session.query(Country) \
-                .filter(Country.name == country_name) \
-                .first()
-            if not country:  # country not in database, let's create it
-                country = Country(
-                    name=country_name, domain=row['domain'].strip(),
-                    region=row['region'].strip(),
-                    sub_region=row['sub_region'].strip()
-                )
-                countries_list.append(country)
+    rows = get_row(file_path, encoding)
+    for row in rows:
+        nullify(row)
+        country_name = country_names(row['name']).strip()
+        country = session.query(Country) \
+            .filter(Country.name == country_name) \
+            .first()
+        if not country:  # country not in database, let's create it
+            country = Country(
+                name=country_name, domain=row['domain'].strip(),
+                region=row['region'].strip(),
+                sub_region=row['sub_region'].strip()
+            )
+            countries_list.append(country)
     return countries_list
 
 
@@ -678,20 +703,19 @@ def ext_subject_process(session, file_path: str, encoding: str = 'utf-8-sig'):
     """
 
     subjects_list = []
-    with io.open(file_path, 'r', encoding=encoding) as csvFile:
-        reader = csv.DictReader(csvFile)
-        for row in reader:
-            nullify(row)
-            asjc = row['asjc']
-            subject = session.query(Subject) \
-                .filter(Subject.asjc == asjc) \
-                .first()
-            if not subject:  # subject not in database, let's create it
-                subject = Subject(
-                    asjc=asjc,
-                    top=row['top'], middle=row['middle'], low=row['low']
-                )
-                subjects_list.append(subject)
+    rows = get_row(file_path, encoding)
+    for row in rows:
+        nullify(row)
+        asjc = row['asjc']
+        subject = session.query(Subject) \
+            .filter(Subject.asjc == asjc) \
+            .first()
+        if not subject:  # subject not in database, let's create it
+            subject = Subject(
+                asjc=asjc,
+                top=row['top'], middle=row['middle'], low=row['low']
+            )
+            subjects_list.append(subject)
     return subjects_list
 
 
@@ -793,9 +817,94 @@ def ext_source_process(session, file_path: str, src_type: str = '',
     return sources_list
 
 
+def ext_source_metric_process(session, file_path: str, file_year: int,
+                              encoding: str = 'utf-8-sig'):
+    sources_list = []
+
+    subjects = session.query(Subject).all()
+    # Turn 'subjects' which is a list of 'Subject' objects, into a dict:
+    # {asjc1: Subject1, asjc2: Subject2, ...}
+    subjects = {subject.asjc: subject for subject in subjects}
+
+    metric_types = {
+        'citescore': 'CiteScore', 'percentile': 'Percentile',
+        'citations': 'Citations', 'documents': 'Documents',
+        'percent_cited': 'Percent Cited', 'snip': 'SNIP', 'sjr': 'SJR'}
+
+    rows = get_row(file_path, encoding)
+    for row in rows:
+        if not row['id_scp']:
+            continue
+
+        nullify(row)
+        keys = row.keys()
+        source_id_scp = row['id_scp']
+        source = session.query(Source) \
+            .filter(Source.id_scp == source_id_scp) \
+            .first()
+        if not source:  # source not in database, let's create it
+            publisher = key_get(row, keys, 'publisher')
+            source = Source(
+                id_scp=source_id_scp,
+                title=key_get(row, keys, 'title', default='NOT AVAILABLE'),
+                type=key_get(row, keys, 'type'),
+                issn=strip(key_get(row, keys, 'issn'), max_len=8),
+                e_issn=strip(key_get(row, keys, 'e_issn'), max_len=8),
+                publisher=publisher
+            )
+
+            if publisher:
+                # trying to find country using publisher of other sources
+                query = session.query(Source) \
+                    .filter(
+                        Source.publisher == publisher, Source.country != None) \
+                    .first()
+                if query:
+                    source.country = query.country
+
+        if not source.publisher:
+            source.publisher = key_get(row, keys, 'publisher')
+
+        if row['asjc']:
+            asjc = int(row['asjc'])
+            if asjc not in [subj.asjc for subj in source.subjects]:
+                try:
+                    source.subjects.append(subjects[asjc])
+                except KeyError:
+                    # The asjc code not wasn't found in the database,
+                    # which is unusual & unlikely.
+                    # Rolling back the change made to 'source.subjects':
+                    if source.subjects == []:
+                        source.subjects = None
+
+        # processing metrics
+        # creating a dict out of metrics already attached to the source
+        source_metrics = {}
+        for metric in source.metrics:
+            if metric.year == file_year:
+                source_metrics[metric.type] = metric
+
+        for metric in metric_types:
+            try:
+                metric_value = float(row[metric])
+            except:  # value not available
+                continue
+            # using pre-defined names for metrics
+            metric = metric_types[metric]
+            if metric not in source_metrics.keys():
+                source.metrics.append(
+                    Source_Metric(
+                        type=metric, value=metric_value, year=file_year))
+            else:
+                if source_metrics[metric].value < metric_value:
+                    source_metrics[metric].value = metric_value
+
+        sources_list.append(source)
+    return sources_list
+
+
 def ext_scimago_process(session, file_path: str, file_year: int,
-                              chunk_size: int = 1000, batch_no: int = 0,
-                              encoding: str = 'utf-8-sig', delimiter: str = ';'):
+                        encoding: str = 'utf-8-sig', delimiter: str = ';'):
     """Adds source metrics to database
 
     DEPRECATED FUNCTION: use 'ext_source_metric_process' function.
@@ -826,116 +935,99 @@ def ext_scimago_process(session, file_path: str, file_year: int,
     """
 
     sources_list = []
-    batch_max = chunk_size * batch_no
-    batch_min = chunk_size * (batch_no - 1)
     metric_types = [
         'Rank', 'SJR', 'SJR Best Quartile', 'H index',
         f'Total Docs. ({file_year})', 'Total Docs. (3years)', 'Total Refs.',
         'Total Cites (3years)', 'Citable Docs. (3years)',
         'Cites / Doc. (2years)', 'Ref. / Doc.', 'Categories',
     ]
-    with io.open(file_path, 'r', encoding=encoding) as csvFile:
-        reader = list(csv.DictReader(csvFile, delimiter=delimiter))
-        # 'reader' is converted to list so that we can know its length
-        ranked_sources = len(reader)  # used to calculate rank percentiles
-        for cnt, row in enumerate(reader):
-            if batch_no:  # 'cnt' is used to know if a row should be processed
-                if (cnt >= batch_max) or (cnt < batch_min):
-                    continue
+    rows = get_row(file_path, encoding, ';')
+    for row in rows:
+        keys = row.keys()
+        nullify(row)
+        source_id_scp = row['Sourceid']
+        source = session.query(Source) \
+            .filter(Source.id_scp == source_id_scp) \
+            .first()
+        if not source:
+            source = Source(
+                id_scp=source_id_scp,
+                title=key_get(row, keys, 'Title', default='NOT AVAILABLE'),
+                type=key_get(row, keys, 'Type'),
+                issn=None, e_issn=None, isbn=None,
+                publisher=key_get(row, keys, 'Publisher'),
+            )
 
-            keys = row.keys()
-            nullify(row)
-            source_id_scp = row['Sourceid']
-            source = session.query(Source) \
-                .filter(Source.id_scp == source_id_scp) \
-                .first()
-            if not source:
-                source = Source(
-                    id_scp=source_id_scp,
-                    title=key_get(row, keys, 'Title', default='NOT AVAILABLE'),
-                    type=key_get(row, keys, 'Type'),
-                    issn=None, e_issn=None, isbn=None,
-                    publisher=key_get(row, keys, 'Publisher'),
-                )
+            # some minor modifications to keep the database clean
+            if source.type == 'conference and proceedings':
+                source.type = 'Conference Proceeding'
+            if source.type:
+                source.type = source.type.title()
 
-                # some minor modifications to keep the database clean
-                if source.type == 'conference and proceedings':
-                    source.type = 'Conference Proceeding'
-                if source.type:
-                    source.type = source.type.title()
+        # doing some repairs to sources already in the database, like
+        # add missing publisher and country data
+        if not source.publisher:
+            source.publisher = key_get(row, keys, 'Publisher')
 
-            # doing some repairs to sources already in the database, like
-            # add missing publisher and country data
-            if not source.publisher:
-                source.publisher = key_get(row, keys, 'Publisher')
+        if not source.country:
+            country_name = country_names(row['Country'])
+            if country_name:
+                country = session.query(Country) \
+                    .filter(Country.name == country_name) \
+                    .first()
+                source.country = country  # country either found or None
 
-            if not source.country:
-                country_name = country_names(row['Country'])
-                if country_name:
-                    country = session.query(Country) \
-                        .filter(Country.name == country_name) \
+        if not source.subjects:
+            if row['Categories']:
+                # example of row['Categories']
+                # Economics and Econometrics (Q1); Finance (Q1)
+                for low in row['Categories'].split(';'):
+                    if not low:
+                        continue
+                    low = low.strip()
+                    if low[-4:] in ['(Q1)', '(Q2)', '(Q3)', '(Q4)']:
+                        low = low[:-4].strip()  # removing the '(Qs)'
+                    subject = session.query(Subject) \
+                        .filter(Subject.low == low) \
                         .first()
-                    source.country = country  # country either found or None
+                    if subject:
+                        source.subjects.append(subject)
 
-            if not source.subjects:
-                if row['Categories']:
-                    # example of row['Categories']
-                    # Economics and Econometrics (Q1); Finance (Q1)
-                    for low in row['Categories'].split(';'):
-                        if not low:
-                            continue
-                        low = low.strip()
-                        if low[-4:] in ['(Q1)', '(Q2)', '(Q3)', '(Q4)']:
-                            low = low[:-4].strip()  # removing the '(Qs)'
-                        subject = session.query(Subject) \
-                            .filter(Subject.low == low) \
-                            .first()
-                        if subject:
-                            source.subjects.append(subject)
+        # TODO: This 'if' is too broad. Use query to search whether metrics
+        #       are available in the current year
+        if not source.metrics:
+            total_docs = 0  # used to calculate the CiteScore
+            total_cites = 0  # used to calculate the CiteScore
+            for item in metric_types[:-1]:
+                if row[item]:
+                    if item in ['SJR', 'Cites / Doc. (2years)', 'Ref. / Doc.']:
+                        # unfortunately, the decimal points in .csv files by
+                        # Scimago are actually commas
+                        row[item] = float(row[item].replace(',', '.'))
+                    if item == 'SJR Best Quartile':
+                        # the database cannot hold values like:
+                        # Q1 & Q2, so we must remove the 'Q'
+                        row[item] = row[item][-1]
 
-            # TODO: This 'if' is too broad. Use query to search whether metrics
-            #       are available in the current year
-            if not source.metrics:
-                total_docs = 0  # used to calculate the CiteScore
-                total_cites = 0  # used to calculate the CiteScore
-                for item in metric_types[:-1]:
-                    if row[item]:
-                        if item in ['SJR', 'Cites / Doc. (2years)', 'Ref. / Doc.']:
-                            # unfortunately, the decimal points in .csv files by
-                            # Scimago are actually commas
-                            row[item] = float(row[item].replace(',', '.'))
-                        if item == 'SJR Best Quartile':
-                            # the database cannot hold values like:
-                            # Q1 & Q2, so we must remove the 'Q'
-                            row[item] = row[item][-1]
-
-                        source_metric = Source_Metric(
-                            type=item, value=row[item], year=file_year)
-                        if item == 'Total Docs. (3years)':
-                            total_docs = int(row[item])
-                        if item == 'Total Cites (3years)':
-                            total_cites = int(row[item])
-                        if item == f'Total Docs. ({file_year})':
-                            source_metric.type = 'Total Docs. (Current Year)'
-                        source.metrics.append(source_metric)
-
-                if total_docs and total_cites:  # calculating CiteScore
                     source_metric = Source_Metric(
-                        type='CiteScore',
-                        value=total_cites / total_docs,
-                        year=file_year
-                    )
+                        type=item, value=row[item], year=file_year)
+                    if item == 'Total Docs. (3years)':
+                        total_docs = int(row[item])
+                    if item == 'Total Cites (3years)':
+                        total_cites = int(row[item])
+                    if item == f'Total Docs. ({file_year})':
+                        source_metric.type = 'Total Docs. (Current Year)'
                     source.metrics.append(source_metric)
 
-                # calculating rank percentile
+            if total_docs and total_cites:  # calculating CiteScore
                 source_metric = Source_Metric(
-                    type='Percentile',
-                    value=(int(row['Rank']) - 1) * 100 // ranked_sources + 1,
+                    type='CiteScore',
+                    value=total_cites / total_docs,
                     year=file_year
                 )
                 source.metrics.append(source_metric)
 
-            sources_list.append(source)
+        sources_list.append(source)
     return sources_list
 
 
@@ -997,73 +1089,72 @@ def ext_faculty_process(session, file_path: str, dept_file_path: str,
         .filter(Department.name == 'Undefined') \
         .first()
 
-    with io.open(file_path, 'r', encoding=encoding) as csvFile:
-        reader = csv.DictReader(csvFile)
-        for row in reader:
-            nullify(row)
-            keys = row.keys()
-            if not row['Scopus']:  # faculty's Scopus ID not known: can't go on
-                continue
-            if not row['Departments']:  # faculty's dept. not known: can't go on
-                continue
+    rows = get_row(file_path, encoding)
+    for row in rows:
+        nullify(row)
+        keys = row.keys()
+        if not row['Scopus']:  # faculty's Scopus ID not known: can't go on
+            continue
+        if not row['Departments']:  # faculty's dept. not known: can't go on
+            continue
 
-            # some faculties may have more than 1 Scopus ID, but for now,
-            # we only use the first one
-            faculty_id_scp = int(row['Scopus'].split(',')[0])
-            faculty = session.query(Author) \
-                .filter(Author.id_scp == faculty_id_scp) \
-                .first()
-            if not faculty:  # faculty not found in the database: can't to go on
-                continue
+        # some faculties may have more than 1 Scopus ID, but for now,
+        # we only use the first one
+        faculty_id_scp = int(row['Scopus'].split(',')[0])
+        faculty = session.query(Author) \
+            .filter(Author.id_scp == faculty_id_scp) \
+            .first()
+        if not faculty:  # faculty not found in the database: can't to go on
+            continue
 
-            # adding faculty details
-            sex = key_get(row, keys, 'Sex')
-            if sex in ['M', 'F']:
-                faculty.sex = sex.lower()
-            faculty.type = 'Faculty'
-            faculty.rank = key_get(row, keys, 'Rank')
+        # adding faculty details
+        sex = key_get(row, keys, 'Sex')
+        if sex in ['M', 'F']:
+            faculty.sex = sex.lower()
+        faculty.type = 'Faculty'
+        faculty.rank = key_get(row, keys, 'Rank')
 
-            # adding faculty profiles
-            if row['Email']:
-                for email in row['Email'].split(','):
-                    if not email:
-                        continue
-                    faculty.profiles.append(
-                        Author_Profile(address=email.strip(), type='Email'))
-            if row['Office']:
-                faculty.profiles.append(
-                    Author_Profile(address=row['Office'], type='Phone (Office)'))
-            if row['Page']:
-                faculty.profiles.append(
-                    Author_Profile(address=row['Page'], type='Personal Website'))
-
-            # adding the departments that the faculty belongs to
-            for dept in row['Departments'].split(','):
-                if not dept:
+        # adding faculty profiles
+        if row['Email']:
+            for email in row['Email'].split(','):
+                if not email:
                     continue
-                department = session.query(Department) \
-                    .with_parent(institution, Institution.departments) \
-                    .filter(Department.abbreviation == dept) \
-                    .first()
-                if not department:  # department not found, let's create one
-                    department = Department(
-                        abbreviation=dept,
-                        name=faculty_depts[dept]['name'],
-                        type=faculty_depts[dept]['type']
-                    )
-                    institution.departments.append(department)
+                faculty.profiles.append(
+                    Author_Profile(address=email.strip(), type='Email'))
+        if row['Office']:
+            faculty.profiles.append(
+                Author_Profile(address=row['Office'], type='Phone (Office)'))
+        if row['Page']:
+            faculty.profiles.append(
+                Author_Profile(address=row['Page'], type='Personal Website'))
 
-                faculty.departments.append(department)
+        # adding the departments that the faculty belongs to
+        for dept in row['Departments'].split(','):
+            if not dept:
+                continue
+            department = session.query(Department) \
+                .with_parent(institution, Institution.departments) \
+                .filter(Department.abbreviation == dept) \
+                .first()
+            if not department:  # department not found, let's create one
+                department = Department(
+                    abbreviation=dept,
+                    name=faculty_depts[dept]['name'],
+                    type=faculty_depts[dept]['type']
+                )
+                institution.departments.append(department)
 
-            # now that the faculty's departments are known, we can safely
-            # unlink the initial 'Undefined' department from that faculty
-            # NOTE: Some authors might belong to several institutions at
-            # the same time. This means that they might have 'Undefined'
-            # departments from their other institutions.
-            if no_dept in faculty.departments:
-                faculty.departments.remove(no_dept)
+            faculty.departments.append(department)
 
-            faculties_list.append(faculty)
+        # now that the faculty's departments are known, we can safely
+        # unlink the initial 'Undefined' department from that faculty
+        # NOTE: Some authors might belong to several institutions at
+        # the same time. This means that they might have 'Undefined'
+        # departments from their other institutions.
+        if no_dept in faculty.departments:
+            faculty.departments.remove(no_dept)
+
+        faculties_list.append(faculty)
     return faculties_list
 
 
@@ -1085,102 +1176,8 @@ def ext_department_process(file_path: str, encoding: str = 'utf-8-sig'):
     """
 
     departments = {}
-    with io.open(file_path, 'r', encoding=encoding) as csvFile:
-        reader = csv.DictReader(csvFile)
-        for row in reader:
-            departments[row['Abbreviation']] = {
-                'name': row['Full Name'], 'type': row['Type']}
-    return departments
-
-
-def get_row(file_path: str, encoding: str = 'utf-8-sig', delimiter: str = ','):
-    with io.open(file_path, 'r', encoding=encoding) as csvFile:
-        reader = csv.DictReader(csvFile, delimiter=delimiter)
-        for row in reader:
-            yield row
-
-
-def ext_source_metric_process(session, file_path: str, file_year: int, 
-                              encoding: str = 'utf-8-sig'):
-    sources_list = []
-    
-    subjects = session.query(Subject).all()
-    # Turn 'subjects' which is a list of 'Subject' objects, into a dict:
-    # {asjc1: Subject1, asjc2: Subject2, ...}
-    subjects = {subject.asjc: subject for subject in subjects}
-
-    metric_types = {
-        'citescore': 'CiteScore', 'percentile': 'Percentile',
-        'citations': 'Citations', 'documents': 'Documents',
-        'percent_cited': 'Percent Cited', 'snip': 'SNIP', 'sjr': 'SJR'}
-    
     rows = get_row(file_path, encoding)
     for row in rows:
-        if not row['id_scp']:
-            continue
-        
-        nullify(row)
-        keys = row.keys()
-        source_id_scp = row['id_scp']
-        source = session.query(Source) \
-            .filter(Source.id_scp == source_id_scp) \
-            .first()
-        if not source:  # source not in database, let's create it
-            publisher = key_get(row, keys, 'publisher')
-            source = Source(
-                id_scp=source_id_scp,
-                title=key_get(row, keys, 'title', default='NOT AVAILABLE'),
-                type=key_get(row, keys, 'type'),
-                issn=strip(key_get(row, keys, 'issn'), max_len=8),
-                e_issn=strip(key_get(row, keys, 'e_issn'), max_len=8),
-                publisher=publisher
-            )
-            
-            if publisher:
-                # trying to find country using publisher of other sources
-                query = session.query(Source) \
-                    .filter(
-                        Source.publisher == publisher, Source.country != None) \
-                    .first()
-                if query:
-                    source.country = query.country
-        
-        if not source.publisher:
-            source.publisher = key_get(row, keys, 'publisher')
-        
-        if row['asjc']:
-            asjc = int(row['asjc'])
-            if asjc not in [subj.asjc for subj in source.subjects]:
-                try:
-                    source.subjects.append(subjects[asjc])
-                except KeyError:
-                    # The asjc code not wasn't found in the database, 
-                    # which is unusual & unlikely.
-                    # Rolling back the change made to 'source.subjects':
-                    if source.subjects == []:
-                        source.subjects = None
-        
-        # processing metrics
-        # creating a dict out of metrics already attached to the source
-        source_metrics = {}  
-        for metric in source.metrics:
-            if metric.year == file_year:
-                source_metrics[metric.type] = metric
-        
-        for metric in metric_types:
-            try:
-                metric_value = float(row[metric])
-            except:  # value not available
-                continue
-            metric = metric_types[metric]  # using pre-defined names for metrics
-            if metric not in source_metrics.keys():
-                source.metrics.append(
-                    Source_Metric(
-                        type=metric, value=metric_value, year=file_year))
-            else:
-                if source_metrics[metric].value < metric_value:
-                    source_metrics[metric].value = metric_value
-        
-        sources_list.append(source)
-    return sources_list
-
+        departments[row['Abbreviation']] = {
+            'name': row['Full Name'], 'type': row['Type']}
+    return departments
