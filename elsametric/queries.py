@@ -1,18 +1,17 @@
 from sqlalchemy import extract
-from base import Session, engine, Base
+from elsametric.db_classes.base import Session, engine, Base
 
-# from functions import key_get, strip, country_names
-from keyword_ import Keyword
-from source import Source
-from source_metric import Source_Metric
-from fund import Fund
-from author import Author
-from author_profile import Author_Profile
-from institution import Institution
-from department import Department
-from country import Country
-from subject import Subject
-from paper import Paper
+from elsametric.db_classes.keyword_ import Keyword
+from elsametric.db_classes.source import Source
+from elsametric.db_classes.source_metric import Source_Metric
+from elsametric.db_classes.fund import Fund
+from elsametric.db_classes.author import Author
+from elsametric.db_classes.author_profile import Author_Profile
+from elsametric.db_classes.institution import Institution
+from elsametric.db_classes.department import Department
+from elsametric.db_classes.country import Country
+from elsametric.db_classes.subject import Subject
+from elsametric.db_classes.paper import Paper
 
 session = Session()
 

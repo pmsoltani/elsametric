@@ -6,17 +6,17 @@ import datetime
 
 from elsametric.db_classes.base import engine, Session, Base
 
-from temp import file_process
-from temp import paper_process
-from temp import keyword_process
-from temp import source_process
-from temp import fund_process
-from temp import author_process
-from temp import ext_country_process
-from temp import ext_subject_process
-from temp import ext_source_process
-from temp import ext_source_metric_process
-from temp import ext_faculty_process
+from elsametric.helpers.process import file_process
+from elsametric.helpers.process import paper_process
+from elsametric.helpers.process import keyword_process
+from elsametric.helpers.process import source_process
+from elsametric.helpers.process import fund_process
+from elsametric.helpers.process import author_process
+from elsametric.helpers.process import ext_country_process
+from elsametric.helpers.process import ext_subject_process
+from elsametric.helpers.process import ext_source_process
+from elsametric.helpers.process import ext_source_metric_process
+from elsametric.helpers.process import ext_faculty_process
 
 Base.metadata.create_all(engine)
 session = Session()
