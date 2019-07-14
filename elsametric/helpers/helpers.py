@@ -1,3 +1,26 @@
+def country_names(name: str):
+    """Changes the name of some countries to pre-defined values
+
+    Parameters:
+        name (str): the name of the country to be inspected
+    
+    Returns:
+        str: the new name of the country
+    """
+
+    countries = {
+        'Russian Federation': 'Russia',
+        'USA': 'United States',
+        'Great Britain': 'United Kingdom',
+        'Vietnam': 'Viet Nam',
+        'Zweden': 'Sweden',
+        'Czech Republic': 'Czechia',
+    }
+    if name in countries.keys():
+        return countries[name]
+    return name
+
+
 def data_inspector(data: dict, keys):
     """Inspects the Scopus API data for possible issues
 
@@ -114,6 +137,24 @@ def key_get(data: dict, keys, key: str, many: bool = False, default=None):
     return result
 
 
+def nullify(data: dict, null_types: list = [None, '', ' ', '-', '#N/A']):
+    """Changes the null-looking values in a dictionary to None
+
+    The function receives a dictionary and looping through its items. If
+    an item has a null-looking value (defined by the 'null_types' list),
+    it will be changed (in-place) to None. This is so that the database
+    receiving the values could stay clean.
+
+    Parameters:
+        data (dict): the dictionary to be processed for its null values
+        null_types (list): a list of possible values that resemble null
+    """
+
+    for key in data:
+        if data[key] in null_types:
+            data[key] = None
+
+
 def strip(string, accepted_chars: str = '0123456789xX', max_len: int = 0):
     """Strips a string from unwanted characters
 
@@ -139,44 +180,3 @@ def strip(string, accepted_chars: str = '0123456789xX', max_len: int = 0):
     if max_len:  # force truncate the string
         return stripped[:max_len]
     return stripped
-
-
-def country_names(name: str):
-    """Changes the name of some countries to pre-defined values
-
-    Parameters:
-        name (str): the name of the country to be inspected
-    
-    Returns:
-        str: the new name of the country
-    """
-
-    countries = {
-        'Russian Federation': 'Russia',
-        'USA': 'United States',
-        'Great Britain': 'United Kingdom',
-        'Vietnam': 'Viet Nam',
-        'Zweden': 'Sweden',
-        'Czech Republic': 'Czechia',
-    }
-    if name in countries.keys():
-        return countries[name]
-    return name
-
-
-def nullify(data: dict, null_types: list = [None, '', ' ', '-', '#N/A']):
-    """Changes the null-looking values in a dictionary to None
-
-    The function receives a dictionary and looping through its items. If
-    an item has a null-looking value (defined by the 'null_types' list),
-    it will be changed (in-place) to None. This is so that the database
-    receiving the values could stay clean.
-
-    Parameters:
-        data (dict): the dictionary to be processed for its null values
-        null_types (list): a list of possible values that resemble null
-    """
-
-    for key in data:
-        if data[key] in null_types:
-            data[key] = None

@@ -2,11 +2,11 @@ import io
 import csv
 import json
 
-from elsametric.helpers.functions import country_names
-from elsametric.helpers.functions import data_inspector
-from elsametric.helpers.functions import key_get
-from elsametric.helpers.functions import nullify
-from elsametric.helpers.functions import strip
+from elsametric.helpers.helpers import country_names
+from elsametric.helpers.helpers import data_inspector
+from elsametric.helpers.helpers import key_get
+from elsametric.helpers.helpers import nullify
+from elsametric.helpers.helpers import strip
 
 from elsametric.db_classes.associations import Paper_Author
 from elsametric.db_classes.author import Author
