@@ -5,6 +5,7 @@ from sqlalchemy.dialects.mysql import BIGINT, DATETIME, INTEGER, VARCHAR
 from db_classes.base import Base
 from db_classes.associations import Source_Subject
 
+
 class Source(Base):
     __tablename__ = 'source'
 
@@ -53,3 +54,9 @@ class Source(Base):
         self.country_id = country_id
         self.create_time = create_time
         self.update_time = update_time
+
+    def __repr__(self):
+        max_len = 50
+        if len(self.title) <= max_len:
+            return f'{self.id_scp}: {self.title}; Type: {self.type}'
+        return f'{self.id_scp}: {self.title[:max_len-3]}...; Type: {self.type}'

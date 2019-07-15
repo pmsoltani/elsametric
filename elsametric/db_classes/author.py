@@ -6,6 +6,7 @@ from sqlalchemy.dialects.mysql import \
 from db_classes.base import Base
 from db_classes.associations import Author_Department, Paper_Author
 
+
 class Author(Base):
     __tablename__ = 'author'
 
@@ -55,3 +56,6 @@ class Author(Base):
         self.inst_id = inst_id
         self.create_time = create_time
         self.update_time = update_time
+
+    def __repr__(self):
+        return f'{self.id_scp}: {self.first} {self.last}'

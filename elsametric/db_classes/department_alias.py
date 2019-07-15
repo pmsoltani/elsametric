@@ -4,6 +4,7 @@
 
 # from db_classes.base import Base
 
+
 # class Department_Alias(Base):
 #     __tablename__ = 'department_alias'
 

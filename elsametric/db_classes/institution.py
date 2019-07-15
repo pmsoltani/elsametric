@@ -5,6 +5,7 @@ from sqlalchemy.dialects.mysql import \
 
 from db_classes.base import Base
 
+
 class Institution(Base):
     __tablename__ = 'institution'
 
@@ -52,3 +53,9 @@ class Institution(Base):
         self.lng = lng
         self.create_time = create_time
         self.update_time = update_time
+
+    def __repr__(self):
+        max_len = 50
+        if len(self.name) <= max_len:
+            return f'{self.id_scp}: {self.name}'
+        return f'{self.id_scp}: {self.name[:max_len-3]}...'

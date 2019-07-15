@@ -4,6 +4,7 @@ from sqlalchemy.dialects.mysql import DECIMAL, INTEGER, VARCHAR, YEAR
 
 from db_classes.base import Base
 
+
 class Source_Metric(Base):
     __tablename__ = 'source_metric'
     __table_args__ = (
@@ -31,3 +32,11 @@ class Source_Metric(Base):
         self.type = type
         self.value = value
         self.year = year
+
+    def __repr__(self):
+        if self.is_integer():
+            return f'{self.type} {self.year}: {int(self.value)}'
+        return f'{self.type} {self.year}: {self.value}'
+
+    def is_integer(self):
+        return float(self.value).is_integer()

@@ -4,6 +4,7 @@ from sqlalchemy.dialects.mysql import BIGINT, VARCHAR
 
 from db_classes.base import Base
 
+
 class Fund(Base):
     __tablename__ = 'fund'
     __table_args__ = (
@@ -32,3 +33,8 @@ class Fund(Base):
         self.id_scp = id_scp
         self.agency = agency
         self.agency_acronym = agency_acronym
+
+    def __repr__(self):
+        if not self.agency_acronym:
+            return f'{self.id_scp} by {self.agency}'
+        return f'{self.id_scp} by {self.agency} ({self.agency_acronym})'

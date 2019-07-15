@@ -4,6 +4,7 @@ from sqlalchemy.dialects.mysql import BIGINT, INTEGER, VARCHAR
 
 from db_classes.base import Base
 
+
 class Author_Profile(Base):
     __tablename__ = 'author_profile'
 
@@ -24,3 +25,6 @@ class Author_Profile(Base):
         self.author_id = author_id
         self.address = address
         self.type = type
+
+    def __repr__(self):
+        return f'{self.type}: {self.address} for {self.author}'

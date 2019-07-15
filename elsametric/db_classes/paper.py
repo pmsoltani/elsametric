@@ -6,6 +6,7 @@ from sqlalchemy.dialects.mysql import \
 from db_classes.base import Base
 from db_classes.associations import Paper_Keyword, Paper_Author
 
+
 class Paper(Base):
     __tablename__ = 'paper'
 
@@ -80,3 +81,9 @@ class Paper(Base):
         self.retrieval_time = retrieval_time
         self.create_time = create_time
         self.update_time = update_time
+
+    def __repr__(self):
+        max_len = 50
+        if len(self.title) <= max_len:
+            return f'{self.id_scp}: {self.title}; DOI: {self.doi}'
+        return f'{self.id_scp}: {self.title[:max_len-3]}...; DOI: {self.doi}'

@@ -4,6 +4,7 @@ from sqlalchemy.dialects.mysql import INTEGER, VARCHAR
 
 from db_classes.base import Base
 
+
 class Country(Base):
     __tablename__ = 'country'
 
@@ -25,3 +26,6 @@ class Country(Base):
         self.domain = domain
         self.region = region
         self.sub_region = sub_region
+
+    def __repr__(self):
+        return f'{self.domain}: {self.name}'

@@ -5,6 +5,7 @@ from sqlalchemy.dialects.mysql import BIGINT, VARCHAR
 from db_classes.base import Base
 from db_classes.associations import Paper_Keyword
 
+
 class Keyword(Base):
     __tablename__ = 'keyword'
 
@@ -20,3 +21,6 @@ class Keyword(Base):
 
     def __init__(self, keyword):
         self.keyword = keyword
+
+    def __repr__(self):
+        return self.keyword

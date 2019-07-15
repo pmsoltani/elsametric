@@ -5,6 +5,7 @@ from sqlalchemy.dialects.mysql import INTEGER, VARCHAR
 from db_classes.base import Base
 from db_classes.associations import Source_Subject
 
+
 class Subject(Base):
     __tablename__ = 'subject'
 
@@ -26,3 +27,6 @@ class Subject(Base):
         self.top = top
         self.middle = middle
         self.low = low
+
+    def __repr__(self):
+        return f'{self.asjc}: {self.low}'

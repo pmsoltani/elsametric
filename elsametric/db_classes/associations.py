@@ -42,3 +42,6 @@ class Paper_Author(Base):
 
     def __init__(self, author_no):
         self.author_no = author_no
+
+    def __repr__(self):
+        return f'{self.paper} <-> {self.author}'

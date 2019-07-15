@@ -4,6 +4,7 @@
 
 # from db_classes.base import Base
 
+
 # class Institution_Alias(Base):
 #     __tablename__ = 'institution_alias'
 

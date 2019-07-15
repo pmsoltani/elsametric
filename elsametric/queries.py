@@ -48,5 +48,9 @@ sources1 = session.query(Source).join(Country) \
     .filter(Source.publisher.contains('Sharif')) \
     .all()
 
-p = session.query(Paper).first()
-print(p.eid, p.id_scp)
+p = session.query(Paper).filter(Paper.fund != None).first()
+print(p)
+print(p.date, type(p.date))
+
+print(p.authors)
+# print(authors.get(1).papers)

@@ -5,6 +5,7 @@ from sqlalchemy.dialects.mysql import DATETIME, DECIMAL, INTEGER, VARCHAR
 from db_classes.base import Base
 from db_classes.associations import Author_Department
 
+
 class Department(Base):
     __tablename__ = 'department'
 
@@ -46,3 +47,9 @@ class Department(Base):
         self.lng = lng
         self.create_time = create_time
         self.update_time = update_time
+
+    def __repr__(self):
+        max_len = 50
+        if len(self.name) <= max_len:
+            return f'{self.name} @ {self.institution}'
+        return f'{self.name[:max_len-3]}... @ {self.institution}'
