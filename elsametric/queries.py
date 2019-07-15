@@ -1,3 +1,5 @@
+import time
+
 from sqlalchemy import extract
 from db_classes.base import Session
 
@@ -35,22 +37,13 @@ subjects = session.query(Subject)
 # Playground
 # ==============================================================================
 
-papers = session.query(Paper) \
-    .filter(
-        extract('year', Paper.date) >= 2011,
-        extract('year', Paper.date) <= 2018,
-        Paper.id_scp == 84881620249
-    ).first()
-papers = session.query(Paper).get(1)
+t0 = time.time()
 
-sources1 = session.query(Source).join(Country) \
-    .filter(Country.domain == 'IR') \
-    .filter(Source.publisher.contains('Sharif')) \
-    .all()
+p = papers.all()
+cnt = 0
+for paper in p:
+    if paper.total_author != len(paper.authors) and paper.total_author != 100:
+        print(paper, paper.total_author, len(paper.authors))
+        cnt += 1
+print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
 
-p = session.query(Paper).filter(Paper.fund != None).first()
-print(p)
-print(p.date, type(p.date))
-
-print(p.authors)
-# print(authors.get(1).papers)
