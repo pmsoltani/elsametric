@@ -13,6 +13,7 @@
 /sqlalchemy/__pycache__
 elsametric/__pycache__
 elsametric/db_classes/__pycache__
+elsametric/helpers/__pycache__
 
 # production
 

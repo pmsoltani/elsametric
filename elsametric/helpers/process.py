@@ -2,24 +2,24 @@ import io
 import csv
 import json
 
-from elsametric.helpers.helpers import country_names
-from elsametric.helpers.helpers import data_inspector
-from elsametric.helpers.helpers import key_get
-from elsametric.helpers.helpers import nullify
-from elsametric.helpers.helpers import strip
+from helpers.helpers import country_names
+from helpers.helpers import data_inspector
+from helpers.helpers import key_get
+from helpers.helpers import nullify
+from helpers.helpers import strip
 
-from elsametric.db_classes.associations import Paper_Author
-from elsametric.db_classes.author import Author
-from elsametric.db_classes.author_profile import Author_Profile
-from elsametric.db_classes.country import Country
-from elsametric.db_classes.department import Department
-from elsametric.db_classes.fund import Fund
-from elsametric.db_classes.institution import Institution
-from elsametric.db_classes.keyword_ import Keyword
-from elsametric.db_classes.paper import Paper
-from elsametric.db_classes.source import Source
-from elsametric.db_classes.source_metric import Source_Metric
-from elsametric.db_classes.subject import Subject
+from db_classes.associations import Paper_Author
+from db_classes.author import Author
+from db_classes.author_profile import Author_Profile
+from db_classes.country import Country
+from db_classes.department import Department
+from db_classes.fund import Fund
+from db_classes.institution import Institution
+from db_classes.keyword_ import Keyword
+from db_classes.paper import Paper
+from db_classes.source import Source
+from db_classes.source_metric import Source_Metric
+from db_classes.subject import Subject
 
 
 def get_row(file_path: str, encoding: str = 'utf-8-sig', delimiter: str = ','):
@@ -180,6 +180,7 @@ def paper_process(session, data: dict, retrieval_time: str, keys=None):
         Paper: a 'Paper' object to be added to the database
     """
 
+    nullify(data, null_types=(None, '', ' ', '-', '#N/A', 'undefined'))
     if not keys:
         keys = data.keys()
 
