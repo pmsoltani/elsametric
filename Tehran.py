@@ -6,6 +6,9 @@ import requests as req
 from bs4 import BeautifulSoup
 
 base = 'https://ut.ac.ir/fa/faculty'
+headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0'}
+
 english_keys = {
     'نام': 'first',
     'نام خانوادگی': 'last',
@@ -20,7 +23,7 @@ last_page = 106
 #%%
 faculties = []
 for page_no in range(first_page, last_page + 1):
-    page = req.get(url=base, params={'page': page_no})
+    page = req.get(url=base, params={'page': page_no}, headers=headers)
     soup = BeautifulSoup(page.text, 'html.parser')
     table = soup.find('table', attrs=table_attrs)
     table_body = table.find('tbody')
@@ -49,7 +52,7 @@ for page_no in range(first_page, last_page + 1):
     faculties += data
 
 #%%
-# faculties_copy = copy.deepcopy(faculties)
+faculties_copy = copy.deepcopy(faculties)
 english_keys = {
     'نام و نام خانوادگی': 'full_name_fa',
     'پست الکترونیک': 'email2_fa',
@@ -68,7 +71,8 @@ for faculty in faculties_copy[1531:]:
 
     try:
         page_fa = req.get(
-            url=base, params={'lang': 'fa-ir'}, allow_redirects=False)
+            url=base, params={'lang': 'fa-ir'}, allow_redirects=False,
+            headers=headers)
         soup = BeautifulSoup(page_fa.text, 'html.parser')
         rows = soup \
             .find('div', attrs={'class': 'cv-info'}) \
@@ -81,8 +85,9 @@ for faculty in faculties_copy[1531:]:
             faculty[english_keys[columns[0]]] = columns[2]
     except AttributeError:  # page not found
         continue
-    except:  # catchall
-        # errors.append({'type': str(type(e)), 'msg': str(e)})
+    except Exception as e:  # catchall
+        errors.append({'type': str(type(e)), 'msg': str(e)})
+        print(f'type: {type(e)}, msg: {e}')
         continue
 
 
@@ -103,7 +108,8 @@ for faculty in faculties_copy[1531:]:
         print('No EDU:  ', faculty['link'])
 
     page_en = req.get(
-        url=base, params={'lang': 'fa-ir'}, allow_redirects=False)
+        url=base, params={'lang': 'fa-ir'}, allow_redirects=False,
+        headers=headers)
     rows = BeautifulSoup(page_en.text, 'html.parser') \
         .find('div', attrs={'class': 'cv-info'}) \
         .find('table') \
