@@ -3,8 +3,8 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import \
     BIGINT, BOOLEAN, DATE, DATETIME, INTEGER, SMALLINT, TEXT, VARCHAR
 
-from db_classes.base import Base
-from db_classes.associations import Paper_Keyword, Paper_Author
+from elsametric.db_classes.base import Base
+from elsametric.db_classes.associations import Paper_Keyword, Paper_Author
 
 
 class Paper(Base):

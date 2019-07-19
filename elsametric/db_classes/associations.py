@@ -2,7 +2,7 @@ from sqlalchemy import Column, Table, ForeignKey, ForeignKeyConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import BIGINT, INTEGER, SMALLINT
 
-from db_classes.base import Base
+from elsametric.db_classes.base import Base
 
 Source_Subject = Table(
     'source_subject', Base.metadata,

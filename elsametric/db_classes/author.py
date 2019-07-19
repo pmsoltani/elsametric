@@ -3,8 +3,8 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import \
     BIGINT, CHAR, DATETIME, ENUM, INTEGER, VARCHAR
 
-from db_classes.base import Base
-from db_classes.associations import Author_Department, Paper_Author
+from elsametric.db_classes.base import Base
+from elsametric.db_classes.associations import Author_Department, Paper_Author
 
 
 class Author(Base):

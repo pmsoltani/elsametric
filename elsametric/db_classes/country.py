@@ -2,7 +2,7 @@ from sqlalchemy import Column
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import INTEGER, VARCHAR
 
-from db_classes.base import Base
+from elsametric.db_classes.base import Base
 
 
 class Country(Base):

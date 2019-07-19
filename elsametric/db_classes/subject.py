@@ -2,8 +2,8 @@ from sqlalchemy import Column
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import INTEGER, VARCHAR
 
-from db_classes.base import Base
-from db_classes.associations import Source_Subject
+from elsametric.db_classes.base import Base
+from elsametric.db_classes.associations import Source_Subject
 
 
 class Subject(Base):

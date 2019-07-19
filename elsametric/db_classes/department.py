@@ -2,8 +2,8 @@ from sqlalchemy import Column, ForeignKey, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import DATETIME, DECIMAL, INTEGER, VARCHAR
 
-from db_classes.base import Base
-from db_classes.associations import Author_Department
+from elsametric.db_classes.base import Base
+from elsametric.db_classes.associations import Author_Department
 
 
 class Department(Base):
