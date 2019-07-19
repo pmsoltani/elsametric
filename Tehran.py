@@ -1,4 +1,5 @@
 #%%
+import os
 import io
 import csv
 import copy
@@ -52,7 +53,7 @@ for page_no in range(first_page, last_page + 1):
     faculties += data
 
 file_name = 'tehran_initial.csv'
-with io.open(file_name, 'w', encoding='utf-8') as csv_file:
+with io.open(os.path.join('data', file_name), 'w', encoding='utf-8') as csv_file:
     writer = csv.DictWriter(
         csv_file, faculties[0].keys(), delimiter=',', lineterminator='\n')
     writer.writerow(dict((fn, fn) for fn in faculties[0].keys()))
@@ -61,7 +62,7 @@ with io.open(file_name, 'w', encoding='utf-8') as csv_file:
 #%%
 # file_name = 'tehran_initial.csv'
 faculties = []
-with io.open(file_name, 'r', encoding='utf-8') as csv_file:
+with io.open(os.path.join('data', file_name), 'r', encoding='utf-8') as csv_file:
     reader = csv.DictReader(csv_file)
     for row in reader:
         faculties.append(row)
@@ -157,7 +158,7 @@ for faculty in faculties:
             faculty[edu] = None
 
 file_name = 'tehran_final.csv'
-with io.open(file_name, 'w', encoding='utf-8') as csv_file:
+with io.open(os.path.join('data', file_name), 'w', encoding='utf-8') as csv_file:
     writer = csv.DictWriter(
         csv_file, faculties[0].keys(), delimiter=',', lineterminator='\n')
     writer.writerow(dict((fn, fn) for fn in faculties[0].keys()))
