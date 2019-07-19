@@ -1,3 +1,5 @@
+import datetime
+
 from sqlalchemy import Column, ForeignKey, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import \
@@ -87,3 +89,6 @@ class Paper(Base):
         if len(self.title) <= max_len:
             return f'{self.id_scp}: {self.title}; DOI: {self.doi}'
         return f'{self.id_scp}: {self.title[:max_len-3]}...; DOI: {self.doi}'
+
+    def get_year(self):
+        return self.date.year
