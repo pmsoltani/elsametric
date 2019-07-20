@@ -16,7 +16,7 @@ elsametric/db_classes/__pycache__
 elsametric/helpers/__pycache__
 
 # production
-
+node_modules
 
 # misc
 .DS_Store

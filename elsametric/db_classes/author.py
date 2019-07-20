@@ -84,6 +84,32 @@ class Author(Base):
         self.total_countries = len(self._countries)
         return self._countries
 
+    def get_papers(self):
+        self._papers = {}
+        for paper_author in self.papers:
+            try:
+                year = paper_author.paper.get_year()
+                self._papers[year] += 1
+            except KeyError:
+                self._papers[year] = 1
+
+        return self._papers
+
+    def get_citations(self):
+        self._citations = {}
+        for paper_author in self.papers:
+            try:
+                paper = paper_author.paper
+                year = paper.get_year()
+                citations = paper.cited_cnt
+                if not citations:
+                    citations = 0
+                self._citations[year] += citations
+            except KeyError:
+                self._citations[year] = citations
+
+        return self._citations
+
     def get_sources(self):
         self._sources = set()
         for paper_author in self.papers:
