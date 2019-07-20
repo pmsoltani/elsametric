@@ -3,17 +3,11 @@
 # dependencies
 
 # testing
-/data
-/sqlalchemy/data
-/logs
-/sqlalchemy/logs
-/.ipynb_checkpoints
-/__pycache__
-/.vscode
-/sqlalchemy/__pycache__
-elsametric/__pycache__
-elsametric/db_classes/__pycache__
-elsametric/helpers/__pycache__
+data/
+logs/
+.ipynb_checkpoints/
+.vscode/
+__pycache__/
 
 # production
 node_modules
@@ -29,4 +23,4 @@ thumbs.db
 
 # config
 config.json
-/sqlalchemy/config.json
+
