@@ -118,70 +118,83 @@ class Department(Base):
             return result
         return self._metrics
 
-    # def get_co_authors(self, min_papers: int = 0):
-    #     self._co_authors = {}
-    #     for paper_author_1 in self.papers:
-    #         paper = paper_author_1.paper
-    #         for paper_author_2 in paper.authors:
-    #             author = paper_author_2.author
-    #             if author == self:
-    #                 continue
-    #             try:
-    #                 self._co_authors[author] += 1
-    #             except KeyError:
-    #                 self._co_authors[author] = 1
+    def get_co_authors(self, threshold: int = 0):
+        self._co_authors = {}
+        for author in self.authors:
+            for paper_author_1 in author.papers:
+                paper = paper_author_1.paper
+                for paper_author_2 in paper.authors:
+                    auth = paper_author_2.author
+                    if auth in self.authors:
+                        continue
+                    try:
+                        self._co_authors[auth] += 1
+                    except KeyError:
+                        self._co_authors[auth] = 1
 
-    #     if min_papers:
-    #         self._co_authors = {
-    #             k: v for k, v in self._co_authors.items() if min_papers <= v}
+        if threshold:
+            self._co_authors = {
+                k: v for k, v in self._co_authors.items() if threshold <= v}
 
-    #     return self._co_authors
+        return self._co_authors
 
-    # def get_subjects(self):
-    #     self._subjects = {}
-    #     for paper_author in self.papers:
-    #         try:
-    #             subjects = paper_author.paper.source.subjects
-    #             for subject in subjects:
-    #                 try:
-    #                     self._subjects[subject] += 1
-    #                 except KeyError:
-    #                     self._subjects[subject] = 1
-    #         except AttributeError:
-    #             # paper's source doesn't have any subjects registered
-    #             continue
+    def get_subjects(self):
+        self._subjects = {}
+        for author in self.authors:
+            for paper_author in author.papers:
+                try:
+                    subjects = paper_author.paper.source.subjects
+                    for subject in subjects:
+                        try:
+                            self._subjects[subject] += 1
+                        except KeyError:
+                            self._subjects[subject] = 1
+                except AttributeError:
+                    # paper's source doesn't have any subjects registered
+                    continue
 
-    #     return self._subjects
+        return self._subjects
 
-    # def get_keywords(self):
-    #     self._keywords = {}
-    #     for paper_author in self.papers:
-    #         try:
-    #             keywords = paper_author.paper.keywords
-    #             for keyword in keywords:
-    #                 try:
-    #                     self._keywords[keyword] += 1
-    #                 except KeyError:
-    #                     self._keywords[keyword] = 1
-    #         except AttributeError:
-    #             # paper doesn't have any keywords registered
-    #             continue
+    def get_keywords(self, text=False, threshold = 0):
+        self._keywords = {}
+        for author in self.authors:
+            for paper_author in author.papers:
+                try:
+                    keywords = paper_author.paper.keywords
+                    for keyword in keywords:
+                        try:
+                            self._keywords[keyword] += 1
+                        except KeyError:
+                            self._keywords[keyword] = 1
+                except AttributeError:
+                    # paper doesn't have any keywords registered
+                    continue
 
-    #     return self._keywords
+        if threshold:
+            self._keywords = {
+                k: v for k, v in self._keywords.items() if threshold <= v}
 
-    # def get_funds(self):
-    #     self._funds = {'unknown': 0}
-    #     for paper_author in self.papers:
-    #         try:
-    #             agency = paper_author.paper.fund.agency
-    #             if agency == 'NOT AVAILABLE':
-    #                 agency = 'unknown'
-    #             try:
-    #                 self._funds[agency] += 1
-    #             except KeyError:
-    #                 self._funds[agency] = 1
-    #         except AttributeError:
-    #             # paper doesn't have any funds registered
-    #             continue
+        if text:
+            result = []
+            for k, v in self._keywords.items():
+                result.append((str(k) + ' ') * v)
+            return ' '.join(result)
+        return self._keywords
 
-    #     return self._funds
+    def get_funds(self):
+        self._funds = {'unknown': 0}
+        for author in self.authors:
+            for paper_author in author.papers:
+                try:
+                    agency = paper_author.paper.fund.agency
+                    if agency == 'NOT AVAILABLE':
+                        agency = 'unknown'
+                    try:
+                        self._funds[agency] += 1
+                    except KeyError:
+                        self._funds[agency] = 1
+                except AttributeError:
+                    # paper doesn't have any funds registered
+                    continue
+
+        return self._funds

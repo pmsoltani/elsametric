@@ -48,8 +48,7 @@ t0 = time.time()
 
 department = d.filter(Department.abbreviation == 'ChE').first()
 
-print(department.get_metrics(histogram=True))
-# print(department.total_papers)
+print(department.get_funds())
 print()
 
 
