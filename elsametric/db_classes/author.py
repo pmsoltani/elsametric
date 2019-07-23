@@ -121,7 +121,7 @@ class Author(Base):
         self.total_sources = len(self._sources)
         return self._sources
 
-    def get_metrics(self):
+    def get_metrics(self, histogram=False):
         self._metrics = [[i, 0] for i in range(100)]
         for paper_author in self.papers:
             paper = paper_author.paper
@@ -138,6 +138,11 @@ class Author(Base):
                 # either paper doesn't have a source, or its source any metric
                 continue
 
+        if histogram:
+            result = []
+            for met in self._metrics:
+                result.extend([met[0] for percentile in range(met[1])])
+            return result
         return self._metrics
 
     def get_co_authors(self, min_papers: int = 0):
