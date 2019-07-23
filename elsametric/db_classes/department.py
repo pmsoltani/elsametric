@@ -53,3 +53,135 @@ class Department(Base):
         if len(self.name) <= max_len:
             return f'{self.name} @ {self.institution}'
         return f'{self.name[:max_len-3]}... @ {self.institution}'
+
+    def get_papers(self):
+        self._papers = {}
+        for author in self.authors:
+            for paper_author in author.papers:
+                try:
+                    year = paper_author.paper.get_year()
+                    self._papers[year] += 1
+                except KeyError:
+                    self._papers[year] = 1
+        self.total_papers = sum(self._papers.values())
+        return self._papers
+
+    def get_citations(self):
+        self._citations = {}
+        for author in self.authors:
+            for paper_author in author.papers:
+                try:
+                    year = paper_author.paper.get_year()
+                    citations = paper_author.paper.cited_cnt
+                    if not citations:
+                        citations = 0
+                    self._citations[year] += citations
+                except KeyError:
+                    self._citations[year] = citations
+        self.total_citations = sum(self._citations.values())
+        return self._citations
+
+    def get_sources(self):
+        self._sources = set()
+        for author in self.authors:
+            for paper_author in author.papers:
+                try:
+                    self._sources.add(paper_author.paper.source)
+                except AttributeError:
+                    continue
+
+        self.total_sources = len(self._sources)
+        return self._sources
+
+    def get_metrics(self, histogram=False):
+        self._metrics = [[i, 0] for i in range(100)]
+        for author in self.authors:
+            for paper_author in author.papers:
+                paper = paper_author.paper
+                year = paper.get_year()
+                percentile = None
+                try:
+                    for met in paper.source.metrics:
+                        if met.type == 'Percentile' and met.year == year:
+                            percentile = int(met.value)
+                            break
+                    if percentile:
+                        self._metrics[percentile][1] += 1
+                except AttributeError:
+                    # paper doesn't have a source, or its source any metrics
+                    continue
+
+        if histogram:
+            result = []
+            for met in self._metrics:
+                result.extend([met[0] for percentile in range(met[1])])
+            return result
+        return self._metrics
+
+    # def get_co_authors(self, min_papers: int = 0):
+    #     self._co_authors = {}
+    #     for paper_author_1 in self.papers:
+    #         paper = paper_author_1.paper
+    #         for paper_author_2 in paper.authors:
+    #             author = paper_author_2.author
+    #             if author == self:
+    #                 continue
+    #             try:
+    #                 self._co_authors[author] += 1
+    #             except KeyError:
+    #                 self._co_authors[author] = 1
+
+    #     if min_papers:
+    #         self._co_authors = {
+    #             k: v for k, v in self._co_authors.items() if min_papers <= v}
+
+    #     return self._co_authors
+
+    # def get_subjects(self):
+    #     self._subjects = {}
+    #     for paper_author in self.papers:
+    #         try:
+    #             subjects = paper_author.paper.source.subjects
+    #             for subject in subjects:
+    #                 try:
+    #                     self._subjects[subject] += 1
+    #                 except KeyError:
+    #                     self._subjects[subject] = 1
+    #         except AttributeError:
+    #             # paper's source doesn't have any subjects registered
+    #             continue
+
+    #     return self._subjects
+
+    # def get_keywords(self):
+    #     self._keywords = {}
+    #     for paper_author in self.papers:
+    #         try:
+    #             keywords = paper_author.paper.keywords
+    #             for keyword in keywords:
+    #                 try:
+    #                     self._keywords[keyword] += 1
+    #                 except KeyError:
+    #                     self._keywords[keyword] = 1
+    #         except AttributeError:
+    #             # paper doesn't have any keywords registered
+    #             continue
+
+    #     return self._keywords
+
+    # def get_funds(self):
+    #     self._funds = {'unknown': 0}
+    #     for paper_author in self.papers:
+    #         try:
+    #             agency = paper_author.paper.fund.agency
+    #             if agency == 'NOT AVAILABLE':
+    #                 agency = 'unknown'
+    #             try:
+    #                 self._funds[agency] += 1
+    #             except KeyError:
+    #                 self._funds[agency] = 1
+    #         except AttributeError:
+    #             # paper doesn't have any funds registered
+    #             continue
+
+    #     return self._funds
