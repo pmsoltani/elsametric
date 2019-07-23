@@ -155,7 +155,7 @@ class Department(Base):
 
         return self._subjects
 
-    def get_keywords(self, text=False, threshold = 0):
+    def get_keywords(self, text: bool = False, threshold: int = 0):
         self._keywords = {}
         for author in self.authors:
             for paper_author in author.papers:
