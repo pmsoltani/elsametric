@@ -145,7 +145,7 @@ class Author(Base):
             return result
         return self._metrics
 
-    def get_co_authors(self, min_papers: int = 0):
+    def get_co_authors(self, threshold: int = 0):
         self._co_authors = {}
         for paper_author_1 in self.papers:
             paper = paper_author_1.paper
@@ -158,9 +158,9 @@ class Author(Base):
                 except KeyError:
                     self._co_authors[author] = 1
 
-        if min_papers:
+        if threshold:
             self._co_authors = {
-                k: v for k, v in self._co_authors.items() if min_papers <= v}
+                k: v for k, v in self._co_authors.items() if threshold <= v}
 
         return self._co_authors
 
@@ -180,7 +180,7 @@ class Author(Base):
 
         return self._subjects
 
-    def get_keywords(self):
+    def get_keywords(self, text: bool = False, threshold: int = 0):
         self._keywords = {}
         for paper_author in self.papers:
             try:
@@ -194,6 +194,15 @@ class Author(Base):
                 # paper doesn't have any keywords registered
                 continue
 
+        if threshold:
+            self._keywords = {
+                k: v for k, v in self._keywords.items() if threshold <= v}
+
+        if text:
+            result = []
+            for k, v in self._keywords.items():
+                result.append((str(k) + ' ') * v)
+            return ' '.join(result)
         return self._keywords
 
     def get_funds(self):
