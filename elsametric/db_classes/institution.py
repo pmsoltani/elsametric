@@ -14,7 +14,7 @@ class Institution(Base):
         primary_key=True, autoincrement=True, nullable=False
     )
     id_scp = Column(BIGINT(unsigned=True), nullable=False, unique=True)
-    id_frontend = Column(VARCHAR(16), nullable=False, unique=True)
+    id_frontend = Column(VARCHAR(11), nullable=False, unique=True)
     name = Column(VARCHAR(128), nullable=False)
     name_fa = Column(VARCHAR(128), nullable=True)
     abbreviation = Column(VARCHAR(45), nullable=True)
