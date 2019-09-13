@@ -19,11 +19,10 @@ USE `Scopus` ;
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `Scopus`.`fund` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `id_scp` VARCHAR(45) NULL,
+  `id_scp` VARCHAR(256) NULL,
   `agency` VARCHAR(256) NULL,
-  `agency_acronym` VARCHAR(20) NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE INDEX `agency_id_scp_UNIQUE` (`id_scp` ASC) VISIBLE)
+  `agency_acronym` VARCHAR(265) NULL,
+  PRIMARY KEY (`id`))
 ENGINE = InnoDB;
 
 
@@ -34,7 +33,7 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`country` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `name` VARCHAR(45) NOT NULL,
   `domain` VARCHAR(2) NOT NULL,
-  `region` VARCHAR(10) NULL,
+  `region` VARCHAR(10) NOT NULL,
   `sub_region` VARCHAR(45) NULL,
   PRIMARY KEY (`id`),
   UNIQUE INDEX `name_UNIQUE` (`name` ASC) VISIBLE,
@@ -101,6 +100,7 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`paper` (
   PRIMARY KEY (`id`),
   INDEX `fk_paper_fund1_idx` (`fund_id` ASC) VISIBLE,
   INDEX `fk_paper_source1_idx` (`source_id` ASC) VISIBLE,
+  UNIQUE INDEX `doi_UNIQUE` (`doi` ASC) VISIBLE,
   CONSTRAINT `fk_paper_fund1`
     FOREIGN KEY (`fund_id`)
     REFERENCES `Scopus`.`fund` (`id`)
@@ -121,6 +121,7 @@ COMMENT = '		';
 CREATE TABLE IF NOT EXISTS `Scopus`.`author` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'Auto Increment Author ID',
   `id_scp` BIGINT UNSIGNED NOT NULL COMMENT 'Unique Scopus Author ID',
+  `id_front` VARCHAR(16) NOT NULL,
   `first` VARCHAR(45) NULL,
   `middle` VARCHAR(45) NULL,
   `last` VARCHAR(45) NULL,
@@ -131,7 +132,8 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`author` (
   `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Record creation time',
   `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE INDEX `author_id_scp_UNIQUE` (`id_scp` ASC) VISIBLE,
-  PRIMARY KEY (`id`))
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `id_front_UNIQUE` (`id_front` ASC) VISIBLE)
 ENGINE = InnoDB;
 
 
@@ -141,8 +143,9 @@ ENGINE = InnoDB;
 CREATE TABLE IF NOT EXISTS `Scopus`.`institution` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'Auto Increment Institution ID',
   `id_scp` BIGINT UNSIGNED NOT NULL COMMENT 'Unique Scopus Affiliation (Institution) ID',
+  `id_frontend` VARCHAR(16) NOT NULL,
   `name` VARCHAR(128) NOT NULL COMMENT 'Institution name',
-  `abbreviation` VARCHAR(20) NULL COMMENT 'Institution abbreviation',
+  `abbreviation` VARCHAR(45) NULL COMMENT 'Institution abbreviation',
   `city` VARCHAR(45) NULL COMMENT 'Institution city',
   `country_id` INT UNSIGNED NULL,
   `url` VARCHAR(256) NULL COMMENT 'Scopus affiliation profile page',
@@ -154,6 +157,8 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`institution` (
   PRIMARY KEY (`id`),
   UNIQUE INDEX `institution_id_scp_UNIQUE` (`id_scp` ASC) VISIBLE,
   INDEX `fk_institution_country1_idx` (`country_id` ASC) VISIBLE,
+  UNIQUE INDEX `url_UNIQUE` (`url` ASC) VISIBLE,
+  UNIQUE INDEX `id_frontend_UNIQUE` (`id_frontend` ASC) VISIBLE,
   CONSTRAINT `fk_institution_country1`
     FOREIGN KEY (`country_id`)
     REFERENCES `Scopus`.`country` (`id`)
@@ -168,8 +173,10 @@ ENGINE = InnoDB;
 CREATE TABLE IF NOT EXISTS `Scopus`.`department` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'Auto Increment Department ID',
   `institution_id` INT UNSIGNED NOT NULL,
+  `id_front` VARCHAR(16) NOT NULL,
   `name` VARCHAR(128) NOT NULL COMMENT 'Department name',
-  `abbreviation` VARCHAR(20) NULL COMMENT 'Department abbreviation',
+  `abbreviation` VARCHAR(45) NULL COMMENT 'Department abbreviation',
+  `url` VARCHAR(256) NULL,
   `type` VARCHAR(45) NULL COMMENT 'Department, Research Center, Research Institute, Center of Excellence, ...',
   `lat` DECIMAL(8,6) NULL COMMENT 'Department\'s main building\'s latitute',
   `lng` DECIMAL(9,6) NULL COMMENT 'Department\'s main building\'s longitude',
@@ -177,6 +184,8 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`department` (
   `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`, `institution_id`),
   INDEX `fk_department_institution1_idx` (`institution_id` ASC) VISIBLE,
+  UNIQUE INDEX `url_UNIQUE` (`url` ASC) VISIBLE,
+  UNIQUE INDEX `id_front_UNIQUE` (`id_front` ASC) VISIBLE,
   CONSTRAINT `fk_department_institution1`
     FOREIGN KEY (`institution_id`)
     REFERENCES `Scopus`.`institution` (`id`)
@@ -223,8 +232,9 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `Scopus`.`keyword` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `keyword` VARCHAR(256) NULL,
-  PRIMARY KEY (`id`))
+  `keyword` VARCHAR(256) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `keyword_UNIQUE` (`keyword` ASC) VISIBLE)
 ENGINE = InnoDB;
 
 
@@ -326,10 +336,11 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`institution_alias` (
   `institution_id` INT UNSIGNED NOT NULL,
   `id_scp` BIGINT UNSIGNED NOT NULL COMMENT 'Unique Scopus Affiliation (Institution) ID',
   `alias` VARCHAR(128) NOT NULL,
+  `url` VARCHAR(265) NULL,
   PRIMARY KEY (`id`, `institution_id`),
   INDEX `fk_institution_alias_institution1_idx` (`institution_id` ASC) VISIBLE,
-  UNIQUE INDEX `alias_UNIQUE` (`alias` ASC) VISIBLE,
   UNIQUE INDEX `id_scp_UNIQUE` (`id_scp` ASC) VISIBLE,
+  UNIQUE INDEX `url_UNIQUE` (`url` ASC) VISIBLE,
   CONSTRAINT `fk_institution_alias_institution1`
     FOREIGN KEY (`institution_id`)
     REFERENCES `Scopus`.`institution` (`id`)
@@ -348,7 +359,6 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`department_alias` (
   `alias` VARCHAR(128) NOT NULL,
   PRIMARY KEY (`id`, `department_id`, `institution_id`),
   INDEX `fk_department_alias_department1_idx` (`department_id` ASC, `institution_id` ASC) VISIBLE,
-  UNIQUE INDEX `alias_UNIQUE` (`alias` ASC) VISIBLE,
   CONSTRAINT `fk_department_alias_department1`
     FOREIGN KEY (`department_id` , `institution_id`)
     REFERENCES `Scopus`.`department` (`id` , `institution_id`)
@@ -364,7 +374,7 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`source_metric` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `source_id` INT UNSIGNED NOT NULL,
   `type` VARCHAR(45) NOT NULL,
-  `value` DECIMAL(14,4) NOT NULL,
+  `value` DECIMAL(13,3) NOT NULL,
   `year` YEAR(4) NOT NULL,
   PRIMARY KEY (`id`, `source_id`),
   INDEX `fk_source_metric_source1_idx` (`source_id` ASC) VISIBLE,

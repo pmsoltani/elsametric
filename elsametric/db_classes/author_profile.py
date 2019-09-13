@@ -13,7 +13,8 @@ class Author_Profile(Base):
         primary_key=True, autoincrement=True, nullable=False
     )
     author_id = Column(
-        INTEGER(unsigned=True), ForeignKey('author.id'), primary_key=True
+        INTEGER(unsigned=True),
+        ForeignKey('author.id'), primary_key=True, nullable=False
     )
     address = Column(VARCHAR(256), nullable=False)
     type = Column(VARCHAR(45), nullable=False)

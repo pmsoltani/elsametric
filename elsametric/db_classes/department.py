@@ -14,9 +14,13 @@ class Department(Base):
         primary_key=True, autoincrement=True, nullable=False
     )
     institution_id = Column(
-        INTEGER(unsigned=True), ForeignKey('institution.id'), primary_key=True)
+        INTEGER(unsigned=True),
+        ForeignKey('institution.id'), primary_key=True, nullable=False
+    )
+    id_front = Column(VARCHAR(16), nullable=False, unique=True)
     name = Column(VARCHAR(128), nullable=False)
-    abbreviation = Column(VARCHAR(20), nullable=True)
+    abbreviation = Column(VARCHAR(45), nullable=True)
+    url = Column(VARCHAR(256), nullable=True, unique=True)
     type = Column(VARCHAR(45), nullable=True)
     lat = Column(DECIMAL(8, 6), nullable=True)
     lng = Column(DECIMAL(9, 6), nullable=True)

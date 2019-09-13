@@ -15,6 +15,7 @@ class Author(Base):
         primary_key=True, autoincrement=True, nullable=False
     )
     id_scp = Column(BIGINT(unsigned=True), nullable=False, unique=True)
+    id_front = Column(VARCHAR(16), nullable=False, unique=True)
     first = Column(VARCHAR(45), nullable=True)
     middle = Column(VARCHAR(45), nullable=True)
     last = Column(VARCHAR(45), nullable=True)

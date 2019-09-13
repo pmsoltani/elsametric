@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import \
     BIGINT, DATETIME, DECIMAL, INTEGER, VARCHAR
 
-from elsametric.db_classes.base import Base
+from elsametric.db_classes.base import Base, token_generator
 
 
 class Institution(Base):
@@ -14,8 +14,9 @@ class Institution(Base):
         primary_key=True, autoincrement=True, nullable=False
     )
     id_scp = Column(BIGINT(unsigned=True), nullable=False, unique=True)
+    id_front = Column(VARCHAR(16), nullable=False, unique=True)
     name = Column(VARCHAR(128), nullable=False)
-    abbreviation = Column(VARCHAR(20), nullable=True)
+    abbreviation = Column(VARCHAR(45), nullable=True)
     city = Column(VARCHAR(45), nullable=True)
     country_id = Column(
         INTEGER(unsigned=True), ForeignKey('country.id'), nullable=True)
@@ -43,6 +44,7 @@ class Institution(Base):
             create_time=None, update_time=None
     ):
         self.id_scp = id_scp
+        self.id_front = token_generator()
         self.name = name
         self.abbreviation = abbreviation
         self.city = city

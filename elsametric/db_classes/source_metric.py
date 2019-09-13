@@ -19,7 +19,8 @@ class Source_Metric(Base):
         primary_key=True, autoincrement=True, nullable=False
     )
     source_id = Column(
-        INTEGER(unsigned=True), ForeignKey('source.id'), primary_key=True
+        INTEGER(unsigned=True),
+        ForeignKey('source.id'), primary_key=True, nullable=False
     )
     type = Column(VARCHAR(45), nullable=False)
     value = Column(DECIMAL(13, 3), nullable=False)

@@ -13,9 +13,13 @@
 #         primary_key=True, autoincrement=True, nullable=False
 #     )
 #     department_id = Column(
-#         INTEGER(unsigned=True), ForeignKey('department.id'), primary_key=True)
+#         INTEGER(unsigned=True),
+#         ForeignKey('department.id'), primary_key=True, nullable=False
+#     )
 #     institution_id = Column(
-#         INTEGER(unsigned=True), ForeignKey('institution.id'), primary_key=True)
+#         INTEGER(unsigned=True),
+#         ForeignKey('institution.id'), primary_key=True, nullable=False
+#     )
 #     alias = Column(VARCHAR(128), nullable=False)
 
 #     # Relationships

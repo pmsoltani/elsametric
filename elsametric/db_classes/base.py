@@ -1,5 +1,6 @@
 import os.path
 import json
+import secrets
 
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
@@ -23,3 +24,8 @@ engine = create_engine(engine_uri)
 Session = sessionmaker(bind=engine)
 
 Base = declarative_base()
+
+# Helper function to generate 16-chars tokens for 'id_front' columns
+# The text is Base64 encoded, so each byte is approximately 1.3 characters.
+def token_generator():
+    return secrets.token_urlsafe(12);

@@ -16,7 +16,7 @@
 #         INTEGER(unsigned=True), ForeignKey('institution.id'), primary_key=True)
 #     id_scp = Column(BIGINT(unsigned=True), nullable=False, unique=True)
 #     alias = Column(VARCHAR(128), nullable=False)
-#     url = Column(VARCHAR(100), nullable=True, unique=True)
+#     url = Column(VARCHAR(256), nullable=True, unique=True)
 
 #     # Relationships
 #     institution = relationship('Institution', back_populates='aliases')
