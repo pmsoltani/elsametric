@@ -14,7 +14,7 @@ class Institution(Base):
         primary_key=True, autoincrement=True, nullable=False
     )
     id_scp = Column(BIGINT(unsigned=True), nullable=False, unique=True)
-    id_front = Column(VARCHAR(16), nullable=False, unique=True)
+    id_frontend = Column(VARCHAR(16), nullable=False, unique=True)
     name = Column(VARCHAR(128), nullable=False)
     name_fa = Column(VARCHAR(128), nullable=True)
     abbreviation = Column(VARCHAR(45), nullable=True)
@@ -45,7 +45,7 @@ class Institution(Base):
             create_time=None, update_time=None
     ):
         self.id_scp = id_scp
-        self.id_front = token_generator()
+        self.id_frontend = token_generator()
         self.name = name
         self.abbreviation = abbreviation
         self.city = city

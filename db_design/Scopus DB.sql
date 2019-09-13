@@ -122,7 +122,7 @@ COMMENT = '		';
 CREATE TABLE IF NOT EXISTS `Scopus`.`author` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'Auto Increment Author ID',
   `id_scp` BIGINT UNSIGNED NOT NULL COMMENT 'Unique Scopus Author ID',
-  `id_front` VARCHAR(16) NOT NULL,
+  `id_frontend` VARCHAR(11) NOT NULL,
   `first` VARCHAR(45) NULL,
   `middle` VARCHAR(45) NULL,
   `last` VARCHAR(45) NULL,
@@ -136,7 +136,7 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`author` (
   `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE INDEX `author_id_scp_UNIQUE` (`id_scp` ASC) VISIBLE,
   PRIMARY KEY (`id`),
-  UNIQUE INDEX `id_front_UNIQUE` (`id_front` ASC) VISIBLE)
+  UNIQUE INDEX `id_frontend_UNIQUE` (`id_frontend` ASC) VISIBLE)
 ENGINE = InnoDB;
 
 
@@ -146,7 +146,7 @@ ENGINE = InnoDB;
 CREATE TABLE IF NOT EXISTS `Scopus`.`institution` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'Auto Increment Institution ID',
   `id_scp` BIGINT UNSIGNED NOT NULL COMMENT 'Unique Scopus Affiliation (Institution) ID',
-  `id_frontend` VARCHAR(16) NOT NULL,
+  `id_frontend` VARCHAR(11) NOT NULL,
   `name` VARCHAR(128) NOT NULL COMMENT 'Institution name',
   `name_fa` VARCHAR(128) NULL COMMENT 'Department name',
   `abbreviation` VARCHAR(45) NULL COMMENT 'Institution abbreviation',
@@ -177,7 +177,7 @@ ENGINE = InnoDB;
 CREATE TABLE IF NOT EXISTS `Scopus`.`department` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'Auto Increment Department ID',
   `institution_id` INT UNSIGNED NOT NULL,
-  `id_front` VARCHAR(16) NOT NULL,
+  `id_frontend` VARCHAR(11) NOT NULL,
   `name` VARCHAR(128) NOT NULL COMMENT 'Department name',
   `name_fa` VARCHAR(128) NULL COMMENT 'Department name',
   `abbreviation` VARCHAR(45) NULL COMMENT 'Department abbreviation',
@@ -190,7 +190,7 @@ CREATE TABLE IF NOT EXISTS `Scopus`.`department` (
   PRIMARY KEY (`id`, `institution_id`),
   INDEX `fk_department_institution1_idx` (`institution_id` ASC) VISIBLE,
   UNIQUE INDEX `url_UNIQUE` (`url` ASC) VISIBLE,
-  UNIQUE INDEX `id_front_UNIQUE` (`id_front` ASC) VISIBLE,
+  UNIQUE INDEX `id_frontend_UNIQUE` (`id_frontend` ASC) INVISIBLE,
   CONSTRAINT `fk_department_institution1`
     FOREIGN KEY (`institution_id`)
     REFERENCES `Scopus`.`institution` (`id`)

@@ -25,7 +25,7 @@ Session = sessionmaker(bind=engine)
 
 Base = declarative_base()
 
-# Helper function to generate 16-chars tokens for 'id_front' columns
-# The text is Base64 encoded, so each byte is approximately 1.3 characters.
+# Helper function to generate 8-bytes tokens for 'id_front' columns
+# The text is Base64 encoded, so each byte is 1.3 chars (Total 11 chars).
 def token_generator():
-    return secrets.token_urlsafe(12);
+    return secrets.token_urlsafe(8)
