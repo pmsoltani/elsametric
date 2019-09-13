@@ -16,6 +16,7 @@ class Institution(Base):
     id_scp = Column(BIGINT(unsigned=True), nullable=False, unique=True)
     id_front = Column(VARCHAR(16), nullable=False, unique=True)
     name = Column(VARCHAR(128), nullable=False)
+    name_fa = Column(VARCHAR(128), nullable=True)
     abbreviation = Column(VARCHAR(45), nullable=True)
     city = Column(VARCHAR(45), nullable=True)
     country_id = Column(

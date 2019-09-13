@@ -19,6 +19,7 @@ class Department(Base):
     )
     id_front = Column(VARCHAR(16), nullable=False, unique=True)
     name = Column(VARCHAR(128), nullable=False)
+    name_fa = Column(VARCHAR(128), nullable=True)
     abbreviation = Column(VARCHAR(45), nullable=True)
     url = Column(VARCHAR(256), nullable=True, unique=True)
     type = Column(VARCHAR(45), nullable=True)

@@ -20,6 +20,8 @@ class Author(Base):
     middle = Column(VARCHAR(45), nullable=True)
     last = Column(VARCHAR(45), nullable=True)
     initials = Column(VARCHAR(45), nullable=True)
+    first_fa = Column(VARCHAR(45), nullable=True)
+    last_fa = Column(VARCHAR(45), nullable=True)
     sex = Column(
         CHAR(1), ENUM('m', 'f'),
         nullable=True

@@ -13,6 +13,7 @@ class Country(Base):
         primary_key=True, autoincrement=True, nullable=False
     )
     name = Column(VARCHAR(45), nullable=False, unique=True)
+    name_fa = Column(VARCHAR(45), nullable=True)
     domain = Column(VARCHAR(2), nullable=False, unique=True)
     region = Column(VARCHAR(10), nullable=False)
     sub_region = Column(VARCHAR(45), nullable=True)
