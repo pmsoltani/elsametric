@@ -2,7 +2,7 @@ from sqlalchemy import Column, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import DECIMAL, INTEGER, VARCHAR, YEAR
 
-from elsametric.db_classes.base import Base
+from .base import Base
 
 
 class Source_Metric(Base):

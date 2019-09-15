@@ -2,7 +2,7 @@
 # from sqlalchemy.orm import relationship
 # from sqlalchemy.dialects.mysql import BIGINT, INTEGER, VARCHAR
 
-# from elsametric.db_classes.base import Base
+# from .base import Base
 
 
 # class Institution_Alias(Base):

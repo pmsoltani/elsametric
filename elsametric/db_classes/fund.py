@@ -2,7 +2,7 @@ from sqlalchemy import Column, CheckConstraint, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import BIGINT, VARCHAR
 
-from elsametric.db_classes.base import Base
+from .base import Base
 
 
 class Fund(Base):

@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import \
     BIGINT, DATETIME, DECIMAL, INTEGER, VARCHAR
 
-from elsametric.db_classes.base import Base, token_generator
+from .base import Base, token_generator
 
 
 class Institution(Base):

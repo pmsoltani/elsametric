@@ -2,8 +2,8 @@ from sqlalchemy import Column
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import BIGINT, VARCHAR
 
-from elsametric.db_classes.base import Base
-from elsametric.db_classes.associations import Paper_Keyword
+from .base import Base
+from .associations import Paper_Keyword
 
 
 class Keyword(Base):

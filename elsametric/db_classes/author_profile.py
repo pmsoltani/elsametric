@@ -2,7 +2,7 @@ from sqlalchemy import Column, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import BIGINT, INTEGER, VARCHAR
 
-from elsametric.db_classes.base import Base
+from .base import Base
 
 
 class Author_Profile(Base):
