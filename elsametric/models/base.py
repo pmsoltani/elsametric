@@ -1,18 +1,10 @@
-import os
-import json
 import secrets
 
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-path = os.path.abspath(__file__)
-for d in range(3):  # going up 2 directories
-    path = os.path.dirname(path)
-
-config_path = os.path.join(path, 'config.json')
-with open(config_path, 'r') as config_file:
-    config = json.load(config_file)
+from .. import config
 
 db_user = config['MySQL User']
 db_pass = config['MySQL Pass']
