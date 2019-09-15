@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 
+from api_queries import authors_list
+
 app = FastAPI()
 
 
@@ -10,7 +12,8 @@ async def home():
 
 @app.get('/a/list')
 async def get_authors_list(inst_fid: str = None):
-    response = {'key': 'list of all authors in the db'}
+    # response = {'key': 'list of all authors in the db'}
+    response = authors_list()
     if inst_fid:
         response = {'key': f'list of all authors in {inst_fid}'}
     return response
