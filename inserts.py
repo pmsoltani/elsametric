@@ -4,7 +4,7 @@ import io
 import time
 import datetime
 
-from elsametric.db_classes.base import engine, Session, Base
+from elsametric.models.base import engine, Session, Base
 
 from elsametric.helpers.process import file_process
 from elsametric.helpers.process import ext_country_process
@@ -16,10 +16,7 @@ from elsametric.helpers.process import ext_faculty_process
 Base.metadata.create_all(engine)
 session = Session()
 
-data_path = os.path.abspath(__file__)
-for d in range(2):  # going up 2 directories
-    data_path = os.path.dirname(data_path)
-data_path = os.path.join(data_path, 'data')
+data_path = os.path.join(os.getcwd(), 'data')
 
 t0 = time.time()  # timing the entire process
 
@@ -27,47 +24,51 @@ t0 = time.time()  # timing the entire process
 # External Datasets
 # ==============================================================================
 
-# # countries
-# print('@ countries')
-# session.bulk_save_objects(
-#     ext_country_process(session, os.path.join(data_path, 'countries.csv')))
-# session.commit()
-# print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
+# countries
+print('@ countries')
+countries_list = ext_country_process(
+    session, os.path.join(data_path, 'countries.csv'))
+if countries_list:
+    session.add_all(countries_list)
+session.commit()
+print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
 
-# # subjects
-# print('@ subjects')
-# session.bulk_save_objects(
-#     ext_subject_process(session, os.path.join(data_path, 'subjects.csv')))
-# session.commit()
-# print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
+# subjects
+print('@ subjects')
+subjects_list = ext_subject_process(
+    session, os.path.join(data_path, 'subjects.csv'))
+if subjects_list:
+    session.add_all(subjects_list)
+session.commit()
+print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
 
-# # sources: journals
-# print('@ journals')
-# sources_list = ext_source_process(
-#     session, os.path.join(data_path, 'sources.csv'),
-#     src_type='Journal')
-# if sources_list:
-#     session.add_all(sources_list)
-# session.commit()
-# print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
+# sources: journals
+print('@ journals')
+sources_list = ext_source_process(
+    session, os.path.join(data_path, 'sources.csv'),
+    src_type='Journal')
+if sources_list:
+    session.add_all(sources_list)
+session.commit()
+print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
 
-# # sources: conference proceedings
-# print('@ conference proceedings')
-# sources_list = ext_source_process(
-#     session, os.path.join(data_path, 'conferences.csv'),
-#     src_type='Conference Proceeding')
-# if sources_list:
-#     session.add_all(sources_list)
-# session.commit()
-# print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
+# sources: conference proceedings
+print('@ conference proceedings')
+sources_list = ext_source_process(
+    session, os.path.join(data_path, 'conferences.csv'),
+    src_type='Conference Proceeding')
+if sources_list:
+    session.add_all(sources_list)
+session.commit()
+print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
 
-# # metrics1
-# print('@ metrics1')
-# for y in range(2018, 2010, -1):
-#     sources_list = ext_source_metric_process(
-#         session, os.path.join(data_path, f'{y}.csv'), y)
-# session.commit()
-# print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
+# metrics1
+print('@ metrics1')
+for y in range(2018, 2010, -1):
+    sources_list = ext_source_metric_process(
+        session, os.path.join(data_path, f'{y}.csv'), y)
+session.commit()
+print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
 
 # ==============================================================================
 # Papers
@@ -75,12 +76,12 @@ t0 = time.time()  # timing the entire process
 
 print('@ papers')
 institution_names = [
-    # 'Sharif University of Technology',
+    'Sharif University of Technology',
     # 'Amirkabir University of Technology',
     # 'Shahid Beheshti University',
     # 'Tarbiat Modares University',
     # 'University of Tehran',
-    'Iran Polymer and Petrochemical Institute',
+    # 'Iran Polymer and Petrochemical Institute',
 ]
 
 for institution_name in institution_names:

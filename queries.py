@@ -3,24 +3,23 @@ import io
 import csv
 
 from sqlalchemy import extract
-from elsametric.db_classes.base import Session
 
-from elsametric.db_classes.associations import Author_Department
-from elsametric.db_classes.associations import Paper_Keyword
-from elsametric.db_classes.associations import Paper_Author
-from elsametric.db_classes.associations import Source_Subject
-
-from elsametric.db_classes.author import Author
-from elsametric.db_classes.author_profile import Author_Profile
-from elsametric.db_classes.country import Country
-from elsametric.db_classes.department import Department
-from elsametric.db_classes.fund import Fund
-from elsametric.db_classes.institution import Institution
-from elsametric.db_classes.keyword_ import Keyword
-from elsametric.db_classes.paper import Paper
-from elsametric.db_classes.source import Source
-from elsametric.db_classes.source_metric import Source_Metric
-from elsametric.db_classes.subject import Subject
+from elsametric.models.base import Session
+from elsametric.models.associations import Author_Department
+from elsametric.models.associations import Paper_Keyword
+from elsametric.models.associations import Paper_Author
+from elsametric.models.associations import Source_Subject
+from elsametric.models.author import Author
+from elsametric.models.author_profile import Author_Profile
+from elsametric.models.country import Country
+from elsametric.models.department import Department
+from elsametric.models.fund import Fund
+from elsametric.models.institution import Institution
+from elsametric.models.keyword_ import Keyword
+from elsametric.models.paper import Paper
+from elsametric.models.source import Source
+from elsametric.models.source_metric import Source_Metric
+from elsametric.models.subject import Subject
 
 # ==============================================================================
 # Queries
