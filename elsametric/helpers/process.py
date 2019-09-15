@@ -8,18 +8,18 @@ from .helpers import key_get
 from .helpers import nullify
 from .helpers import strip
 
-from ..db_classes.associations import Paper_Author
-from ..db_classes.author import Author
-from ..db_classes.author_profile import Author_Profile
-from ..db_classes.country import Country
-from ..db_classes.department import Department
-from ..db_classes.fund import Fund
-from ..db_classes.institution import Institution
-from ..db_classes.keyword_ import Keyword
-from ..db_classes.paper import Paper
-from ..db_classes.source import Source
-from ..db_classes.source_metric import Source_Metric
-from ..db_classes.subject import Subject
+from ..models.associations import Paper_Author
+from ..models.author import Author
+from ..models.author_profile import Author_Profile
+from ..models.country import Country
+from ..models.department import Department
+from ..models.fund import Fund
+from ..models.institution import Institution
+from ..models.keyword_ import Keyword
+from ..models.paper import Paper
+from ..models.source import Source
+from ..models.source_metric import Source_Metric
+from ..models.subject import Subject
 
 
 def get_row(file_path: str, encoding: str = 'utf-8-sig', delimiter: str = ','):
