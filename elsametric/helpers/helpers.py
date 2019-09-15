@@ -44,10 +44,19 @@ def data_inspector(data: dict, keys):
 
     issues = []
     first_level_keys = [
-        'source-id', 'prism:publicationName', 'prism:coverDate',
-        'dc:identifier', 'eid', 'dc:title', 'subtype', 'author-count',
-        'openaccess', 'citedby-count', 'link',
-        'author', 'affiliation',
+        'source-id',
+        'prism:publicationName',
+        'prism:coverDate',
+        'dc:identifier',
+        'eid',
+        'dc:title',
+        'subtype',
+        'author-count',
+        'openaccess',
+        'citedby-count',
+        'link',
+        'author',
+        'affiliation',
     ]
     author_keys = ['authid', '@seq', 'afid']
     affiliation_keys = ['afid', 'affilname']
@@ -101,7 +110,7 @@ def key_get(data: dict, keys, key: str, many: bool = False, default=None):
 
     If the value is a list, the function will return the value of the
     '$' key inside the first element, or all of the '$' values, based on
-    the state of the 'many' parameter.
+    the state of the 'many' parameter (returns a set).
 
     If the value is a dict, the function will return the value for the
     '$' key inside that dict.
@@ -126,9 +135,9 @@ def key_get(data: dict, keys, key: str, many: bool = False, default=None):
         return default
 
     if isinstance(result, list):
-        if not many:  # return only the first element
+        if not many:  # return only the first item
             return result[0]['$']
-        return [item['$'] for item in result]  # return all elements
+        return {item['$'] for item in result}  # return a set of all items
 
     if isinstance(result, dict):
         return result['$']
