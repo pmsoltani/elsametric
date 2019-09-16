@@ -1,6 +1,5 @@
-import time
-import io
-import csv
+import os
+import json
 
 from sqlalchemy import extract
 
@@ -21,9 +20,24 @@ from elsametric.models.source import Source
 from elsametric.models.source_metric import Source_Metric
 from elsametric.models.subject import Subject
 
+
+# ==============================================================================
+# Config
+# ==============================================================================
+
+
+config_path = os.path.join(os.getcwd(), 'config.json')
+with open(config_path, 'r') as config_file:
+    config = json.load(config_file)
+
+config = config['api']
+home_institution_id_scp = config['home_institution_id_scp']
+
+
 # ==============================================================================
 # Queries: Base
 # ==============================================================================
+
 
 session = Session()
 
@@ -39,51 +53,83 @@ src = session.query(Source)
 m = session.query(Source_Metric)
 sub = session.query(Subject)
 
+
 # ==============================================================================
-# Functions
+# Functions & Variables
 # ==============================================================================
 
 
-def authors_list():
+def get_authors_list():
     authors = a \
-        .with_entities(Author.id_frontend, Author.first, Author.last) \
+        .with_entities(
+            Author.id, Author.id_frontend, Author.first, Author.last) \
         .join((Department, Author.departments)) \
         .join((Institution, Department.institution)) \
-        .filter(Author.type == 'Faculty', Institution.id_scp == 60027666) \
+        .filter(
+            Author.type == 'Faculty',
+            Institution.id_scp == home_institution_id_scp) \
         .order_by(Author.last) \
         .all()
 
-    response = []
+    response_backend = {}
+    response_frontend = []
     for author in authors:
-        response.append({
+        response_backend[author.id_frontend] = author.id
+
+        response_frontend.append({
             'idFrontend': author.id_frontend,
             'first': author.first,
             'last': author.last,
             'url': f'http://localhost:8000/a/{author.id_frontend}'
         })
-    return response
+    return response_backend, response_frontend
 
 
-def author_id_frontend(id_: str):
-    author = a.filter(Author.id_frontend == id_).first()
-    departments = [{'name': d.name, 'idFrontend': d.id_frontend}
-                   for d in author.departments]
-    institutions = [{'name': i.name, 'idFrontend': i.id_frontend}
-                    for i in author.get_institutions()]
-    profiles = [{'type': p.type, 'address': p.address}
-                for p in author.profiles]
-    response = {
-        'home': 'http://localhost:8000/a/list',
-        'first': author.first,
-        'last': author.last,
-        'departments': departments,
-        'institutions': institutions,
-        'contact': profiles,
-    }
+authors_list_backend, authors_list_frontend = get_authors_list()
+home_institution = i.filter(
+    Institution.id_scp == home_institution_id_scp).first()
+
+
+def get_author(id_frontend: str):
+    response = {'message': 'author not found', 'code': 404}
+    try:
+        id_ = authors_list_backend[id_frontend]
+        author = a.get(id_)
+        departments = []
+        profiles = []
+        if author:
+            try:
+                for d in author.departments:
+                    if d.name == 'Undefined':
+                        continue
+                    departments.append(
+                        {'name': d.name, 'idFrontend': d.id_frontend})
+            except (TypeError, AttributeError):
+                pass
+
+            try:
+                for p in author.profiles:
+                    profiles.append(
+                        {'type': p.type, 'address': p.address})
+            except (TypeError, AttributeError):
+                pass
+
+            response = {
+                'home': 'http://localhost:8000/a/list',
+                'first': author.first,
+                'last': author.last,
+                'departments': departments,
+                'institution': {
+                    'name': home_institution.name,
+                    'idFrontend': home_institution.id_frontend
+                },
+                'contact': profiles,
+            }
+    except KeyError:
+        pass
+
     return response
 
 
 if __name__ == "__main__":
-    print(len(authors_list()))
-    print(get_home_institution('id_scp', 60027666))
-    print(authors_list())
+    pass

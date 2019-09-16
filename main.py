@@ -1,38 +1,38 @@
 from fastapi import FastAPI
 
-from api_queries import authors_list, author_id_frontend
+from api_queries import authors_list_frontend, get_author
 
 app = FastAPI()
 
 
 @app.get('/')
 async def home():
-    return {'key': 'Hello World!'}
+    return {'key': 'Visit list', 'url': 'http://127.0.0.1:8000/a/list'}
 
 
 @app.get('/a/list')
-async def get_authors_list(inst_fid: str = None):
+async def show_authors_list(inst_fid: str = None):
     # response = {'key': 'list of all authors in the db'}
-    response = authors_list()
+    response = authors_list_frontend
     if inst_fid:
         response = {'key': f'FEATURE !READY: list of all authors in {inst_fid}'}
     return response
 
 
 @app.get('/a/{id_frontend}')
-async def get_author(id_frontend: str):
-    response = author_id_frontend(id_frontend)
+async def show_author(id_frontend: str):
+    response = get_author(id_frontend)
     return response
 
 
 @app.get('/a/{id_frontend}/papers')
-async def get_author(id_frontend: str):
+async def show_author(id_frontend: str):
     response = {'key': f"all of {id_frontend}'s papers"}
     return response
 
 
 @app.get('/a/{id_frontend}/trend')
-async def get_author(id_frontend: str, year: int = None):
+async def show_author(id_frontend: str, year: int = None):
     response = {'key': f"{id_frontend}'s yearly papers and citations count"}
     if year:
         response = {
@@ -41,7 +41,7 @@ async def get_author(id_frontend: str, year: int = None):
 
 
 @app.get('/a/{id_frontend}/network')
-async def get_author(id_frontend: str, co_id: str = None):
+async def show_author(id_frontend: str, co_id: str = None):
     response = {'key': f"all of {id_frontend}'s collaborators"}
     if co_id:
         response = {
@@ -50,7 +50,7 @@ async def get_author(id_frontend: str, co_id: str = None):
 
 
 @app.get('/a/{id_frontend}/keywords')
-async def get_author(id_frontend: str, tag: str = None):
+async def show_author(id_frontend: str, tag: str = None):
     response = {'key': f"all of {id_frontend}'s keywords"}
     if tag:
         response = {
@@ -59,7 +59,7 @@ async def get_author(id_frontend: str, tag: str = None):
 
 
 @app.get('/a/{id_frontend}/journals')
-async def get_author(id_frontend: str, rank: str = None):
+async def show_author(id_frontend: str, rank: str = None):
     response = {'key': f"all of {id_frontend}'s journal Qs"}
     if rank:
         response = {
