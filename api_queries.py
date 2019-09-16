@@ -46,8 +46,44 @@ sub = session.query(Subject)
 
 def authors_list():
     authors = a \
+        .with_entities(Author.id_frontend, Author.first, Author.last) \
         .join((Department, Author.departments)) \
         .join((Institution, Department.institution)) \
-        .filter(Institution.id_scp == 60027666).all()
-    return [{'id_frontend': i.id_frontend, 'first': i.first, 'last': i.last}
-            for i in authors]
+        .filter(Author.type == 'Faculty', Institution.id_scp == 60027666) \
+        .order_by(Author.last) \
+        .all()
+
+    response = []
+    for author in authors:
+        response.append({
+            'idFrontend': author.id_frontend,
+            'first': author.first,
+            'last': author.last,
+            'url': f'http://localhost:8000/a/{author.id_frontend}'
+        })
+    return response
+
+
+def author_id_frontend(id_: str):
+    author = a.filter(Author.id_frontend == id_).first()
+    departments = [{'name': d.name, 'idFrontend': d.id_frontend}
+                   for d in author.departments]
+    institutions = [{'name': i.name, 'idFrontend': i.id_frontend}
+                    for i in author.get_institutions()]
+    profiles = [{'type': p.type, 'address': p.address}
+                for p in author.profiles]
+    response = {
+        'home': 'http://localhost:8000/a/list',
+        'first': author.first,
+        'last': author.last,
+        'departments': departments,
+        'institutions': institutions,
+        'contact': profiles,
+    }
+    return response
+
+
+if __name__ == "__main__":
+    print(len(authors_list()))
+    print(get_home_institution('id_scp', 60027666))
+    print(authors_list())
