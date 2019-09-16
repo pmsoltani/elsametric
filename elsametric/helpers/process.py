@@ -888,7 +888,7 @@ def ext_source_metric_process(session, file_path: str, file_year: int,
         for metric in metric_types:
             try:
                 metric_value = float(row[metric])
-            except (KeyError, ValueError):  # value not available
+            except (KeyError, TypeError, ValueError):  # value not available
                 continue
             # using pre-defined names for metrics
             metric = metric_types[metric]
