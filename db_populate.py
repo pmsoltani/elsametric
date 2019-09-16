@@ -1,11 +1,10 @@
 import os
 import json
 import io
-import time
-import datetime
+from time import time, strftime, gmtime
+from datetime import datetime
 
 from elsametric.models.base import engine, Session, Base
-
 from elsametric.helpers.process import file_process
 from elsametric.helpers.process import ext_country_process
 from elsametric.helpers.process import ext_subject_process
@@ -13,80 +12,110 @@ from elsametric.helpers.process import ext_source_process
 from elsametric.helpers.process import ext_source_metric_process
 from elsametric.helpers.process import ext_faculty_process
 
+
+# ==============================================================================
+# Config
+# ==============================================================================
+
+
+config_path = os.path.join(os.getcwd(), 'config.json')
+with io.open(config_path, 'r') as config_file:
+    config = json.load(config_file)
+
+config = config['database']['populate']
+
 Base.metadata.create_all(engine)
 session = Session()
 
-data_path = os.path.join(os.getcwd(), 'data')
+data_path = config['data_directory']
 
-t0 = time.time()  # timing the entire process
+t0 = time()  # timing the entire process
+
 
 # ==============================================================================
 # External Datasets
 # ==============================================================================
 
+
 # countries
-print('@ countries')
-countries_list = ext_country_process(
-    session, os.path.join(data_path, 'countries.csv'))
-if countries_list:
-    session.add_all(countries_list)
-session.commit()
-print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
+if config['countries']['process']:
+    print('@ countries')
+
+    countries_list = ext_country_process(
+        session, os.path.join(data_path, config['countries']['path']))
+    if countries_list:
+        session.add_all(countries_list)
+    session.commit()
+
+    print(f'Op. Time: {strftime("%H:%M:%S", gmtime(time() - t0))}')
+
 
 # subjects
-print('@ subjects')
-subjects_list = ext_subject_process(
-    session, os.path.join(data_path, 'subjects.csv'))
-if subjects_list:
-    session.add_all(subjects_list)
-session.commit()
-print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
+if config['subjects']['process']:
+    print('@ subjects')
+
+    subjects_list = ext_subject_process(
+        session, os.path.join(data_path, config['subjects']['path']))
+    if subjects_list:
+        session.add_all(subjects_list)
+    session.commit()
+
+    print(f'Op. Time: {strftime("%H:%M:%S", gmtime(time() - t0))}')
+
 
 # sources: journals
-print('@ journals')
-sources_list = ext_source_process(
-    session, os.path.join(data_path, 'sources.csv'),
-    src_type='Journal')
-if sources_list:
-    session.add_all(sources_list)
-session.commit()
-print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
+if config['journals']['process']:
+    print('@ journals')
+
+    sources_list = ext_source_process(
+        session, os.path.join(data_path, config['journals']['path']),
+        src_type='Journal')
+    if sources_list:
+        session.add_all(sources_list)
+    session.commit()
+
+    print(f'Op. Time: {strftime("%H:%M:%S", gmtime(time() - t0))}')
+
 
 # sources: conference proceedings
-print('@ conference proceedings')
-sources_list = ext_source_process(
-    session, os.path.join(data_path, 'conferences.csv'),
-    src_type='Conference Proceeding')
-if sources_list:
-    session.add_all(sources_list)
-session.commit()
-print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
+if config['conferences']['process']:
+    print('@ conference proceedings')
 
-# metrics1
-print('@ metrics1')
-for y in range(2018, 2010, -1):
+    sources_list = ext_source_process(
+        session, os.path.join(data_path, config['conferences']['path']),
+        src_type='Conference Proceeding')
+    if sources_list:
+        session.add_all(sources_list)
+    session.commit()
+
+    print(f'Op. Time: {strftime("%H:%M:%S", gmtime(time() - t0))}')
+
+
+# source metrics
+for item in config['metrics']:
+    if not item['process']:
+        continue
+    print(f'@ metrics: {item["path"]}')
+
     sources_list = ext_source_metric_process(
-        session, os.path.join(data_path, f'{y}.csv'), y)
-session.commit()
-print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
+        session, os.path.join(data_path, item['path']), item['year'])
+    session.commit()
+
+    print(f'Op. Time: {strftime("%H:%M:%S", gmtime(time() - t0))}')
+
 
 # ==============================================================================
 # Papers
 # ==============================================================================
 
-print('@ papers')
-institution_names = [
-    'Sharif University of Technology',
-    # 'Amirkabir University of Technology',
-    # 'Shahid Beheshti University',
-    # 'Tarbiat Modares University',
-    # 'University of Tehran',
-    # 'Iran Polymer and Petrochemical Institute',
-]
 
-for institution_name in institution_names:
-    all_bad_papers = []
-    path = os.path.join(data_path, institution_name)
+for item in config['papers']:
+    if not item['process']:
+        continue
+    print(f'@ papers for: {item["path"]}')
+
+    institution_bad_papers = []
+    path = os.path.join(data_path, item['path'])
     files = list(os.walk(path))[0][2]
     files.sort()
 
@@ -97,7 +126,7 @@ for institution_name in institution_names:
 
         print(file)
         file_path = os.path.join(path, file)
-        retrieval_time = datetime.datetime \
+        retrieval_time = datetime \
             .utcfromtimestamp(int(file.split('.')[0].split('_')[-1])) \
             .strftime('%Y-%m-%d %H:%M:%S')
         (problems, papers_list) = file_process(
@@ -113,36 +142,42 @@ for institution_name in institution_names:
         if papers_list:
             session.add_all(papers_list)
         if problems:
-            all_bad_papers.append(problems)
+            institution_bad_papers.append(problems)
 
         session.commit()
 
-    if all_bad_papers:
-        log_folder = os.path.join(data_path, 'logs')
+    if institution_bad_papers:
+        log_folder = os.path.join(data_path, config['logs'])
         if not os.path.exists(log_folder):
             os.makedirs(log_folder)
-        log_name = f'bad_papers_{institution_name}_{int(time.time())}.json'
+        log_name = f'bad_papers_{item["path"]}_{int(time())}.json'
         with io.open(os.path.join(log_folder, log_name),
-                     'w', encoding='utf8') as log:
-            json.dump(all_bad_papers, log, indent=4)
+                    'w', encoding='utf8') as log:
+            json.dump(institution_bad_papers, log, indent=4)
+
+    print(f'Op. Time: {strftime("%H:%M:%S", gmtime(time() - t0))}')
 
 session.close()
 
-print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
 
 # ==============================================================================
-# Faculties
+# Institutions' faculty & department data
 # ==============================================================================
 
-# print('@ faculties')
-# inst_id = 60027666
-# faculties_list = ext_faculty_process(
-#     session,
-#     os.path.join(data_path, 'Faculties.csv'),
-#     os.path.join(data_path, 'Departments.csv'),
-#     institution_id_scp=inst_id
-# )
-# session.commit()
-# print(f'Op. Time: {time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))}')
 
-# session.close()
+for item in config['institutions']:
+    if not item['process']:
+        continue
+    print(f'@ faculties & departments for: {item["id_scp"]}: {item["name"]}')
+
+    faculties_list = ext_faculty_process(
+        session,
+        os.path.join(data_path, item['faculties']),
+        os.path.join(data_path, item['departments']),
+        institution_id_scp=item['id_scp']
+    )
+    session.commit()
+
+    print(f'Op. Time: {strftime("%H:%M:%S", gmtime(time() - t0))}')
+
+session.close()
