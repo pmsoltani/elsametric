@@ -59,8 +59,8 @@ async def show_author(id_frontend: str, tag: str = None):
 
 
 @app.get('/a/{id_frontend}/journals')
-async def show_author(id_frontend: str, rank: str = None):
+async def show_author(id_frontend: str, q: str = None):
     response = get_author_journals(id_frontend)
-    if rank:
-        response = get_author_journals(id_frontend, rank)
+    if q:
+        response = get_author_journals(id_frontend, q)
     return response

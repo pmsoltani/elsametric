@@ -2,6 +2,7 @@ import os
 import json
 
 from sqlalchemy import extract
+from sqlalchemy.orm import aliased
 
 from elsametric.models.base import Session
 from elsametric.models.associations import Author_Department
@@ -134,6 +135,16 @@ def get_author(id_frontend: str):
 
 
 def paper_formatter(paper):
+    quartile = None
+    if paper.source and paper.source.metrics:
+        percentile = next(filter(
+            lambda m: m.type == 'Percentile' and m.year == paper.get_year(),
+            paper.source.metrics
+        ))
+    if percentile:
+        percentile = percentile.value
+        quartile = f'q{(100 - percentile - 1) // 25 + 1}'
+
     return {
         'title': paper.title,
         'type': paper.type,
@@ -141,7 +152,8 @@ def paper_formatter(paper):
         'doi': paper.doi,
         'open_access': paper.open_access,
         'cited_cnt': paper.cited_cnt,
-        'source': paper.source.title
+        'source': paper.source.title,
+        'quartile': quartile
     }
 
 
@@ -242,13 +254,13 @@ def get_author_keywords(id_frontend: str, keyword: str = ''):
     return response
 
 
-def get_author_journals(id_frontend: str, rank: str = ''):
+def get_author_journals(id_frontend: str, q: str = ''):
     response = {'message': 'not found', 'code': 404}
 
-    if not(isinstance(rank, str)):
+    if not(isinstance(q, str)):
         return response
 
-    if rank and (rank not in ['q1', 'q2', 'q3', 'q4']):
+    if q and (q not in ['q1', 'q2', 'q3', 'q4']):
         return response
 
     try:
@@ -258,26 +270,28 @@ def get_author_journals(id_frontend: str, rank: str = ''):
 
         if author:
             try:
-                if rank:
-                    print('@rank')
-                    quartile = int(rank[1])
+                if q:
+                    quartile = int(q[1])
                     top_percentile = (4 - quartile) * 25 + 25 - 1
                     bottom_percentile = (4 - quartile) * 25
-                    print(quartile, top_percentile, bottom_percentile)
                     papers = p \
                         .join((Paper_Author, Paper.authors)) \
                         .join((Author, Paper_Author.author)) \
-                        .join((Source, Paper.source_id)) \
-                        .join((Source_Metric, Source_Metric.source_id)) \
-                        .filter(
-                            Author.id == id_,
-                            Source_Metric.type == 'percentile',
-                            Source_Metric.value >= bottom_percentile,
-                            Source_Metric.value <= top_percentile
-                        ) \
+                        .filter(Author.id == id_) \
                         .all()
-                    papers = [paper_formatter(p) for p in papers]
-                    response = papers
+
+                    papers2 = []
+                    for paper in papers:
+                        if paper.source and paper.source.metrics:
+                            for metric in paper.source.metrics:
+                                if (
+                                    metric.year == paper.get_year() and
+                                    metric.type == 'Percentile' and
+                                    bottom_percentile <= metric.value and
+                                    metric.value <= top_percentile
+                                ):
+                                    papers2.append(paper_formatter(paper))
+                    response = papers2
                 else:
                     for i in author.get_metrics():
                         quartile = (100 - i[0] - 1) // 25 + 1
@@ -285,9 +299,11 @@ def get_author_journals(id_frontend: str, rank: str = ''):
 
                     response = metrics
 
-            except (AttributeError) as e:
+            except AttributeError as e:
+                print('attr', e)
                 pass
     except KeyError as e:
+        print('key', e)
         pass
 
     return response
@@ -300,17 +316,45 @@ def get_author_network(id_frontend: str):
         id_ = authors_list_backend[id_frontend]
         author = a.get(id_)
         network = []
+        network_to = []
+        network_added = []
 
         if author:
             try:
-                for co_auth, value in author.get_co_authors().items():
+                for co_auth, value in author.get_co_authors(threshold=2).items():
                     network.append({
-                        'from': f'{author.first} {author.last}',
-                        'to': f'{co_auth.first} {co_auth.last}',
+                        'from': {
+                            'name': f'{author.first} {author.last}',
+                            'idFrontend': id_frontend
+                        },
+                        'to': {
+                            'name':  f'{co_auth.first} {co_auth.last}',
+                            'idFrontend': co_auth.id_frontend
+                        },
                         'value': value
                     })
 
-                response = network
+                    network_to.append(co_auth)
+
+                for node in network:
+                    second = get_co_papers(
+                        id_frontend, node['to']['idFrontend'], network_to)
+                    if second:
+                        for id_frontend2, node_data in second.items():
+                            name2 = f'{node_data["author"].first} {node_data["author"].last}'
+                            network_added.append({
+                                'from': {
+                                    'name': node['to']['name'],
+                                    'idFrontend': node['to']['idFrontend']
+                                },
+                                'to': {
+                                    'name': name2,
+                                    'idFrontend': id_frontend2
+                                },
+                                'value': node_data['value']
+                            })
+
+                # response = network + network_added
 
             except (AttributeError) as e:
                 pass
@@ -318,6 +362,28 @@ def get_author_network(id_frontend: str):
         pass
 
     return response
+
+
+def get_co_papers(id_frontend: str, co_id_frontend: str, network: list):
+    co_author = a.filter(Author.id_frontend == id_frontend).first()
+    papers = p \
+        .join((Paper_Author, Paper.authors)) \
+        .join((Author, Paper_Author.author)) \
+        .filter(Author.id_frontend == id_frontend) \
+        .all()
+
+    secondary_network = {}
+
+    for paper in papers:
+        authors = [paper_author.author for paper_author in paper.authors]
+        for author in authors:
+            if author in network and author.id_frontend != co_id_frontend:
+                try:
+                    secondary_network[author.id_frontend]['value'] += 1
+                except KeyError:
+                    secondary_network[author.id_frontend] = {
+                        'author': author, 'value': 1}
+    return secondary_network
 
 
 if __name__ == "__main__":
