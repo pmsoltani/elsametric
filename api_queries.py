@@ -217,7 +217,6 @@ def get_author_keywords(id_frontend: str, keyword: str = ''):
         id_ = authors_list_backend[id_frontend]
         author = a.get(id_)
         keywords = {}
-        print(author)
 
         if author:
             try:
@@ -231,12 +230,91 @@ def get_author_keywords(id_frontend: str, keyword: str = ''):
                     papers = [paper_formatter(p) for p in papers]
                     response = papers
                 else:
-                    keywords = author.get_keywords(threshold=keywords_threshold)
+                    keywords = author.get_keywords(
+                        threshold=keywords_threshold)
                     response = {k.keyword: v for k, v in keywords.items()}
 
             except (AttributeError):
                 pass
     except KeyError:
+        pass
+
+    return response
+
+
+def get_author_journals(id_frontend: str, rank: str = ''):
+    response = {'message': 'not found', 'code': 404}
+
+    if not(isinstance(rank, str)):
+        return response
+
+    if rank and (rank not in ['q1', 'q2', 'q3', 'q4']):
+        return response
+
+    try:
+        id_ = authors_list_backend[id_frontend]
+        author = a.get(id_)
+        metrics = {'q1': 0, 'q2': 0, 'q3': 0, 'q4': 0}
+
+        if author:
+            try:
+                if rank:
+                    print('@rank')
+                    quartile = int(rank[1])
+                    top_percentile = (4 - quartile) * 25 + 25 - 1
+                    bottom_percentile = (4 - quartile) * 25
+                    print(quartile, top_percentile, bottom_percentile)
+                    papers = p \
+                        .join((Paper_Author, Paper.authors)) \
+                        .join((Author, Paper_Author.author)) \
+                        .join((Source, Paper.source_id)) \
+                        .join((Source_Metric, Source_Metric.source_id)) \
+                        .filter(
+                            Author.id == id_,
+                            Source_Metric.type == 'percentile',
+                            Source_Metric.value >= bottom_percentile,
+                            Source_Metric.value <= top_percentile
+                        ) \
+                        .all()
+                    papers = [paper_formatter(p) for p in papers]
+                    response = papers
+                else:
+                    for i in author.get_metrics():
+                        quartile = (100 - i[0] - 1) // 25 + 1
+                        metrics[f'q{quartile}'] += i[1]
+
+                    response = metrics
+
+            except (AttributeError) as e:
+                pass
+    except KeyError as e:
+        pass
+
+    return response
+
+
+def get_author_network(id_frontend: str):
+    response = {'message': 'not found', 'code': 404}
+
+    try:
+        id_ = authors_list_backend[id_frontend]
+        author = a.get(id_)
+        network = []
+
+        if author:
+            try:
+                for co_auth, value in author.get_co_authors().items():
+                    network.append({
+                        'from': f'{author.first} {author.last}',
+                        'to': f'{co_auth.first} {co_auth.last}',
+                        'value': value
+                    })
+
+                response = network
+
+            except (AttributeError) as e:
+                pass
+    except KeyError as e:
         pass
 
     return response

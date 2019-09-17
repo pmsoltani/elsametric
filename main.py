@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 
 from api_queries import authors_list_frontend, get_author, get_author_papers, \
-    get_author_trend, get_author_keywords
+    get_author_trend, get_author_keywords, get_author_journals, \
+    get_author_network
 
 app = FastAPI()
 
@@ -42,7 +43,7 @@ async def show_author(id_frontend: str, year: int = None):
 
 @app.get('/a/{id_frontend}/network')
 async def show_author(id_frontend: str, co_id: str = None):
-    response = {'key': f"all of {id_frontend}'s collaborators"}
+    response = get_author_network(id_frontend)
     if co_id:
         response = {
             'key': f"all of {id_frontend}'s papers with collaborator: {co_id}"}
@@ -59,8 +60,7 @@ async def show_author(id_frontend: str, tag: str = None):
 
 @app.get('/a/{id_frontend}/journals')
 async def show_author(id_frontend: str, rank: str = None):
-    response = {'key': f"all of {id_frontend}'s journal Qs"}
+    response = get_author_journals(id_frontend)
     if rank:
-        response = {
-            'key': f"all of {id_frontend}'s papers in {rank} journals"}
+        response = get_author_journals(id_frontend, rank)
     return response
