@@ -32,6 +32,8 @@ with open(config_path, 'r') as config_file:
 
 config = config['api']
 home_institution_id_scp = config['home_institution_id_scp']
+year_range = config['year_range']
+keywords_threshold = config['keywords_threshold']
 
 
 # ==============================================================================
@@ -91,7 +93,7 @@ home_institution = i.filter(
 
 
 def get_author(id_frontend: str):
-    response = {'message': 'author not found', 'code': 404}
+    response = {'message': 'not found', 'code': 404}
     try:
         id_ = authors_list_backend[id_frontend]
         author = a.get(id_)
@@ -125,6 +127,115 @@ def get_author(id_frontend: str):
                 },
                 'contact': profiles,
             }
+    except KeyError:
+        pass
+
+    return response
+
+
+def paper_formatter(paper):
+    return {
+        'title': paper.title,
+        'type': paper.type,
+        'date': paper.get_year(),
+        'doi': paper.doi,
+        'open_access': paper.open_access,
+        'cited_cnt': paper.cited_cnt,
+        'source': paper.source.title
+    }
+
+
+def get_author_papers(id_frontend: str, year: int = 0):
+    response = {'message': 'not found', 'code': 404}
+
+    if not(isinstance(year, int)):
+        return response
+
+    if year and not(year_range[0] <= year <= year_range[1]):
+        return response
+
+    try:
+        id_ = authors_list_backend[id_frontend]
+        author = a.get(id_)
+        papers = []
+
+        if author:
+            try:
+                for paper_author in author.papers:
+                    paper = paper_author.paper
+                    if year and paper.get_year() != year:
+                        continue
+                    papers.append(paper_formatter(paper))
+                response = papers
+
+            except (AttributeError, TypeError):
+                pass
+    except KeyError:
+        pass
+
+    return response
+
+
+def get_author_trend(id_frontend: str):
+    response = {'message': 'not found', 'code': 404}
+    try:
+        id_ = authors_list_backend[id_frontend]
+        author = a.get(id_)
+        trend = {}
+
+        if author:
+            try:
+                papers_trend = author.get_papers()
+                citations_trend = author.get_citations()
+                for year in papers_trend:
+                    trend[year] = {
+                        'papers': papers_trend[year],
+                        'citations': citations_trend[year]
+                    }
+                response = trend
+
+            except (AttributeError, TypeError):
+                pass
+    except KeyError:
+        pass
+
+    return response
+
+
+def get_author_keywords(id_frontend: str, keyword: str = ''):
+    response = {'message': 'not found', 'code': 404}
+
+    if not(isinstance(keyword, str)):
+        return response
+
+    if keyword:
+        keywords_list = get_author_keywords(id_frontend).keys()
+        if keyword not in keywords_list:
+            return response
+
+    try:
+        id_ = authors_list_backend[id_frontend]
+        author = a.get(id_)
+        keywords = {}
+        print(author)
+
+        if author:
+            try:
+                if keyword:
+                    papers = p \
+                        .join((Paper_Author, Paper.authors)) \
+                        .join((Author, Paper_Author.author)) \
+                        .join((Keyword, Paper.keywords)) \
+                        .filter(Author.id == id_, Keyword.keyword == keyword) \
+                        .all()
+                    papers = [paper_formatter(p) for p in papers]
+                    response = papers
+                else:
+                    keywords = author.get_keywords(threshold=keywords_threshold)
+                    response = {k.keyword: v for k, v in keywords.items()}
+
+            except (AttributeError):
+                pass
     except KeyError:
         pass
 

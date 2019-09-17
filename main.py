@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
-from api_queries import authors_list_frontend, get_author
+from api_queries import authors_list_frontend, get_author, get_author_papers, \
+    get_author_trend, get_author_keywords
 
 app = FastAPI()
 
@@ -27,16 +28,15 @@ async def show_author(id_frontend: str):
 
 @app.get('/a/{id_frontend}/papers')
 async def show_author(id_frontend: str):
-    response = {'key': f"all of {id_frontend}'s papers"}
+    response = get_author_papers(id_frontend)
     return response
 
 
 @app.get('/a/{id_frontend}/trend')
 async def show_author(id_frontend: str, year: int = None):
-    response = {'key': f"{id_frontend}'s yearly papers and citations count"}
+    response = get_author_trend(id_frontend)
     if year:
-        response = {
-            'key': f"{id_frontend}'s papers for the specified year: {year}"}
+        response = get_author_papers(id_frontend, year)
     return response
 
 
@@ -51,10 +51,9 @@ async def show_author(id_frontend: str, co_id: str = None):
 
 @app.get('/a/{id_frontend}/keywords')
 async def show_author(id_frontend: str, tag: str = None):
-    response = {'key': f"all of {id_frontend}'s keywords"}
+    response = get_author_keywords(id_frontend)
     if tag:
-        response = {
-            'key': f"all of {id_frontend}'s papers with keyword: {tag}"}
+        response = get_author_keywords(id_frontend, keyword=tag)
     return response
 
 
