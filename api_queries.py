@@ -309,82 +309,80 @@ def get_author_journals(id_frontend: str, q: str = ''):
     return response
 
 
+def get_joint_papers(all_papers: list, co_author):
+    joint_papers = []
+    for paper in all_papers:
+        authors = [paper_author.author for paper_author in paper.authors]
+        if co_author in authors:
+            joint_papers.append(paper)
+
+    return joint_papers
+
+
+def network_formatter(from_, to_dict:dict):
+    result = []
+    for k, v in to_dict.items():
+        result.append({
+            'from': from_, 'to': k, 'value': v
+        })
+
+    return result
+
 def get_author_network(id_frontend: str):
     response = {'message': 'not found', 'code': 404}
+    final_network = []
 
-    try:
-        id_ = authors_list_backend[id_frontend]
-        author = a.get(id_)
-        network = []
-        network_to = []
-        network_added = []
+    # 1. get a list of (author)'s (all_papers)
+    id_ = authors_list_backend[id_frontend]
+    author = a.get(id_)
+    all_papers = p \
+        .join((Paper_Author, Paper.authors)) \
+        .join((Author, Paper_Author.author)) \
+        .filter(Author.id == id_) \
+        .all()
 
-        if author:
-            try:
-                for co_auth, value in author.get_co_authors(threshold=2).items():
-                    network.append({
-                        'from': {
-                            'name': f'{author.first} {author.last}',
-                            'idFrontend': id_frontend
-                        },
-                        'to': {
-                            'name':  f'{co_auth.first} {co_auth.last}',
-                            'idFrontend': co_auth.id_frontend
-                        },
-                        'value': value
-                    })
+    # 2. add (author) to an (exclusion_list)
+    exclusion_list = [author]
 
-                    network_to.append(co_auth)
+    # 3. get a list of (author)'s all (co_authors)
+    co_authors = author.get_co_authors(threshold=keywords_threshold)
+    final_network.append(network_formatter(author, co_authors))
 
-                for node in network:
-                    second = get_co_papers(
-                        id_frontend, node['to']['idFrontend'], network_to)
-                    if second:
-                        for id_frontend2, node_data in second.items():
-                            name2 = f'{node_data["author"].first} {node_data["author"].last}'
-                            network_added.append({
-                                'from': {
-                                    'name': node['to']['name'],
-                                    'idFrontend': node['to']['idFrontend']
-                                },
-                                'to': {
-                                    'name': name2,
-                                    'idFrontend': id_frontend2
-                                },
-                                'value': node_data['value']
-                            })
+    # 4. create a dictionary for storing each the (co_authors) of each (co)
+    co_network = {}
 
-                # response = network + network_added
+    # 5. for each (co):
+    for co in co_authors:
 
-            except (AttributeError) as e:
-                pass
-    except KeyError as e:
-        pass
+        # 5.1. add (co) to (exclusion_list) and prepare (co_network)
+        exclusion_list.append(co)
+        co_network[co] = {}
+
+        # 5.2. get a list of (joint_papers) with (author)
+        joint_papers = get_joint_papers(all_papers, co_author=co)
+
+        # 5.3. for each joint paper
+        for paper in joint_papers:
+
+            # 5.3.1. get a list of joint paper's (authors)
+            authors = [paper_author.author for paper_author in paper.authors]
+
+            # 5.3.2 add (authors) to the (co_network) for (co)
+            for auth in authors:
+                if auth in exclusion_list:
+                    continue
+
+                try:
+                    co_network[co][auth] += 1
+                except KeyError as e:
+                    co_network[co][auth] = 1
+
+    for co, network in co_network.items():
+        final_network.append(network_formatter(co, network))
+
+    response = final_network
 
     return response
 
-
-def get_co_papers(id_frontend: str, co_id_frontend: str, network: list):
-    co_author = a.filter(Author.id_frontend == id_frontend).first()
-    papers = p \
-        .join((Paper_Author, Paper.authors)) \
-        .join((Author, Paper_Author.author)) \
-        .filter(Author.id_frontend == id_frontend) \
-        .all()
-
-    secondary_network = {}
-
-    for paper in papers:
-        authors = [paper_author.author for paper_author in paper.authors]
-        for author in authors:
-            if author in network and author.id_frontend != co_id_frontend:
-                try:
-                    secondary_network[author.id_frontend]['value'] += 1
-                except KeyError:
-                    secondary_network[author.id_frontend] = {
-                        'author': author, 'value': 1}
-    return secondary_network
-
-
 if __name__ == "__main__":
-    pass
+    print()
