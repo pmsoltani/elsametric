@@ -35,6 +35,7 @@ config = config['api']
 home_institution_id_scp = config['home_institution_id_scp']
 year_range = config['year_range']
 keywords_threshold = config['keywords_threshold']
+network_threshold = config['network_threshold']
 
 
 # ==============================================================================
@@ -135,6 +136,7 @@ def get_author(id_frontend: str):
 
 
 def paper_formatter(paper):
+    percentile = None
     quartile = None
     if paper.source and paper.source.metrics:
         percentile = next(filter(
@@ -319,14 +321,24 @@ def get_joint_papers(all_papers: list, co_author):
     return joint_papers
 
 
-def network_formatter(from_, to_dict:dict):
+def network_formatter(from_, to_dict: dict):
     result = []
     for k, v in to_dict.items():
         result.append({
-            'from': from_, 'to': k, 'value': v
+            'from': {
+                'name': f'{from_.first} {from_.last}',
+                'idFrontend': from_.id_frontend,
+            },
+            'to': {
+                'name': f'{k.first} {k.last}',
+                'idFrontend': k.id_frontend
+            },
+            'value': v,
+            'url': f'http://localhost:8000/a/{from_.id_frontend}/network?coID={k.id_frontend}'
         })
 
     return result
+
 
 def get_author_network(id_frontend: str):
     response = {'message': 'not found', 'code': 404}
@@ -345,8 +357,8 @@ def get_author_network(id_frontend: str):
     exclusion_list = [author]
 
     # 3. get a list of (author)'s all (co_authors)
-    co_authors = author.get_co_authors(threshold=keywords_threshold)
-    final_network.append(network_formatter(author, co_authors))
+    co_authors = author.get_co_authors(threshold=network_threshold)
+    final_network.extend(network_formatter(author, co_authors))
 
     # 4. create a dictionary for storing each the (co_authors) of each (co)
     co_network = {}
@@ -361,7 +373,7 @@ def get_author_network(id_frontend: str):
         # 5.2. get a list of (joint_papers) with (author)
         joint_papers = get_joint_papers(all_papers, co_author=co)
 
-        # 5.3. for each joint paper
+        # 5.3. for each (paper) in (joint_papers)
         for paper in joint_papers:
 
             # 5.3.1. get a list of joint paper's (authors)
@@ -377,12 +389,54 @@ def get_author_network(id_frontend: str):
                 except KeyError as e:
                     co_network[co][auth] = 1
 
+        # 5.4 prune the (co_network) according to (network_threshold)
+        co_network[co] = {k: v for k, v in co_network[co].items()
+                          if v >= network_threshold}
+
     for co, network in co_network.items():
-        final_network.append(network_formatter(co, network))
+        final_network.extend(network_formatter(co, network))
 
     response = final_network
 
     return response
+
+
+def get_joint_papers_id(id_frontend: str, co_id: str):
+    response = {'message': 'not found', 'code': 404}
+
+    if not(isinstance(co_id, str)):
+        return response
+
+    co_author = a.filter(Author.id_frontend == co_id).first()
+    if not co_author:
+        return response
+
+    try:
+        id_ = authors_list_backend[id_frontend]
+        author = a.get(id_)
+
+        if author:
+            all_papers = p \
+                .join((Paper_Author, Paper.authors)) \
+                .join((Author, Paper_Author.author)) \
+                .filter(Author.id == id_) \
+                .all()
+
+
+            joint_papers = []
+            for paper in all_papers:
+                authors = [
+                    paper_author.author for paper_author in paper.authors]
+
+                if co_author in authors:
+                    joint_papers.append(paper_formatter(paper))
+
+            response = joint_papers
+    except (KeyError, AttributeError) as e:
+        pass
+
+    return response
+
 
 if __name__ == "__main__":
     print()

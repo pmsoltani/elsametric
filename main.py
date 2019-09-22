@@ -1,8 +1,9 @@
+import uvicorn
 from fastapi import FastAPI
 
 from api_queries import authors_list_frontend, get_author, get_author_papers, \
     get_author_trend, get_author_keywords, get_author_journals, \
-    get_author_network
+    get_author_network, get_joint_papers_id
 
 app = FastAPI()
 
@@ -42,11 +43,10 @@ async def show_author(id_frontend: str, year: int = None):
 
 
 @app.get('/a/{id_frontend}/network')
-async def show_author(id_frontend: str, co_id: str = None):
+async def show_author(id_frontend: str, coID: str = None):
     response = get_author_network(id_frontend)
-    if co_id:
-        response = {
-            'key': f"all of {id_frontend}'s papers with collaborator: {co_id}"}
+    if coID:
+        response = get_joint_papers_id(id_frontend=id_frontend, co_id=coID)
     return response
 
 
@@ -64,3 +64,7 @@ async def show_author(id_frontend: str, q: str = None):
     if q:
         response = get_author_journals(id_frontend, q)
     return response
+
+
+if __name__ == "__main__":
+    uvicorn.run(f'{__name__}:app', host='0.0.0.0', port=8000, reload=True)
