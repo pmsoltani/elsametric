@@ -63,10 +63,15 @@ sub = session.query(Subject)
 # ==============================================================================
 
 
+home_institution = i.filter(
+    Institution.id_scp == home_institution_id_scp).first()
+
+
 def get_authors_list():
     authors = a \
         .with_entities(
             Author.id, Author.id_frontend, Author.first, Author.last) \
+        .distinct() \
         .join((Department, Author.departments)) \
         .join((Institution, Department.institution)) \
         .filter(
@@ -90,8 +95,6 @@ def get_authors_list():
 
 
 authors_list_backend, authors_list_frontend = get_authors_list()
-home_institution = i.filter(
-    Institution.id_scp == home_institution_id_scp).first()
 
 
 def get_author(id_frontend: str):
@@ -421,7 +424,6 @@ def get_joint_papers_id(id_frontend: str, co_id: str):
                 .join((Author, Paper_Author.author)) \
                 .filter(Author.id == id_) \
                 .all()
-
 
             joint_papers = []
             for paper in all_papers:
