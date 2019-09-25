@@ -145,7 +145,7 @@ def paper_formatter(paper):
         percentile = next(filter(
             lambda m: m.type == 'Percentile' and m.year == paper.get_year(),
             paper.source.metrics
-        ))
+        ), None)
     if percentile:
         percentile = percentile.value
         quartile = f'q{(100 - percentile - 1) // 25 + 1}'
