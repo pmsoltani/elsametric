@@ -14,12 +14,8 @@ async def home():
 
 
 @app.get('/a/list')
-async def show_authors_list(inst_fid: str = None):
-    # response = {'key': 'list of all authors in the db'}
-    response = authors_list_frontend
-    if inst_fid:
-        response = {'key': f'FEATURE !READY: list of all authors in {inst_fid}'}
-    return response
+async def show_authors_list():
+    return authors_list_frontend
 
 
 @app.get('/a/{id_frontend}')
@@ -29,7 +25,8 @@ async def show_author(id_frontend: str):
 
 
 @app.get('/a/{id_frontend}/papers')
-async def show_author(id_frontend: str):
+async def show_author(id_frontend: str, year: int = None, coID: str = None,
+                      tag: str = None, q: str = None):
     response = get_author_papers(id_frontend)
     return response
 

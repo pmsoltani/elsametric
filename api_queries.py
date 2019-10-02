@@ -63,11 +63,15 @@ sub = session.query(Subject)
 # ==============================================================================
 
 
-home_institution = i.filter(
-    Institution.id_scp == home_institution_id_scp).first()
+home_institution = i \
+    .filter(Institution.id_scp == home_institution_id_scp) \
+    .first()
 
 
 def get_authors_list():
+    # This function is not directly involved with the frontend
+
+    # get a list of all faculty members of the home_institution
     authors = a \
         .with_entities(
             Author.id, Author.id_frontend, Author.first, Author.last) \
@@ -80,16 +84,15 @@ def get_authors_list():
         .order_by(Author.last) \
         .all()
 
-    response_backend = {}
-    response_frontend = []
+    response_backend = {}  # used to map the id_frontend to id, for backend only
+    response_frontend = []  # returned to the frontend
     for author in authors:
         response_backend[author.id_frontend] = author.id
 
         response_frontend.append({
             'idFrontend': author.id_frontend,
             'first': author.first,
-            'last': author.last,
-            'url': f'http://localhost:8000/a/{author.id_frontend}'
+            'last': author.last
         })
     return response_backend, response_frontend
 
@@ -97,97 +100,184 @@ def get_authors_list():
 authors_list_backend, authors_list_frontend = get_authors_list()
 
 
-def get_author(id_frontend: str):
-    response = {'message': 'not found', 'code': 404}
+def author_formatter(author, department: bool = False,
+                     institution: bool = False, home_institution=None,
+                     profile: bool = False):
+    # helper function
+    result = {}
+    if department:
+        departments = []
+        try:
+            for d in author.departments:  # possible TypeError, AttributeError
+                if d.name == 'Undefined':  # default initial department
+                    continue
+                departments.append(
+                    {'name': d.name, 'idFrontend': d.id_frontend})
+            result['departments'] = departments
+        except (TypeError, AttributeError):
+            pass
+
+    if institution:
+        institutions = []
+        try:
+            # possible TypeError, AttributeError
+            for i in author.get_institutions():
+                if (home_institution) and (i != home_institution):
+                    continue
+                institutions.append(
+                    {'name': i.name, 'idFrontend': i.id_frontend})
+            result['institutions'] = institutions
+        except (TypeError, AttributeError):
+            pass
+
+    if profile:
+        profiles = []
+        try:
+            for prf in author.profiles:  # possible TypeError, AttributeError
+                profiles.append(
+                    {'type': prf.type, 'address': prf.address})
+            result['contact'] = profiles
+        except (TypeError, AttributeError):
+            pass
+
+    return {
+        'idFrontend': author.id_frontend,
+        'first': author.first,
+        'last': author.last,
+        # 'first_fa': author.first_fa,
+        # 'last_fa': author.last_fa,
+        # 'first_pref': author.first_pref,
+        # 'last_pref': author.last_pref,
+        'sex': author.sex,
+        'type': author.type,
+        'rank': author.rank,
+        **result
+    }
+
+
+def paper_formatter(paper):
+    # helper function
+    percentile = None
+    quartile = None
     try:
-        id_ = authors_list_backend[id_frontend]
-        author = a.get(id_)
+        percentile = next(filter(
+            lambda m: m.type == 'Percentile' and m.year == paper.get_year(),
+            paper.source.metrics
+        ), None)  # possible TypeError, AttributeError
+
+        quartile = f'q{(100 - percentile.value - 1) // 25 + 1}'
+    except (TypeError, AttributeError):
+        pass
+
+    authors = []
+    try:
+        authors = [author_formatter(paper_author.author)
+                   for paper_author in paper.authors]
+    except (TypeError, AttributeError):
+        pass
+
+    return {
+        'title': paper.title,
+        'type': paper.type,
+        'typeDescription': paper.type_description,
+        'date': paper.get_year(),
+        'doi': paper.doi,
+        'openAccess': paper.open_access,
+        'citedCnt': paper.cited_cnt,
+        'source': paper.source.title,
+        'quartile': quartile,
+        'authors': authors,
+        'retrievalTime': paper.retrieval_time
+    }
+
+
+def get_author(id_frontend: str):
+    response = {'message': 'not found', 'code': 404}  # initial response
+    try:
+        id_ = authors_list_backend[id_frontend]  # possible KeyError
+        author = a.get(id_)  # returns None if not found
         departments = []
         profiles = []
         if author:
-            try:
-                for d in author.departments:
-                    if d.name == 'Undefined':
-                        continue
-                    departments.append(
-                        {'name': d.name, 'idFrontend': d.id_frontend})
-            except (TypeError, AttributeError):
-                pass
-
-            try:
-                for p in author.profiles:
-                    profiles.append(
-                        {'type': p.type, 'address': p.address})
-            except (TypeError, AttributeError):
-                pass
-
-            response = {
-                'home': 'http://localhost:8000/a/list',
-                'first': author.first,
-                'last': author.last,
-                'departments': departments,
-                'institution': {
-                    'name': home_institution.name,
-                    'idFrontend': home_institution.id_frontend
-                },
-                'contact': profiles,
-            }
+            response = author_formatter(
+                author, department=True, profile=True, institution=True,
+                home_institution=home_institution)
     except KeyError:
+        pass  # return initial response
+
+    return response
+
+
+def get_author_papers(id_frontend: str):
+    # returns a list of all papers for the author 'id_frontend'
+    response = {'message': 'not found', 'code': 404}  # initial response
+
+    try:
+        id_ = authors_list_backend[id_frontend]  # possible KeyError
+        author = a.get(id_)  # returns None if not found
+
+        response = [paper_formatter(paper_author.paper)
+                    for paper_author in author.papers]  # possible AttributeError
+    except (KeyError, AttributeError):
         pass
 
     return response
 
 
-def paper_formatter(paper):
-    percentile = None
-    quartile = None
-    if paper.source and paper.source.metrics:
-        percentile = next(filter(
-            lambda m: m.type == 'Percentile' and m.year == paper.get_year(),
-            paper.source.metrics
-        ), None)
-    if percentile:
-        percentile = percentile.value
-        quartile = f'q{(100 - percentile - 1) // 25 + 1}'
+def get_author_papers_year(id_frontend: str, year: int):
+    # returns a list of paper published in 'year' for the author 'id_frontend'
+    response = {'message': 'not found', 'code': 404}  # initial response
 
-    return {
-        'title': paper.title,
-        'type': paper.type,
-        'date': paper.get_year(),
-        'doi': paper.doi,
-        'open_access': paper.open_access,
-        'cited_cnt': paper.cited_cnt,
-        'source': paper.source.title,
-        'quartile': quartile
-    }
-
-
-def get_author_papers(id_frontend: str, year: int = 0):
-    response = {'message': 'not found', 'code': 404}
-
+    # simple checks on incoming requests
     if not(isinstance(year, int)):
         return response
-
-    if year and not(year_range[0] <= year <= year_range[1]):
+    if not(year_range[0] <= year <= year_range[1]):
         return response
 
     try:
-        id_ = authors_list_backend[id_frontend]
-        author = a.get(id_)
+        id_ = authors_list_backend[id_frontend]  # possible KeyError
+        author = a.get(id_)  # returns None if not found
         papers = []
 
-        if author:
-            try:
-                for paper_author in author.papers:
-                    paper = paper_author.paper
-                    if year and paper.get_year() != year:
-                        continue
-                    papers.append(paper_formatter(paper))
-                response = papers
+        for paper_author in author.papers:  # possible AttributeError
+            paper = paper_author.paper
+            if paper.get_year() != year:
+                continue
+            papers.append(paper_formatter(paper))
+        response = papers
+    except (KeyError, AttributeError):
+        pass
 
-            except (AttributeError, TypeError):
-                pass
-    except KeyError:
+    return response
+
+
+def get_author_papers_keywords(id_frontend: str, keyword: str):
+    # returns a list of paper containing 'keyword' for the author 'id_frontend'
+    response = {'message': 'not found', 'code': 404}  # initial response
+
+    # simple checks on incoming requests
+    if not(isinstance(keyword, str)):
+        return response
+
+    try:
+        id_ = authors_list_backend[id_frontend]  # possible KeyError
+        author = a.get(id_)
+        keywords_list = list(author.get_keywords().keys())  # possible AttributeError
+        print('list', keywords_list)
+        print('aaaa', keyword not in keywords_list)
+        if not(keywords_list) or (keyword not in keywords_list):
+            raise ValueError
+
+        papers = p \
+            .join((Paper_Author, Paper.authors)) \
+            .join((Author, Paper_Author.author)) \
+            .join((Keyword, Paper.keywords)) \
+            .filter(Author.id == id_, Keyword.keyword == keyword) \
+            .all()
+        response = [paper_formatter(p) for p in papers]
+
+    except (KeyError, ValueError):
+        print('error')
         pass
 
     return response
