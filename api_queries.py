@@ -337,10 +337,8 @@ def get_author_keywords(id_frontend: str, keyword: str = ''):
                     papers = [paper_formatter(p) for p in papers]
                     response = papers
                 else:
-                    keywords = author.get_keywords(
+                    response = author.get_keywords(
                         threshold=keywords_threshold)
-                    response = {k.keyword: v for k, v in keywords.items()}
-
             except (AttributeError):
                 pass
     except KeyError:
