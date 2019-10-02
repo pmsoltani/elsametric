@@ -191,9 +191,10 @@ class Author(Base):
                 keywords = paper_author.paper.keywords
                 for keyword in keywords:
                     try:
-                        self._keywords[keyword] += 1
+                        # 'keyword.keyword' is the str value of keyword object
+                        self._keywords[keyword.keyword] += 1
                     except KeyError:
-                        self._keywords[keyword] = 1
+                        self._keywords[keyword.keyword] = 1
             except AttributeError:
                 # paper doesn't have any keywords registered
                 continue
