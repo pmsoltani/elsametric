@@ -172,8 +172,12 @@ def paper_formatter(paper):
 
     authors = []
     try:
-        authors = [author_formatter(paper_author.author)
-                   for paper_author in paper.authors]
+        for paper_author in paper.authors:
+            authors.append({
+                **author_formatter(paper_author.author),
+                'authorNo': paper_author.author_no
+            })
+        authors.sort(key=lambda author: author['authorNo'])
     except (TypeError, AttributeError):
         pass
 
