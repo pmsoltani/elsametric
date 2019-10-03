@@ -2,7 +2,6 @@ import os
 import json
 
 from sqlalchemy import extract
-from sqlalchemy.orm import aliased
 
 from elsametric.models.base import Session
 from elsametric.models.associations import Author_Department
@@ -46,16 +45,16 @@ network_threshold = config['network_threshold']
 session = Session()
 
 a = session.query(Author)
-prf = session.query(Author_Profile)
-c = session.query(Country)
-d = session.query(Department)
-f = session.query(Fund)
+# prf = session.query(Author_Profile)
+# c = session.query(Country)
+# d = session.query(Department)
+# f = session.query(Fund)
 i = session.query(Institution)
-k = session.query(Keyword)
+# k = session.query(Keyword)
 p = session.query(Paper)
-src = session.query(Source)
-m = session.query(Source_Metric)
-sub = session.query(Subject)
+# src = session.query(Source)
+# m = session.query(Source_Metric)
+# sub = session.query(Subject)
 
 
 # ==============================================================================
@@ -191,6 +190,43 @@ def paper_formatter(paper):
     }
 
 
+def network_formatter(from_, to_dict: dict):
+    result = []
+    for k, v in to_dict.items():
+        result.append({
+            'from': {
+                'first': from_.first,
+                'last': from_.last,
+                # 'first_pref': from_.first_pref,
+                # 'last_pref': from_.last_pref,
+                'idFrontend': from_.id_frontend,
+            },
+            'to': {
+                'first': k.first,
+                'last': k.last,
+                # 'first_pref': k.first_pref,
+                # 'last_pref': k.last_pref,
+                'idFrontend': k.id_frontend
+            },
+            'value': v,
+        })
+
+    return result
+
+
+def get_joint_papers(papers: list, co_author, format_results: bool = False):
+    joint_papers = []
+    for paper in papers:
+        # possible AttributeError
+        authors = [paper_author.author for paper_author in paper.authors]
+        if co_author in authors:
+            joint_papers.append(paper)
+    if format_results:
+        joint_papers = [paper_formatter(paper) for paper in joint_papers]
+
+    return joint_papers
+
+
 def get_author(id_frontend: str):
     response = {'message': 'not found', 'code': 404}  # initial response
     try:
@@ -214,18 +250,20 @@ def get_author_papers(id_frontend: str):
 
     try:
         id_ = authors_list_backend[id_frontend]  # possible KeyError
-        author = a.get(id_)  # returns None if not found
-
-        response = [paper_formatter(paper_author.paper)
-                    for paper_author in author.papers]  # possible AttributeError
-    except (KeyError, AttributeError):
+        papers = p \
+            .join((Paper_Author, Paper.authors)) \
+            .join((Author, Paper_Author.author)) \
+            .filter(Author.id == id_) \
+            .all()
+        response = [paper_formatter(p) for p in papers]  # possible TypeError
+    except (KeyError, TypeError):
         pass
 
     return response
 
 
 def get_author_papers_year(id_frontend: str, year: int):
-    # returns a list of paper published in 'year' for the author 'id_frontend'
+    # returns a list of papers published in 'year' for the author 'id_frontend'
     response = {'message': 'not found', 'code': 404}  # initial response
 
     # simple checks on incoming requests
@@ -236,35 +274,32 @@ def get_author_papers_year(id_frontend: str, year: int):
 
     try:
         id_ = authors_list_backend[id_frontend]  # possible KeyError
-        author = a.get(id_)  # returns None if not found
-        papers = []
-
-        for paper_author in author.papers:  # possible AttributeError
-            paper = paper_author.paper
-            if paper.get_year() != year:
-                continue
-            papers.append(paper_formatter(paper))
-        response = papers
-    except (KeyError, AttributeError):
+        papers = p \
+            .join((Paper_Author, Paper.authors)) \
+            .join((Author, Paper_Author.author)) \
+            .filter(Author.id == id_, extract('year', Paper.date) == year) \
+            .all()
+        response = [paper_formatter(p) for p in papers]  # possible TypeError
+    except (KeyError, TypeError):
         pass
 
     return response
 
 
-def get_author_papers_keywords(id_frontend: str, keyword: str):
-    # returns a list of paper containing 'keyword' for the author 'id_frontend'
+def get_author_papers_keyword(id_frontend: str, keyword: str):
+    # returns a list of papers containing 'keyword' for the author 'id_frontend'
     response = {'message': 'not found', 'code': 404}  # initial response
-
-    # simple checks on incoming requests
-    if not(isinstance(keyword, str)):
+    if not(isinstance(keyword, str)):  # a simple check on incoming requests
         return response
 
     try:
         id_ = authors_list_backend[id_frontend]  # possible KeyError
         author = a.get(id_)
-        keywords_list = list(author.get_keywords().keys())  # possible AttributeError
-        print('list', keywords_list)
-        print('aaaa', keyword not in keywords_list)
+
+        # checking if the requested keyword is genuine
+        # possible AttributeError
+        keywords_list = list(
+            author.get_keywords(threshold=keywords_threshold).keys())
         if not(keywords_list) or (keyword not in keywords_list):
             raise ValueError
 
@@ -275,254 +310,202 @@ def get_author_papers_keywords(id_frontend: str, keyword: str):
             .filter(Author.id == id_, Keyword.keyword == keyword) \
             .all()
         response = [paper_formatter(p) for p in papers]
+    except (KeyError, AttributeError, ValueError):
+        pass
 
-    except (KeyError, ValueError):
-        print('error')
+    return response
+
+
+def get_author_papers_q(id_frontend: str, q: str):
+    # returns a list of papers published in a 'q' journal of author 'id_frontend'
+    response = {'message': 'not found', 'code': 404}  # initial response
+    # simple checks on incoming requests
+    if not(isinstance(q, str)):
+        return response
+    if q.lower() not in ['q1', 'q2', 'q3', 'q4']:
+        return response
+
+    try:
+        id_ = authors_list_backend[id_frontend]  # possible KeyError
+        quartile = int(q[1])
+        top_percentile = (4 - quartile) * 25 + 25 - 1
+        bottom_percentile = (4 - quartile) * 25
+        papers = p \
+            .join((Paper_Author, Paper.authors)) \
+            .join((Author, Paper_Author.author)) \
+            .join((Source, Paper.source)) \
+            .join((Source_Metric, Source.metrics)) \
+            .filter(
+                Author.id == id_,
+                Source_Metric.type == 'Percentile',
+                Source_Metric.year == extract('year', Paper.date),
+                Source_Metric.value >= bottom_percentile,
+                Source_Metric.value <= top_percentile
+            ) \
+            .all()
+
+        response = [paper_formatter(p) for p in papers]
+    except KeyError:
+        pass
+
+    return response
+
+
+def get_author_papers_co_id(id_frontend: str, co_id: str):
+    # returns joint papers between author 'id_frontend' and co_author co_id
+    response = {'message': 'not found', 'code': 404}  # initial response
+
+    # simple checks on incoming requests
+    if not(isinstance(co_id, str)):
+        return response
+
+    try:
+        id_ = authors_list_backend[id_frontend]  # possible KeyError
+        if co_id == id_frontend:
+            raise ValueError
+        if len(co_id) != len(id_frontend):  # possible TypeError
+            raise ValueError
+        co_author = a.filter(Author.id_frontend == co_id).first()
+        if not co_author:
+            raise ValueError
+
+        papers = p \
+            .join((Paper_Author, Paper.authors)) \
+            .join((Author, Paper_Author.author)) \
+            .filter(Author.id == id_) \
+            .all()
+
+        joint_papers = get_joint_papers(papers, co_author, format_results=True)
+        response = joint_papers
+    except (KeyError, ValueError, TypeError, AttributeError):
         pass
 
     return response
 
 
 def get_author_trend(id_frontend: str):
-    response = {'message': 'not found', 'code': 404}
+    response = {'message': 'not found', 'code': 404}  # initial response
     try:
-        id_ = authors_list_backend[id_frontend]
-        author = a.get(id_)
+        id_ = authors_list_backend[id_frontend]  # possible KeyError
+        author = a.get(id_)  # None if not found
+        papers_trend = author.get_papers()  # possible AttributeError
+        citations_trend = author.get_citations()
+
         trend = {}
-
-        if author:
-            try:
-                papers_trend = author.get_papers()
-                citations_trend = author.get_citations()
-                for year in papers_trend:
-                    trend[year] = {
-                        'papers': papers_trend[year],
-                        'citations': citations_trend[year]
-                    }
-                response = trend
-
-            except (AttributeError, TypeError):
-                pass
-    except KeyError:
+        for year in papers_trend:
+            trend[year] = {
+                'papers': papers_trend[year],
+                'citations': citations_trend[year]
+            }
+        response = trend
+    except (KeyError, AttributeError):
         pass
 
     return response
 
 
-def get_author_keywords(id_frontend: str, keyword: str = ''):
-    response = {'message': 'not found', 'code': 404}
-
-    if not(isinstance(keyword, str)):
-        return response
-
-    if keyword:
-        keywords_list = get_author_keywords(id_frontend).keys()
-        if keyword not in keywords_list:
-            return response
+def get_author_keywords(id_frontend: str):
+    response = {'message': 'not found', 'code': 404}  # initial response
 
     try:
-        id_ = authors_list_backend[id_frontend]
+        id_ = authors_list_backend[id_frontend]  # possible KeyError
         author = a.get(id_)
-        keywords = {}
 
-        if author:
-            try:
-                if keyword:
-                    papers = p \
-                        .join((Paper_Author, Paper.authors)) \
-                        .join((Author, Paper_Author.author)) \
-                        .join((Keyword, Paper.keywords)) \
-                        .filter(Author.id == id_, Keyword.keyword == keyword) \
-                        .all()
-                    papers = [paper_formatter(p) for p in papers]
-                    response = papers
-                else:
-                    response = author.get_keywords(
-                        threshold=keywords_threshold)
-            except (AttributeError):
-                pass
-    except KeyError:
+        # possible AttributeError
+        response = author.get_keywords(threshold=keywords_threshold)
+    except (KeyError, AttributeError):
         pass
 
     return response
 
 
-def get_author_journals(id_frontend: str, q: str = ''):
-    response = {'message': 'not found', 'code': 404}
-
-    if not(isinstance(q, str)):
-        return response
-
-    if q and (q not in ['q1', 'q2', 'q3', 'q4']):
-        return response
+def get_author_qs(id_frontend: str):
+    response = {'message': 'not found', 'code': 404}  # initial response
 
     try:
-        id_ = authors_list_backend[id_frontend]
-        author = a.get(id_)
-        metrics = {'q1': 0, 'q2': 0, 'q3': 0, 'q4': 0}
+        id_ = authors_list_backend[id_frontend]  # possible KeyError
+        author = a.get(id_)  # None if not found
+        metrics = [
+            {'name': 'q1', 'percentiles': []},
+            {'name': 'q2', 'percentiles': []},
+            {'name': 'q3', 'percentiles': []},
+            {'name': 'q4', 'percentiles': []},
+        ]
 
-        if author:
-            try:
-                if q:
-                    quartile = int(q[1])
-                    top_percentile = (4 - quartile) * 25 + 25 - 1
-                    bottom_percentile = (4 - quartile) * 25
-                    papers = p \
-                        .join((Paper_Author, Paper.authors)) \
-                        .join((Author, Paper_Author.author)) \
-                        .filter(Author.id == id_) \
-                        .all()
+        for i in author.get_metrics():  # possible AttributeError
+            quartile = (100 - i[0] - 1) // 25 + 1
+            metrics[quartile-1]['percentiles'].append({
+                'name': f'p{i[0]}',
+                'value': i[1]
+            })
 
-                    papers2 = []
-                    for paper in papers:
-                        if paper.source and paper.source.metrics:
-                            for metric in paper.source.metrics:
-                                if (
-                                    metric.year == paper.get_year() and
-                                    metric.type == 'Percentile' and
-                                    bottom_percentile <= metric.value and
-                                    metric.value <= top_percentile
-                                ):
-                                    papers2.append(paper_formatter(paper))
-                    response = papers2
-                else:
-                    for i in author.get_metrics():
-                        quartile = (100 - i[0] - 1) // 25 + 1
-                        metrics[f'q{quartile}'] += i[1]
-
-                    response = metrics
-
-            except AttributeError as e:
-                print('attr', e)
-                pass
-    except KeyError as e:
-        print('key', e)
+        response = metrics
+    except (KeyError, AttributeError):
         pass
 
     return response
-
-
-def get_joint_papers(all_papers: list, co_author):
-    joint_papers = []
-    for paper in all_papers:
-        authors = [paper_author.author for paper_author in paper.authors]
-        if co_author in authors:
-            joint_papers.append(paper)
-
-    return joint_papers
-
-
-def network_formatter(from_, to_dict: dict):
-    result = []
-    for k, v in to_dict.items():
-        result.append({
-            'from': {
-                'name': f'{from_.first} {from_.last}',
-                'idFrontend': from_.id_frontend,
-            },
-            'to': {
-                'name': f'{k.first} {k.last}',
-                'idFrontend': k.id_frontend
-            },
-            'value': v,
-            'url': f'http://localhost:8000/a/{from_.id_frontend}/network?coID={k.id_frontend}'
-        })
-
-    return result
 
 
 def get_author_network(id_frontend: str):
-    response = {'message': 'not found', 'code': 404}
+    response = {'message': 'not found', 'code': 404}  # initial response
     final_network = []
 
-    # 1. get a list of (author)'s (all_papers)
-    id_ = authors_list_backend[id_frontend]
-    author = a.get(id_)
-    all_papers = p \
-        .join((Paper_Author, Paper.authors)) \
-        .join((Author, Paper_Author.author)) \
-        .filter(Author.id == id_) \
-        .all()
-
-    # 2. add (author) to an (exclusion_list)
-    exclusion_list = [author]
-
-    # 3. get a list of (author)'s all (co_authors)
-    co_authors = author.get_co_authors(threshold=network_threshold)
-    final_network.extend(network_formatter(author, co_authors))
-
-    # 4. create a dictionary for storing each the (co_authors) of each (co)
-    co_network = {}
-
-    # 5. for each (co):
-    for co in co_authors:
-
-        # 5.1. add (co) to (exclusion_list) and prepare (co_network)
-        exclusion_list.append(co)
-        co_network[co] = {}
-
-        # 5.2. get a list of (joint_papers) with (author)
-        joint_papers = get_joint_papers(all_papers, co_author=co)
-
-        # 5.3. for each (paper) in (joint_papers)
-        for paper in joint_papers:
-
-            # 5.3.1. get a list of joint paper's (authors)
-            authors = [paper_author.author for paper_author in paper.authors]
-
-            # 5.3.2 add (authors) to the (co_network) for (co)
-            for auth in authors:
-                if auth in exclusion_list:
-                    continue
-
-                try:
-                    co_network[co][auth] += 1
-                except KeyError as e:
-                    co_network[co][auth] = 1
-
-        # 5.4 prune the (co_network) according to (network_threshold)
-        co_network[co] = {k: v for k, v in co_network[co].items()
-                          if v >= network_threshold}
-
-    for co, network in co_network.items():
-        final_network.extend(network_formatter(co, network))
-
-    response = final_network
-
-    return response
-
-
-def get_joint_papers_id(id_frontend: str, co_id: str):
-    response = {'message': 'not found', 'code': 404}
-
-    if not(isinstance(co_id, str)):
-        return response
-
-    co_author = a.filter(Author.id_frontend == co_id).first()
-    if not co_author:
-        return response
-
     try:
-        id_ = authors_list_backend[id_frontend]
-        author = a.get(id_)
+        # 1. get a list of (author)'s (papers)
+        id_ = authors_list_backend[id_frontend]  # possible KeyError
+        papers = p \
+            .join((Paper_Author, Paper.authors)) \
+            .join((Author, Paper_Author.author)) \
+            .filter(Author.id == id_) \
+            .all()
 
-        if author:
-            all_papers = p \
-                .join((Paper_Author, Paper.authors)) \
-                .join((Author, Paper_Author.author)) \
-                .filter(Author.id == id_) \
-                .all()
+        # 2. add (author) to an (exclusion_list)
+        author = a.get(id_)  # None if not found
+        exclusion_list = [author]
 
-            joint_papers = []
-            for paper in all_papers:
+        # 3. get a list of (author)'s all (co_authors), add to 'final_network'
+        # possible AttributeError
+        co_authors = author.get_co_authors(threshold=network_threshold)
+        final_network.extend(network_formatter(author, co_authors))
+
+        # 4. create a dictionary for storing the (co_authors) of each (co)
+        co_network = {}
+
+        # 5. for each (co):
+        for co in co_authors:
+
+            # 5.1. add (co) to (exclusion_list) and initiate (co_network)
+            exclusion_list.append(co)
+            co_network[co] = {}
+
+            # 5.2. get a list of (joint_papers) with (author)
+            joint_papers = get_joint_papers(papers, co_author=co)
+
+            # 5.3. for each (paper) in (joint_papers)
+            for paper in joint_papers:
+
+                # 5.3.1. get a list of joint paper's (authors)
                 authors = [
                     paper_author.author for paper_author in paper.authors]
 
-                if co_author in authors:
-                    joint_papers.append(paper_formatter(paper))
+                # 5.3.2 add (authors) to the (co_network) for (co)
+                for auth in authors:
+                    if auth in exclusion_list:
+                        continue
+                    try:
+                        co_network[co][auth] += 1
+                    except KeyError:
+                        co_network[co][auth] = 1
 
-            response = joint_papers
-    except (KeyError, AttributeError) as e:
+            # 5.4 prune the (co_network) according to (network_threshold)
+            co_network[co] = {k: v for k, v in co_network[co].items()
+                              if v >= network_threshold}
+
+        for co, network in co_network.items():
+            final_network.extend(network_formatter(co, network))
+
+        response = final_network
+    except (KeyError, AttributeError):
         pass
 
     return response
