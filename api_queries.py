@@ -75,12 +75,7 @@ def get_authors_list():
     # get a list of all faculty members of the home_institution
     authors = a \
         .with_entities(
-            Author.id,
-            Author.id_frontend,
-            Author.first,
-            Author.last,
-            Author.first_pref,
-            Author.last_pref) \
+            Author.id, Author.id_frontend, Author.first, Author.last) \
         .distinct() \
         .join((Department, Author.departments)) \
         .join((Institution, Department.institution)) \
@@ -97,8 +92,8 @@ def get_authors_list():
 
         response_frontend.append({
             'idFrontend': author.id_frontend,
-            'first': author.first_pref or author.first,
-            'last': author.last_pref or author.last
+            'first': author.first,
+            'last': author.last
         })
     return response_backend, response_frontend
 
@@ -118,11 +113,8 @@ def author_formatter(author, department: bool = False,
             for d in author.departments:  # possible TypeError, AttributeError
                 if d.name == 'Undefined':  # default initial department
                     continue
-                departments.append({
-                    'name': d.name,
-                    'type': d.type,
-                    'idFrontend': d.id_frontend
-                })
+                departments.append(
+                    {'name': d.name, 'idFrontend': d.id_frontend})
             result['departments'] = departments
         except (TypeError, AttributeError):
             pass
@@ -152,8 +144,12 @@ def author_formatter(author, department: bool = False,
 
     return {
         'idFrontend': author.id_frontend,
-        'first': author.first_pref or author.first,
-        'last': author.last_pref or author.last,
+        'first': author.first,
+        'last': author.last,
+        # 'first_fa': author.first_fa,
+        # 'last_fa': author.last_fa,
+        # 'first_pref': author.first_pref,
+        # 'last_pref': author.last_pref,
         'sex': author.sex,
         'type': author.type,
         'rank': author.rank,
@@ -206,13 +202,17 @@ def network_formatter(from_, to_dict: dict):
     for k, v in to_dict.items():
         result.append({
             'from': {
-                'first': from_.first_pref or from_.first,
-                'last': from_.last_pref or from_.last,
+                'first': from_.first,
+                'last': from_.last,
+                # 'first_pref': from_.first_pref,
+                # 'last_pref': from_.last_pref,
                 'idFrontend': from_.id_frontend,
             },
             'to': {
-                'first': k.first_pref or k.first,
-                'last': k.last_pref or k.last,
+                'first': k.first,
+                'last': k.last,
+                # 'first_pref': k.first_pref,
+                # 'last_pref': k.last_pref,
                 'idFrontend': k.id_frontend
             },
             'value': v,
@@ -238,7 +238,9 @@ def get_author(id_frontend: str):
     response = initial_response
     try:
         id_ = authors_list_backend[id_frontend]  # possible KeyError
-        author = a.get(id_)  # None if not found
+        author = a.get(id_)  # returns None if not found
+        departments = []
+        profiles = []
         if author:
             response = author_formatter(
                 author, department=True, profile=True, institution=True,
@@ -519,4 +521,4 @@ def get_author_network(id_frontend: str):
 
 
 if __name__ == "__main__":
-    pass
+    print()

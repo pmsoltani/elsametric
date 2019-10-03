@@ -1046,10 +1046,8 @@ def ext_faculty_process(session, file_path: str, dept_file_path: str,
         3. finds the faculty members of the institution based on their
         Scopus ID
         4. for each faculty:
-            a. adds his/her details (preferred name, sex, department,
-            rank)
-            b. adds his/her profiles (email, office phone, website,
-            institutional id)
+            a. adds his/her details (sex, department, rank)
+            b. adds his/her profiles (email, office phone, website)
             c. adds his/her already created department(s) or create them
             d. unlinks the 'Undefined' department from him/her
         5. adds the updated Author objects to a list and return it
@@ -1109,15 +1107,6 @@ def ext_faculty_process(session, file_path: str, dept_file_path: str,
             continue
 
         # adding faculty details
-        faculty.first_pref = key_get(row, keys, 'First En') or \
-            faculty.first_pref
-        faculty.middle_pref = key_get(row, keys, 'Middle En') or \
-            faculty.middle_pref
-        faculty.last_pref = key_get(row, keys, 'Last En') or faculty.last_pref
-        faculty.initials_pref = key_get(row, keys, 'Initials En') or \
-            faculty.initials_pref
-        faculty.first_fa = key_get(row, keys, 'First Fa')
-        faculty.last_fa = key_get(row, keys, 'Last Fa')
         sex = key_get(row, keys, 'Sex')
         if sex in ['M', 'F']:
             faculty.sex = sex.lower()
@@ -1134,14 +1123,9 @@ def ext_faculty_process(session, file_path: str, dept_file_path: str,
         if row['Office']:
             faculty.profiles.append(
                 Author_Profile(address=row['Office'], type='Phone (Office)'))
-        if row['Personal Website']:
+        if row['Page']:
             faculty.profiles.append(
-                Author_Profile(
-                    address=row['Personal Website'], type='Personal Website'))
-        if row['Institution ID']:
-            faculty.profiles.append(
-                Author_Profile(
-                    address=row['Institution ID'], type='Institution ID'))
+                Author_Profile(address=row['Page'], type='Personal Website'))
 
         # adding the departments that the faculty belongs to
         for dept in row['Departments'].split(','):
