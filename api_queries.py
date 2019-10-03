@@ -99,6 +99,7 @@ def get_authors_list():
 
 
 authors_list_backend, authors_list_frontend = get_authors_list()
+authors_tuple_frontend = tuple(authors_list_frontend)
 
 
 def author_formatter(author, department: bool = False,
@@ -261,7 +262,8 @@ def get_author_papers(id_frontend: str):
             .join((Author, Paper_Author.author)) \
             .filter(Author.id == id_) \
             .all()
-        response = [paper_formatter(p) for p in papers]  # possible TypeError
+        # possible TypeError
+        response = tuple(paper_formatter(p) for p in papers)
     except (KeyError, TypeError):
         pass
 
@@ -285,7 +287,8 @@ def get_author_papers_year(id_frontend: str, year: int):
             .join((Author, Paper_Author.author)) \
             .filter(Author.id == id_, extract('year', Paper.date) == year) \
             .all()
-        response = [paper_formatter(p) for p in papers]  # possible TypeError
+        # possible TypeError
+        response = tuple(paper_formatter(p) for p in papers)
     except (KeyError, TypeError):
         pass
 
@@ -315,8 +318,9 @@ def get_author_papers_keyword(id_frontend: str, keyword: str):
             .join((Keyword, Paper.keywords)) \
             .filter(Author.id == id_, Keyword.keyword == keyword) \
             .all()
-        response = [paper_formatter(p) for p in papers]
-    except (KeyError, AttributeError, ValueError):
+        # possible TypeError
+        response = tuple(paper_formatter(p) for p in papers)
+    except (KeyError, AttributeError, ValueError, TypeError):
         pass
 
     return response
@@ -349,9 +353,9 @@ def get_author_papers_q(id_frontend: str, q: str):
                 Source_Metric.value <= top_percentile
             ) \
             .all()
-
-        response = [paper_formatter(p) for p in papers]
-    except KeyError:
+        # possible TypeError
+        response = tuple(paper_formatter(p) for p in papers)
+    except (KeyError, TypeError):
         pass
 
     return response
@@ -382,7 +386,7 @@ def get_author_papers_co_id(id_frontend: str, co_id: str):
             .all()
 
         joint_papers = get_joint_papers(papers, co_author, format_results=True)
-        response = joint_papers
+        response = tuple(joint_papers)
     except (KeyError, ValueError, TypeError, AttributeError):
         pass
 
@@ -437,7 +441,6 @@ def get_author_qs(id_frontend: str):
             {'name': 'q3', 'percentiles': []},
             {'name': 'q4', 'percentiles': []},
         ]
-
         for i in author.get_metrics():  # possible AttributeError
             quartile = (100 - i[0] - 1) // 25 + 1
             metrics[quartile-1]['percentiles'].append({
@@ -445,7 +448,7 @@ def get_author_qs(id_frontend: str):
                 'value': i[1]
             })
 
-        response = metrics
+        response = tuple(metrics)
     except (KeyError, AttributeError):
         pass
 
@@ -510,7 +513,7 @@ def get_author_network(id_frontend: str):
         for co, network in co_network.items():
             final_network.extend(network_formatter(co, network))
 
-        response = final_network
+        response = tuple(final_network)
     except (KeyError, AttributeError):
         pass
 

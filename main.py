@@ -3,7 +3,7 @@ from fastapi import FastAPI
 
 from api_queries import \
     initial_response, \
-    authors_list_frontend, \
+    authors_tuple_frontend, \
     get_author, \
     get_author_papers, \
     get_author_papers_year, \
@@ -31,7 +31,7 @@ async def home():
 
 @app.get('/a/list')
 async def show_authors_list():
-    return authors_list_frontend
+    return authors_tuple_frontend
 
 
 @app.get('/a/{id_frontend}')
