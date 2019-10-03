@@ -399,13 +399,14 @@ def get_author_trend(id_frontend: str):
         papers_trend = author.get_papers()  # possible AttributeError
         citations_trend = author.get_citations()
 
-        trend = {}
+        trend = []
         for year in papers_trend:
-            trend[year] = {
+            trend.append({
+                'year':year,
                 'papers': papers_trend[year],
                 'citations': citations_trend[year]
-            }
-        response = trend
+            })
+        response = tuple(trend)
     except (KeyError, AttributeError):
         pass
 
