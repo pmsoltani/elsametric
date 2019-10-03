@@ -441,8 +441,13 @@ def get_author_qs(id_frontend: str):
             {'name': 'q2', 'percentiles': []},
             {'name': 'q3', 'percentiles': []},
             {'name': 'q4', 'percentiles': []},
+            {'name': 'undefined', 'value': 0},
         ]
         for i in author.get_metrics():  # possible AttributeError
+            if i[0] == 'Undefined':
+                metrics[-1]['value'] = i[1]
+                continue
+
             quartile = (100 - i[0] - 1) // 25 + 1
             metrics[quartile-1]['percentiles'].append({
                 'name': f'p{i[0]}',
