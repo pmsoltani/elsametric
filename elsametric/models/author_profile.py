@@ -16,7 +16,7 @@ class Author_Profile(Base):
         INTEGER(unsigned=True),
         ForeignKey('author.id'), primary_key=True, nullable=False
     )
-    address = Column(VARCHAR(256), nullable=False)
+    address = Column(VARCHAR(256), nullable=False, unique=True)
     type = Column(VARCHAR(45), nullable=False)
 
     # Relationships
