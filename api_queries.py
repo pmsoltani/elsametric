@@ -62,6 +62,8 @@ p = session.query(Paper)
 # ==============================================================================
 
 
+initial_response = {'message': 'not found', 'code': 404}
+
 home_institution = i \
     .filter(Institution.id_scp == home_institution_id_scp) \
     .first()
@@ -228,7 +230,7 @@ def get_joint_papers(papers: list, co_author, format_results: bool = False):
 
 
 def get_author(id_frontend: str):
-    response = {'message': 'not found', 'code': 404}  # initial response
+    response = initial_response
     try:
         id_ = authors_list_backend[id_frontend]  # possible KeyError
         author = a.get(id_)  # returns None if not found
@@ -246,7 +248,7 @@ def get_author(id_frontend: str):
 
 def get_author_papers(id_frontend: str):
     # returns a list of all papers for the author 'id_frontend'
-    response = {'message': 'not found', 'code': 404}  # initial response
+    response = initial_response
 
     try:
         id_ = authors_list_backend[id_frontend]  # possible KeyError
@@ -264,7 +266,7 @@ def get_author_papers(id_frontend: str):
 
 def get_author_papers_year(id_frontend: str, year: int):
     # returns a list of papers published in 'year' for the author 'id_frontend'
-    response = {'message': 'not found', 'code': 404}  # initial response
+    response = initial_response
 
     # simple checks on incoming requests
     if not(isinstance(year, int)):
@@ -288,7 +290,7 @@ def get_author_papers_year(id_frontend: str, year: int):
 
 def get_author_papers_keyword(id_frontend: str, keyword: str):
     # returns a list of papers containing 'keyword' for the author 'id_frontend'
-    response = {'message': 'not found', 'code': 404}  # initial response
+    response = initial_response
     if not(isinstance(keyword, str)):  # a simple check on incoming requests
         return response
 
@@ -318,7 +320,7 @@ def get_author_papers_keyword(id_frontend: str, keyword: str):
 
 def get_author_papers_q(id_frontend: str, q: str):
     # returns a list of papers published in a 'q' journal of author 'id_frontend'
-    response = {'message': 'not found', 'code': 404}  # initial response
+    response = initial_response
     # simple checks on incoming requests
     if not(isinstance(q, str)):
         return response
@@ -353,7 +355,7 @@ def get_author_papers_q(id_frontend: str, q: str):
 
 def get_author_papers_co_id(id_frontend: str, co_id: str):
     # returns joint papers between author 'id_frontend' and co_author co_id
-    response = {'message': 'not found', 'code': 404}  # initial response
+    response = initial_response
 
     # simple checks on incoming requests
     if not(isinstance(co_id, str)):
@@ -384,7 +386,7 @@ def get_author_papers_co_id(id_frontend: str, co_id: str):
 
 
 def get_author_trend(id_frontend: str):
-    response = {'message': 'not found', 'code': 404}  # initial response
+    response = initial_response
     try:
         id_ = authors_list_backend[id_frontend]  # possible KeyError
         author = a.get(id_)  # None if not found
@@ -405,7 +407,7 @@ def get_author_trend(id_frontend: str):
 
 
 def get_author_keywords(id_frontend: str):
-    response = {'message': 'not found', 'code': 404}  # initial response
+    response = initial_response
 
     try:
         id_ = authors_list_backend[id_frontend]  # possible KeyError
@@ -420,7 +422,7 @@ def get_author_keywords(id_frontend: str):
 
 
 def get_author_qs(id_frontend: str):
-    response = {'message': 'not found', 'code': 404}  # initial response
+    response = initial_response
 
     try:
         id_ = authors_list_backend[id_frontend]  # possible KeyError
@@ -447,7 +449,7 @@ def get_author_qs(id_frontend: str):
 
 
 def get_author_network(id_frontend: str):
-    response = {'message': 'not found', 'code': 404}  # initial response
+    response = initial_response
     final_network = []
 
     try:
