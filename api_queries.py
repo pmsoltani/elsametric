@@ -402,7 +402,7 @@ def get_author_trend(id_frontend: str):
         trend = []
         for year in papers_trend:
             trend.append({
-                'year':year,
+                'year': year,
                 'papers': papers_trend[year],
                 'citations': citations_trend[year]
             })
@@ -421,7 +421,9 @@ def get_author_keywords(id_frontend: str):
         author = a.get(id_)
 
         # possible AttributeError
-        response = author.get_keywords(threshold=keywords_threshold)
+        keywords = author.get_keywords(threshold=keywords_threshold)
+        response = tuple({'keyword': k, 'value': v}
+                         for k, v in keywords.items())
     except (KeyError, AttributeError):
         pass
 
