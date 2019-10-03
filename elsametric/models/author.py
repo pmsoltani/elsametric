@@ -20,10 +20,6 @@ class Author(Base):
     middle = Column(VARCHAR(45), nullable=True)
     last = Column(VARCHAR(45), nullable=True)
     initials = Column(VARCHAR(45), nullable=True)
-    first_pref = Column(VARCHAR(45), nullable=True)
-    middle_pref = Column(VARCHAR(45), nullable=True)
-    last_pref = Column(VARCHAR(45), nullable=True)
-    initials_pref = Column(VARCHAR(45), nullable=True)
     first_fa = Column(VARCHAR(45), nullable=True)
     last_fa = Column(VARCHAR(45), nullable=True)
     sex = Column(
@@ -58,10 +54,6 @@ class Author(Base):
         self.middle = middle
         self.last = last
         self.initials = initials
-        self.first_pref = first
-        self.middle_pref = middle
-        self.last_pref = last
-        self.initials_pref = initials
         self.sex = sex
         self.type = type
         self.rank = rank
