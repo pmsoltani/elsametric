@@ -135,6 +135,7 @@ class Author(Base):
 
     def get_metrics(self, histogram=False):
         self._metrics = [[i, 0] for i in range(100)]
+        self._metrics.append(['Undefined', 0])
         for paper_author in self.papers:
             paper = paper_author.paper
             year = paper.get_year()
@@ -146,6 +147,8 @@ class Author(Base):
                         break
                 if percentile:
                     self._metrics[percentile][1] += 1
+                else:
+                    self._metrics[-1][1] += 1
             except AttributeError:
                 # either paper doesn't have a source, or its source any metric
                 continue
