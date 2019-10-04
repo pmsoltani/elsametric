@@ -330,14 +330,21 @@ def get_author_papers_metric(id_frontend: str, metric: str):
     # simple checks on incoming requests
     if not(isinstance(metric, str)):
         return response
-    if metric.lower() not in ['q1', 'q2', 'q3', 'q4']:
+    metric = metric.lower()
+    allowed_metrics = tuple(
+        [f'p{x}' for x in range(100)] +
+        ['q1', 'q2', 'q3', 'q4'])
+    if metric not in allowed_metrics:
         return response
 
     try:
         id_ = authors_list_backend[id_frontend]  # possible KeyError
-        quartile = int(metric[1])
-        top_percentile = (4 - quartile) * 25 + 25 - 1
-        bottom_percentile = (4 - quartile) * 25
+        if metric[0] == 'q':  # received a quartile value
+            quartile = int(metric[1])
+            top_percentile = (4 - quartile) * 25 + 25 - 1
+            bottom_percentile = (4 - quartile) * 25
+        if metric[0] == 'p':
+            top_percentile = bottom_percentile = metric[1:]
         papers = p \
             .join((Paper_Author, Paper.authors)) \
             .join((Author, Paper_Author.author)) \
