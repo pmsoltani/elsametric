@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from api_queries import \
     initial_response, \
     authors_tuple_frontend, \
-    get_author, \
+    get_author_info, \
     get_author_papers, \
     get_author_papers_year, \
     get_author_papers_keyword, \
@@ -25,23 +25,23 @@ async def home():
 
 
 @app.get('/a')
-async def home():
+async def authors():
     return initial_response
 
 
 @app.get('/a/list')
-async def show_authors_list():
+async def authors_list():
     return authors_tuple_frontend
 
 
 @app.get('/a/{id_frontend}')
-async def show_author(id_frontend: str):
-    return get_author(id_frontend)
+async def author_info(id_frontend: str):
+    return get_author_info(id_frontend)
 
 
 @app.get('/a/{id_frontend}/papers')
-async def show_author(id_frontend: str, year: int = None, keyword: str = None,
-                      metric: str = None, coID: str = None,):
+async def author_papers(id_frontend: str, year: int = None, keyword: str = None,
+                        metric: str = None, coID: str = None,):
     params_set = {year, keyword, metric, coID}
     if len(params_set) > 2:  # more than 1 parameter in the request
         return initial_response
@@ -57,22 +57,22 @@ async def show_author(id_frontend: str, year: int = None, keyword: str = None,
 
 
 @app.get('/a/{id_frontend}/trend')
-async def show_author(id_frontend: str):
+async def author_trend(id_frontend: str):
     return get_author_trend(id_frontend)
 
 
 @app.get('/a/{id_frontend}/keywords')
-async def show_author(id_frontend: str):
+async def author_keywords(id_frontend: str):
     return get_author_keywords(id_frontend)
 
 
 @app.get('/a/{id_frontend}/jmetrics')
-async def show_author(id_frontend: str):
+async def author_jmetrics(id_frontend: str):
     return get_author_jmetrics(id_frontend)
 
 
 @app.get('/a/{id_frontend}/network')
-async def show_author(id_frontend: str):
+async def author_network(id_frontend: str):
     return get_author_network(id_frontend)
 
 

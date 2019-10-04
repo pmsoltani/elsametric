@@ -234,7 +234,7 @@ def get_joint_papers(papers: list, co_author, format_results: bool = False):
     return joint_papers
 
 
-def get_author(id_frontend: str):
+def get_author_info(id_frontend: str):
     response = initial_response
     try:
         id_ = authors_list_backend[id_frontend]  # possible KeyError
