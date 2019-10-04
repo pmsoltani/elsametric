@@ -8,11 +8,11 @@ from api_queries import \
     get_author_papers, \
     get_author_papers_year, \
     get_author_papers_keyword, \
-    get_author_papers_q, \
+    get_author_papers_metric, \
     get_author_papers_co_id, \
     get_author_trend, \
     get_author_keywords, \
-    get_author_qs, \
+    get_author_jmetrics, \
     get_author_network
 
 
@@ -41,16 +41,16 @@ async def show_author(id_frontend: str):
 
 @app.get('/a/{id_frontend}/papers')
 async def show_author(id_frontend: str, year: int = None, keyword: str = None,
-                      q: str = None, coID: str = None,):
-    params_set = {year, keyword, q, coID}
+                      metric: str = None, coID: str = None,):
+    params_set = {year, keyword, metric, coID}
     if len(params_set) > 2:  # more than 1 parameter in the request
         return initial_response
     if year:
         return get_author_papers_year(id_frontend, year=year)
     if keyword:
         return get_author_papers_keyword(id_frontend, keyword=keyword)
-    if q:
-        return get_author_papers_q(id_frontend, q=q)
+    if metric:
+        return get_author_papers_metric(id_frontend, metric=metric)
     if coID:
         return get_author_papers_co_id(id_frontend, co_id=coID)
     return get_author_papers(id_frontend)
@@ -66,9 +66,9 @@ async def show_author(id_frontend: str):
     return get_author_keywords(id_frontend)
 
 
-@app.get('/a/{id_frontend}/qs')
+@app.get('/a/{id_frontend}/jmetrics')
 async def show_author(id_frontend: str):
-    return get_author_qs(id_frontend)
+    return get_author_jmetrics(id_frontend)
 
 
 @app.get('/a/{id_frontend}/network')

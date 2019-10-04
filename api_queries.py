@@ -324,18 +324,18 @@ def get_author_papers_keyword(id_frontend: str, keyword: str):
     return response
 
 
-def get_author_papers_q(id_frontend: str, q: str):
-    # returns a list of papers published in a 'q' journal of author 'id_frontend'
+def get_author_papers_metric(id_frontend: str, metric: str):
+    # returns a list of papers published in journal with metric
     response = initial_response
     # simple checks on incoming requests
-    if not(isinstance(q, str)):
+    if not(isinstance(metric, str)):
         return response
-    if q.lower() not in ['q1', 'q2', 'q3', 'q4']:
+    if metric.lower() not in ['q1', 'q2', 'q3', 'q4']:
         return response
 
     try:
         id_ = authors_list_backend[id_frontend]  # possible KeyError
-        quartile = int(q[1])
+        quartile = int(metric[1])
         top_percentile = (4 - quartile) * 25 + 25 - 1
         bottom_percentile = (4 - quartile) * 25
         papers = p \
@@ -348,8 +348,7 @@ def get_author_papers_q(id_frontend: str, q: str):
                 Source_Metric.type == 'Percentile',
                 Source_Metric.year == extract('year', Paper.date),
                 Source_Metric.value >= bottom_percentile,
-                Source_Metric.value <= top_percentile
-            ) \
+                Source_Metric.value <= top_percentile) \
             .all()
         # possible TypeError
         response = tuple(paper_formatter(p) for p in papers)
@@ -430,7 +429,7 @@ def get_author_keywords(id_frontend: str):
     return response
 
 
-def get_author_qs(id_frontend: str):
+def get_author_jmetrics(id_frontend: str):
     response = initial_response
 
     try:
