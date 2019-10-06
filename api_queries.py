@@ -34,7 +34,8 @@ config = config['api']
 home_institution_id_scp = config['home_institution_id_scp']
 year_range = config['year_range']
 keywords_threshold = config['keywords_threshold']
-network_threshold = config['network_threshold']
+collaboration_threshold = config['collaboration_threshold']
+network_max_count = config['network_max_count']
 
 
 # ==============================================================================
@@ -219,6 +220,13 @@ def network_formatter(from_, to_dict: dict):
         })
 
     return result
+
+
+def network_pruner(d: dict):
+    if not d:
+        return d
+    min_value = min(d.values())
+    return {k: v for k, v in d.items() if v > min_value}
 
 
 def get_joint_papers(papers: list, co_author, format_results: bool = False):
@@ -484,9 +492,15 @@ def get_author_network(id_frontend: str):
         author = a.get(id_)  # None if not found
         exclusion_list = [author]
 
-        # 3. get a list of (author)'s all (co_authors), add to 'final_network'
+        # 3.1. get a list of (author)'s all (co_authors), add to 'final_network'
         # possible AttributeError
-        co_authors = author.get_co_authors(threshold=network_threshold)
+        co_authors = author.get_co_authors(threshold=collaboration_threshold)
+
+        # 3.2. limiting the (co_authors) to be at most (network_max_count)
+        while (len(co_authors) > network_max_count and
+               len(set(co_authors.values())) > 1):
+            co_authors = network_pruner(co_authors)
+
         final_network.extend(network_formatter(author, co_authors))
 
         # 4. create a dictionary for storing the (co_authors) of each (co)
@@ -513,14 +527,16 @@ def get_author_network(id_frontend: str):
                 for auth in authors:
                     if auth in exclusion_list:
                         continue
+                    if auth not in co_authors.keys():
+                        continue
                     try:
                         co_network[co][auth] += 1
                     except KeyError:
                         co_network[co][auth] = 1
 
-            # 5.4 prune the (co_network) according to (network_threshold)
+            # 5.4 prune the (co_network) according to (collaboration_threshold)
             co_network[co] = {k: v for k, v in co_network[co].items()
-                              if v >= network_threshold}
+                              if v >= collaboration_threshold}
 
         for co, network in co_network.items():
             final_network.extend(network_formatter(co, network))
