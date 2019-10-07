@@ -27,6 +27,27 @@ metrics_expiration = config['metrics_expiration_days']
 # ==============================================================================
 
 
+def get_row(file_path: str, encoding: str = 'utf-8-sig', delimiter: str = ','):
+    """Yields a row from a .csv file
+
+    This simple function is used to yield a .csv file in 'file_path',
+    row-by-row, so as not to consume too much memory.
+
+    Parameters:
+        file_path (str): the path to the .csv file
+        encoding (str): encoding to be used when reading the .csv file
+        delimiter (str): the delimiter used in the .csv file
+
+    Yields:
+        row: a row of the .csv file
+    """
+
+    with io.open(file_path, 'r', encoding=encoding) as csv_file:
+        reader = csv.DictReader(csv_file, delimiter=delimiter)
+        for row in reader:
+            yield row
+
+
 def get_metrics(gsc_id: str):
     base = 'https://scholar.google.com/citations'
     params = {'user': gsc_id}
@@ -51,37 +72,15 @@ def get_metrics(gsc_id: str):
     return h_index, i10_index
 
 
-def get_row(file_path: str, encoding: str = 'utf-8-sig', delimiter: str = ','):
-    """Yields a row from a .csv file
-
-    This simple function is used to yield a .csv file in 'file_path',
-    row-by-row, so as not to consume too much memory.
-
-    Parameters:
-        file_path (str): the path to the .csv file
-        encoding (str): encoding to be used when reading the .csv file
-        delimiter (str): the delimiter used in the .csv file
-
-    Yields:
-        row: a row of the .csv file
-    """
-
-    with io.open(file_path, 'r', encoding=encoding) as csv_file:
-        reader = csv.DictReader(csv_file, delimiter=delimiter)
-        for row in reader:
-            yield row
-
-
-def exporter(rows: list, path: str, header: bool, all_rows: bool = False):
+def exporter(rows: list, path: str, all_rows: bool = False):
     with io.open(path, 'a' if not all_rows else 'w', encoding='utf-8') as file:
         writer = csv.DictWriter(
             file, rows[0].keys(), delimiter=',', lineterminator='\n'
         )
-        if header:
-            writer.writerow(dict((fn, fn) for fn in rows[0].keys()))
+        writer.writerow(dict((fn, fn) for fn in rows[0].keys()))
         if all_rows:
-            writer.writerows(rows)
-        writer.writerows(rows[-1:])
+            writer.writerows(rows)  # write to the csv file all at once
+        writer.writerows(rows[-1:])  # write to the csv file row-by-row
 
 
 # ==============================================================================
@@ -95,15 +94,12 @@ for item in config['institutions']:
     institution = item["name"]
     rows = get_row(os.path.join(data_path, item['faculties']))
 
-    faculties = []
-    path = os.path.join(data_path, f'{institution}_faculties_with_gsc.csv')
+    export_file = f'{institution}_faculties_with_gsc_{int(time.time())}.csv'
+    path = os.path.join(data_path, export_file)
 
-    # if the file exists, do not add header row
-    header = not(os.path.isfile(path))
-
-    for cnt, row in enumerate(rows):
-        print(f'Processing: {row["Institution ID"]}...', end=' ')
-        if 'id_gsc' not in row.keys():
+    for row in rows:
+        print(f'Processing: {row["Institution ID"]}... ', end=' ')
+        if ('id_gsc' not in row.keys()) or not(row['id_gsc']):
             query = [row["First En"], row["Last En"], institution]
 
             # query with high specificity
@@ -115,11 +111,9 @@ for item in config['institutions']:
                     scholarly.search_author(' '.join(query[:-1])),
                     None
                 )
-
             if not author:
-                print('passed')
-                exporter([row], path, header)
-                header = False
+                print('profile not found')
+                exporter([row], path)
                 continue
             row['id_gsc'] = author.id
             row['name_gsc'] = author.name
@@ -128,7 +122,7 @@ for item in config['institutions']:
         try:
             last_update = int(row['h_index_gsc_retrieval_time'])
             time_diff = (time.time() - last_update) / (3600 * 24)
-        except KeyError:
+        except (KeyError, ValueError):
             pass
 
         if not(time_diff) or time_diff > metrics_expiration:
@@ -137,5 +131,4 @@ for item in config['institutions']:
             row['h_index_gsc_retrieval_time'] = int(time.time())
 
         print('done')
-        exporter([row], path, header)
-        header = False
+        exporter([row], path)
