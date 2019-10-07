@@ -1,11 +1,11 @@
 import io
-import os
 import csv
 import json
 import time
 import scholarly
 import requests as req
 from bs4 import BeautifulSoup
+from pathlib import Path
 
 
 # ==============================================================================
@@ -13,7 +13,8 @@ from bs4 import BeautifulSoup
 # ==============================================================================
 
 
-config_path = os.path.join(os.getcwd(), 'config.json')
+current_dir = Path.cwd()
+config_path = current_dir / 'config.json'
 with io.open(config_path, 'r') as config_file:
     config = json.load(config_file)
 
@@ -72,8 +73,8 @@ def get_metrics(gsc_id: str):
     return h_index, i10_index
 
 
-def exporter(rows: list, path: str, all_rows: bool = False):
-    with io.open(path, 'a' if not all_rows else 'w', encoding='utf-8') as file:
+def exporter(file_path: str, rows: list, all_rows: bool = False):
+    with io.open(file_path, 'a' if not all_rows else 'w', encoding='utf-8') as file:
         writer = csv.DictWriter(
             file, rows[0].keys(), delimiter=',', lineterminator='\n'
         )
@@ -92,13 +93,13 @@ for item in config['institutions']:
     if not item['process']:
         continue
     institution = item["name"]
-    rows = get_row(os.path.join(data_path, item['faculties']))
+    rows = get_row(current_dir / data_path / item['faculties'])
 
     export_file = f'{institution}_faculties_with_gsc_{int(time.time())}.csv'
-    path = os.path.join(data_path, export_file)
+    export_path = current_dir / data_path / export_file
 
     for row in rows:
-        print(f'Processing: {row["Institution ID"]}... ', end=' ')
+        print(f'Processing: {row["Institution ID"]}...', end=' ')
         if ('id_gsc' not in row.keys()) or not(row['id_gsc']):
             query = [row["First En"], row["Last En"], institution]
 
@@ -113,7 +114,7 @@ for item in config['institutions']:
                 )
             if not author:
                 print('profile not found')
-                exporter([row], path)
+                exporter(export_path, [row])
                 continue
             row['id_gsc'] = author.id
             row['name_gsc'] = author.name
@@ -131,4 +132,4 @@ for item in config['institutions']:
             row['h_index_gsc_retrieval_time'] = int(time.time())
 
         print('done')
-        exporter([row], path)
+        exporter(export_path, [row])
