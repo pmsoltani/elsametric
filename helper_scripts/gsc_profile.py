@@ -100,7 +100,10 @@ for item in config['institutions']:
 
     for row in rows:
         print(f'Processing: {row["Institution ID"]}...', end=' ')
-        if ('id_gsc' not in row.keys()) or not(row['id_gsc']):
+        if (
+            ('Google Scholar ID' not in row.keys()) or
+            (not row['Google Scholar ID'])
+        ):
             query = [row["First En"], row["Last En"], institution]
 
             # query with high specificity
@@ -116,20 +119,21 @@ for item in config['institutions']:
                 print('profile not found')
                 exporter(export_path, [row])
                 continue
-            row['id_gsc'] = author.id
-            row['name_gsc'] = author.name
+            row['Google Scholar ID'] = author.id
+            row['Google Scholar Name'] = author.name
 
         time_diff = 0
         try:
-            last_update = int(row['h_index_gsc_retrieval_time'])
+            last_update = int(row['Google Scholar Retrieval Time'])
             time_diff = (time.time() - last_update) / (3600 * 24)
         except (KeyError, ValueError):
             pass
 
         if not(time_diff) or time_diff > metrics_expiration:
-            row['h_index_gsc'], row['i10_index_gsc'] = get_metrics(
-                row['id_gsc'])
-            row['h_index_gsc_retrieval_time'] = int(time.time())
+            row['Google Scholar h-index'],
+            row['Google Scholar i10-index'] = get_metrics(
+                row['Google Scholar ID'])
+            row['Google Scholar Retrieval Time'] = int(time.time())
 
         print('done')
         exporter(export_path, [row])
