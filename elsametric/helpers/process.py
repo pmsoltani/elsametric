@@ -1,6 +1,7 @@
 import io
 import csv
 import json
+import datetime
 
 from .helpers import country_names
 from .helpers import data_inspector
@@ -1047,9 +1048,8 @@ def ext_faculty_process(session, file_path: str, dept_file_path: str,
         Scopus ID
         4. for each faculty:
             a. adds his/her details (preferred name, sex, department,
-            rank)
-            b. adds his/her profiles (email, office phone, website,
-            institutional id)
+            rank, google scholar id and metrics)
+            b. adds his/her profiles (email, office phone, website)
             c. adds his/her already created department(s) or create them
             d. unlinks the 'Undefined' department from him/her
         5. adds the updated Author objects to a list and return it
@@ -1109,6 +1109,8 @@ def ext_faculty_process(session, file_path: str, dept_file_path: str,
             continue
 
         # adding faculty details
+        faculty.id_gsc = key_get(row, keys, 'Google Scholar ID')
+        faculty.id_institution = key_get(row, keys, 'Institution ID')
         faculty.first_pref = key_get(row, keys, 'First En') or \
             faculty.first_pref
         faculty.middle_pref = key_get(row, keys, 'Middle En') or \
@@ -1124,6 +1126,19 @@ def ext_faculty_process(session, file_path: str, dept_file_path: str,
         faculty.type = 'Faculty'
         faculty.rank = key_get(row, keys, 'Rank')
 
+        retrieval_time_gsc = key_get(
+            row, keys, 'Google Scholar Retrieval Time')
+
+        if retrieval_time_gsc:
+            # converting int timestamp to datetime
+            retrieval_time_gsc = datetime.datetime.fromtimestamp(
+                int(retrieval_time_gsc))
+
+            faculty.retrieval_time_gsc = retrieval_time_gsc
+            faculty.h_index_gsc = key_get(row, keys, 'Google Scholar h-index')
+            faculty.i10_index_gsc = key_get(
+                row, keys, 'Google Scholar i10-index')
+
         # adding faculty profiles
         if row['Email']:
             for email in row['Email'].split(','):
@@ -1138,10 +1153,12 @@ def ext_faculty_process(session, file_path: str, dept_file_path: str,
             faculty.profiles.append(
                 Author_Profile(
                     address=row['Personal Website'], type='Personal Website'))
-        if row['Institution ID']:
+        if row['Google Scholar ID']:
             faculty.profiles.append(
                 Author_Profile(
-                    address=row['Institution ID'], type='Institution ID'))
+                    address='https://scholar.google.com/citations?user=' +
+                    row["Google Scholar ID"],
+                    type='Google Scholar'))
 
         # adding the departments that the faculty belongs to
         for dept in row['Departments'].split(','):

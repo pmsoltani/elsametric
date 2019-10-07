@@ -1,4 +1,4 @@
-from sqlalchemy import Column, text
+from sqlalchemy import Column, CheckConstraint, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import \
     BIGINT, CHAR, DATETIME, ENUM, INTEGER, VARCHAR
@@ -9,12 +9,23 @@ from .associations import Author_Department, Paper_Author
 
 class Author(Base):
     __tablename__ = 'author'
+    __table_args__ = (
+        CheckConstraint(
+            '''NOT(
+                (NOT(h_index_gsc IS NULL) OR NOT(i10_index_gsc IS NULL)) AND
+                (retrieval_time_gsc IS NULL)
+            )''',
+            name='ck_author_google_scholar'
+        ),
+    )
 
     id = Column(
         INTEGER(unsigned=True),
         primary_key=True, autoincrement=True, nullable=False
     )
     id_scp = Column(BIGINT(unsigned=True), nullable=False, unique=True)
+    id_gsc = Column(VARCHAR(12), nullable=True, unique=True)
+    id_institution = Column(VARCHAR(45), nullable=True)
     id_frontend = Column(VARCHAR(11), nullable=False, unique=True)
     first = Column(VARCHAR(45), nullable=True)
     middle = Column(VARCHAR(45), nullable=True)
@@ -26,12 +37,12 @@ class Author(Base):
     initials_pref = Column(VARCHAR(45), nullable=True)
     first_fa = Column(VARCHAR(45), nullable=True)
     last_fa = Column(VARCHAR(45), nullable=True)
-    sex = Column(
-        CHAR(1), ENUM('m', 'f'),
-        nullable=True
-    )
+    sex = Column(CHAR(1), ENUM('m', 'f'), nullable=True)
     type = Column(VARCHAR(45), nullable=True)
     rank = Column(VARCHAR(45), nullable=True)
+    h_index_gsc = Column(INTEGER(unsigned=True), nullable=True)
+    i10_index_gsc = Column(INTEGER(unsigned=True), nullable=True)
+    retrieval_time_gsc = Column(DATETIME(), nullable=True)
     create_time = Column(
         DATETIME(), nullable=False,
         server_default=text('CURRENT_TIMESTAMP')
@@ -48,11 +59,15 @@ class Author(Base):
         'Department', secondary=Author_Department, back_populates='authors')
 
     def __init__(
-            self, id_scp, first=None, middle=None, last=None, initials=None,
-            sex=None, type=None, rank=None, inst_id=None,
-            create_time=None, update_time=None):
+        self, id_scp, id_gsc=None, id_institution=None, first=None, middle=None,
+        last=None, initials=None, first_pref=None, middle_pref=None,
+        last_pref=None, initials_pref=None, first_fa=None, last_fa=None,
+        sex=None, type=None, rank=None, h_index_gsc=None, i10_index_gsc=None,
+        retrieval_time_gsc=None, create_time=None, update_time=None):
 
         self.id_scp = id_scp
+        self.id_gsc = id_gsc
+        self.id_institution = id_institution
         self.id_frontend = token_generator()
         self.first = first
         self.middle = middle
@@ -62,10 +77,14 @@ class Author(Base):
         self.middle_pref = middle
         self.last_pref = last
         self.initials_pref = initials
+        self.first_fa = first_fa
+        self.last_fa = last_fa
         self.sex = sex
         self.type = type
         self.rank = rank
-        self.inst_id = inst_id
+        self.h_index_gsc = h_index_gsc
+        self.i10_index_gsc = i10_index_gsc
+        self.retrieval_time_gsc = retrieval_time_gsc
         self.create_time = create_time
         self.update_time = update_time
         self._institutions = set()
