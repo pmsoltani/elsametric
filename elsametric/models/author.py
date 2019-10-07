@@ -16,7 +16,7 @@ class Author(Base):
                 (retrieval_time_gsc IS NULL)
             )''',
             name='ck_author_google_scholar'
-        )
+        ),
     )
 
     id = Column(

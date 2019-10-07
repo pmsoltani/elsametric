@@ -1153,7 +1153,7 @@ def ext_faculty_process(session, file_path: str, dept_file_path: str,
             faculty.profiles.append(
                 Author_Profile(
                     address=row['Personal Website'], type='Personal Website'))
-        if row['id_gsc']:
+        if row['Google Scholar ID']:
             faculty.profiles.append(
                 Author_Profile(
                     address='https://scholar.google.com/citations?user=' +
