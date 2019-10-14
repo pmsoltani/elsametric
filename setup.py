@@ -15,8 +15,7 @@ setuptools.setup(
     version='v0.0.1',
     # long_description=README,
     url='https://github.com/pmsoltani/elsametric',
-    # packages=setuptools.find_packages(where='elsametric'),
-    packages=['elsametric'],
+    packages=setuptools.find_packages(),
     python_requires=">=3.6",
     install_requires=[
         'sqlalchemy>=1.3',
