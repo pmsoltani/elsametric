@@ -1,10 +1,12 @@
-#%%
+# %%
 import os
 import io
 import csv
 import copy
 import requests as req
 from bs4 import BeautifulSoup
+from urllib.parse import urlparse, parse_qs
+from furl import furl
 
 base = 'https://ut.ac.ir/fa/faculty'
 agt = 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0'
@@ -19,21 +21,39 @@ english_keys = {
 }
 table_attrs = {'class': 'table table-striped table-bordered responsive-table'}
 first_page = 1
-last_page = 106
 
-#%%
+try:
+    page = req.get(url=base, headers=headers)
+    soup = BeautifulSoup(page.text, 'html.parser')
+    pagination = soup \
+        .find('ul', attrs={'class': 'pagination'}) \
+        .find('li', attrs={'class': 'last'})['href']
+    last_page = int(parse_qs(urlparse(pagination).query)['page'][0])
+except AttributeError:
+    last_page = 106  # hardcoded value
+
+# %%
 faculties = []
+
+# loop through each page that contains a table of faculty names
 for page_no in range(first_page, last_page + 1):
     page = req.get(url=base, params={'page': page_no}, headers=headers)
     soup = BeautifulSoup(page.text, 'html.parser')
-    table = soup.find('table', attrs=table_attrs)
-    table_body = table.find('tbody')
-    rows = table_body.find_all('tr')
+    try:
+        rows = soup \
+            .find('table', attrs=table_attrs) \
+            .find('tbody') \
+            .find_all('tr')
+        # each row contains the contact info of a faculty member
+    except AttributeError:  # table not found
+        continue
 
     data = []
     for row in rows:
+        # 'data-key' is an integer assigned to each faculty memeber
         faculty_id = int(row['data-key'])
         try:
+            # link to the faculty's profile page
             faculty_link = row.find('a', href=True)['href']
             faculty_email = faculty_link.split('/')[-1] + '@ut.ac.ir'
         except TypeError:
@@ -59,7 +79,7 @@ with io.open(os.path.join('data', file_name), 'w', encoding='utf-8') as csv_file
     writer.writerow(dict((fn, fn) for fn in faculties[0].keys()))
     writer.writerows(faculties)
 
-#%%
+# %%
 # file_name = 'tehran_initial.csv'
 faculties = []
 with io.open(os.path.join('data', file_name), 'r', encoding='utf-8') as csv_file:
@@ -103,7 +123,6 @@ for faculty in faculties:
             'id': faculty['faculty_id']})
         continue
 
-
     main_content = soup.find('div', attrs={'class': 'main-content'})
     pic = main_content \
         .find('div', attrs={'class': 'profile-pic'}) \
@@ -141,7 +160,7 @@ for faculty in faculties:
             'id': faculty['faculty_id']})
         continue
 
-#%%
+# %%
 max_edu = 0
 for faculty in faculties:
     cnt = 0
@@ -164,4 +183,4 @@ with io.open(os.path.join('data', file_name), 'w', encoding='utf-8') as csv_file
     writer.writerow(dict((fn, fn) for fn in faculties[0].keys()))
     writer.writerows(faculties)
 
-#%%
+# %%
