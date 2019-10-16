@@ -23,20 +23,48 @@ def get_row(path: str, encoding: str = 'utf-8', delimiter: str = ','):
             yield row
 
 
-def exporter(path: str, rows: list, all_rows: bool = False, headers: bool = False):
-    with io.open(path, 'a' if not all_rows else 'w', encoding='utf-8') as file:
-        writer = csv.DictWriter(
-            file, rows[0].keys(), delimiter=',', lineterminator='\n'
-        )
-        if headers or all_rows:
-            writer.writerow(dict((fn, fn) for fn in rows[0].keys()))
+def exporter(path: str, rows: list,
+             all_rows: bool = False, headers: bool = False,
+             encoding='utf-8', delimiter=',', lineterminator='\n'):
+    """Exports a list of dictionaries to a .csv file
+
+    The function receives a list of dictionaries, 'rows', and attempt to
+    write them to a file specified by 'path', according to the other
+    parameters provided.
+
+    Parameters:
+        path (str): the path to the .csv file
+        rows (list): the list of dictionaries to be written
+        all_rows (bool): whether to write the whole list or just the
+        last row
+        headers (bool): whether to create a headers row or not
+        encoding (str): encoding to be used when writing the .csv file
+        delimiter (str): the delimiter used in the .csv file
+        lineterminator (str): the line ending used in the .csv file
+
+    Returns:
+        None
+    """
+
+    rows_key_count = [len(row.keys()) for row in rows]
+    row_with_max_keys = rows_key_count.index(max(rows_key_count))
+
+    with io.open(path, 'a' if not all_rows else 'w', encoding=encoding) as file:
+        writer = csv.DictWriter(file, fieldnames=rows[row_with_max_keys].keys(),
+                                delimiter=delimiter,
+                                lineterminator=lineterminator)
+
+        if headers or all_rows:  # if all_rows, write the headers row
+            writer.writeheader()
+
         if all_rows:
             writer.writerows(rows)  # write to the csv file all at once
-        writer.writerows(rows[-1:])  # write to the csv file row-by-row
+        else:
+            writer.writerows(rows[-1:])  # write to the csv file row-by-row
 
 
-def nullify(data: dict, null_types: tuple = (None, '', ' ', '-', '#N/A', '---')):
-    """Changes the null-looking values in a dictionary to None
+def nullify(data: dict, null_types: tuple = ('', ' ', '-', '#N/A', '---')):
+    """Changes the null-looking values in a dictionary to None in-place
 
     The function receives a dictionary and looping through its items. If
     an item has a null-looking value (defined by the 'null_types'
