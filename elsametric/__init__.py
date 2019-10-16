@@ -16,4 +16,4 @@ db_name = config['MySQL Schema']
 engine_uri = f'mysql+mysqlconnector://{db_user}:{db_pass}@{db_host}/{db_name}'
 
 if not database_exists(engine_uri):
-    create_database(engine_uri)
+    create_database(engine_uri, encoding='utf8mb4')
