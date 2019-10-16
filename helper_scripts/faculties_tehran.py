@@ -22,10 +22,10 @@ with io.open(CURRENT_DIR / 'config.json', 'r') as config_file:
     config = json.load(config_file)
 config = config['crawlers']['University of Tehran']
 
-DATA_PATH = config['data_directory']
-FACULTY_LIST = config['faculties_list']
-FACULTY_DETAILS = config['faculties_details']
-ERRORS_LOG = config['errors_log']
+DATA_PATH = CURRENT_DIR / config['data_directory']
+FACULTY_LIST_PATH = DATA_PATH / config['faculties_list']
+FACULTY_DETAILS_PATH = DATA_PATH / config['faculties_details']
+ERRORS_LOG_PATH = DATA_PATH / config['errors_log']
 BASE = config['base_url']
 FIRST_PAGE = config['first_page']
 FIRST_FACULTY_ID = config["first_faculty_id"]
@@ -59,7 +59,8 @@ fa_en_mapper = {
     'رتبه': 'Rank Fa',
     'پست الکترونیکی': 'Email'
 }
-csv_headers = True
+# if file exists don't write headers row
+csv_headers = not(Path(FACULTY_LIST_PATH).is_file())
 for page_num in range(FIRST_PAGE or 1, LAST_PAGE + 1):  # loop through each page
     print(f'Page {page_num}/{LAST_PAGE} ...', end=' ')
     if not FIRST_PAGE:
@@ -103,8 +104,7 @@ for page_num in range(FIRST_PAGE or 1, LAST_PAGE + 1):  # loop through each page
         }
         nullify(parsed_row)  # replace null like values (e.g. '---') with None
 
-        exporter(CURRENT_DIR / DATA_PATH / FACULTY_LIST,
-                 [parsed_row], headers=csv_headers)
+        exporter(FACULTY_LIST_PATH, [parsed_row], headers=csv_headers)
         csv_headers = False
     print('exported')
 
@@ -115,7 +115,7 @@ for page_num in range(FIRST_PAGE or 1, LAST_PAGE + 1):  # loop through each page
 # ==============================================================================
 
 
-rows = get_row(CURRENT_DIR / DATA_PATH / FACULTY_LIST)
+rows = get_row(FACULTY_LIST_PATH)
 fa_en_mapper = {
     'نام و نام خانوادگی': 'Full Name Fa',
     'پست الکترونیک': 'Email Fa',
@@ -127,7 +127,8 @@ fa_en_mapper = {
     'ادرس وب سایت': 'Personal Website Fa',
 }
 errors = []
-csv_headers = True
+# if file exists don't write headers row
+csv_headers = not(Path(FACULTY_DETAILS_PATH).is_file())
 first_faculty_crawled = not FIRST_FACULTY_ID or False  # no config => crawl all
 for row in rows:
     if not row['Institution ID']:
@@ -139,8 +140,7 @@ for row in rows:
         print('skipping (config)')
         continue
     if not row['Personal Website']:  # faculty page not available
-        exporter(CURRENT_DIR / DATA_PATH / FACULTY_DETAILS,
-                 [row], headers=csv_headers)
+        exporter(FACULTY_DETAILS_PATH, [row], headers=csv_headers)
         print('error (page not available) ... exported')
         continue
 
@@ -209,12 +209,11 @@ for row in rows:
         pass
 
     nullify(row)
-    exporter(CURRENT_DIR / DATA_PATH / FACULTY_DETAILS,
-             [row], headers=csv_headers)
+    exporter(FACULTY_DETAILS_PATH, [row], headers=csv_headers)
     csv_headers = False
     print('exported')
 
 if errors:
-    exporter(CURRENT_DIR / DATA_PATH / ERRORS_LOG, errors, all_rows=True)
+    exporter(ERRORS_LOG_PATH, errors, all_rows=True)
     print()
     print('error logs exported')
