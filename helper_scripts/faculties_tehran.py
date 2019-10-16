@@ -2,22 +2,26 @@
 import io
 import csv
 import json
+
 import requests as req
 from bs4 import BeautifulSoup
 from furl import furl
 from pathlib import Path
+
 from helpers import get_row, exporter, nullify
+
 
 # %%
 # ==============================================================================
 # Config
 # ==============================================================================
 
+
 CURRENT_DIR = Path.cwd()
 with io.open(CURRENT_DIR / 'config.json', 'r') as config_file:
     config = json.load(config_file)
-
 config = config['crawlers']['University of Tehran']
+
 DATA_PATH = config['data_directory']
 FACULTY_LIST = config['faculties_list']
 FACULTY_DETAILS = config['faculties_details']
@@ -29,24 +33,15 @@ FIRST_FACULTY_ID = config["first_faculty_id"]
 AGT = 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0'
 HEADERS = {'User-Agent': AGT}
 
-fa_en_mapper = {
-    'نام': 'First Fa',
-    'نام خانوادگی': 'Last Fa',
-    'دانشکده/گروه': 'Department Full Fa',
-    'رتبه': 'Rank Fa',
-    'پست الکترونیکی': 'Email'
-}
-table_attrs = {'class': 'table table-striped table-bordered responsive-table'}
-
-try:
+try:  # find the total number of pages
     page = req.get(url=BASE, headers=HEADERS)
-    soup = BeautifulSoup(page.text, 'html.parser')
-    last_page_url = soup \
+    page.raise_for_status()
+    last_page_url = BeautifulSoup(page.text, 'html.parser') \
         .find('ul', attrs={'class': 'pagination'}) \
         .find('li', attrs={'class': 'last'}) \
-        .find('a')['href']
+        .find('a')['href']  # format: https://ut.ac.ir/fa/faculty?page=1
     LAST_PAGE = int(furl(last_page_url).args['page'])
-except AttributeError:
+except (AttributeError, req.HTTPError):
     LAST_PAGE = 106  # hardcoded value
 
 
@@ -56,38 +51,40 @@ except AttributeError:
 # ==============================================================================
 
 
-# loop through each page that contains a table of faculty names
+table_attrs = {'class': 'table table-striped table-bordered responsive-table'}
+fa_en_mapper = {
+    'نام': 'First Fa',
+    'نام خانوادگی': 'Last Fa',
+    'دانشکده/گروه': 'Department Full Fa',
+    'رتبه': 'Rank Fa',
+    'پست الکترونیکی': 'Email'
+}
 csv_headers = True
-for page_number in range(FIRST_PAGE or 1, LAST_PAGE + 1):
-    print(f'Page {page_number}/{LAST_PAGE} ...', end=' ')
+for page_num in range(FIRST_PAGE or 1, LAST_PAGE + 1):  # loop through each page
+    print(f'Page {page_num}/{LAST_PAGE} ...', end=' ')
     if not FIRST_PAGE:
         print('skipping (config)')
         continue
-    page = req.get(url=BASE, params={'page': page_number}, headers=HEADERS)
-    soup = BeautifulSoup(page.text, 'html.parser')
+
     try:
-        rows = soup \
+        page = req.get(url=BASE, params={'page': page_num}, headers=HEADERS)
+        rows = BeautifulSoup(page.text, 'html.parser') \
             .find('table', attrs=table_attrs) \
             .find('tbody') \
             .find_all('tr')
-        # each row contains the contact info of a faculty member
-    except AttributeError:  # table not found, move to the next page
+    except (AttributeError, req.HTTPError):  # table not found, go to next page
         print('error')
         continue
 
-    for row in rows:
-        # 'data-key' is an integer assigned to each faculty memeber
-        faculty_key = int(row['data-key'])
+    for row in rows:  # each row contains the contact info of a faculty member
+        parsed_row = {}
+        faculty_key = int(row['data-key'])  # an int assigned to each faculty
         try:
-            # link to the faculty's profile page
             faculty_link = row.find('a', href=True)['href']
             faculty_id = furl(faculty_link).path.segments[-1]
             faculty_email = f'{faculty_id}@ut.ac.ir'
         except TypeError as e:
-            faculty_link = None
-            faculty_email = None
-
-        parsed_row = {}
+            faculty_link = faculty_id = faculty_email = None
 
         columns = row.find_all('td')
         for column in columns:
@@ -104,14 +101,10 @@ for page_number in range(FIRST_PAGE or 1, LAST_PAGE + 1):
             'Institution ID': faculty_id,
             'Email': faculty_email
         }
-        nullify(parsed_row)
+        nullify(parsed_row)  # replace null like values (e.g. '---') with None
 
-        # write each row to the file asap
-        exporter(
-            CURRENT_DIR / DATA_PATH / FACULTY_LIST,
-            [parsed_row],
-            headers=csv_headers
-        )
+        exporter(CURRENT_DIR / DATA_PATH / FACULTY_LIST,
+                 [parsed_row], headers=csv_headers)
         csv_headers = False
     print('exported')
 
@@ -135,24 +128,20 @@ fa_en_mapper = {
 }
 errors = []
 csv_headers = True
-first_faculty_crawled = not FIRST_FACULTY_ID or False
+first_faculty_crawled = not FIRST_FACULTY_ID or False  # no config => crawl all
 for row in rows:
     if not row['Institution ID']:
         continue
     print(f'ID: {row["Institution ID"]} ...', end=' ')
-    if row['Institution ID'] == FIRST_FACULTY_ID:
+    if row['Institution ID'] == FIRST_FACULTY_ID:  # reached the first faculty
         first_faculty_crawled = True
-    if not first_faculty_crawled:
+    if not first_faculty_crawled:  # first faculty (in config) not reached yet
         print('skipping (config)')
         continue
     if not row['Personal Website']:  # faculty page not available
-        print('error (page not available) ...', end=' ')
-        exporter(
-            CURRENT_DIR / DATA_PATH / FACULTY_DETAILS,
-            [row],
-            headers=csv_headers
-        )
-        print('exported')
+        exporter(CURRENT_DIR / DATA_PATH / FACULTY_DETAILS,
+                 [row], headers=csv_headers)
+        print('error (page not available) ... exported')
         continue
 
     try:
@@ -162,6 +151,7 @@ for row in rows:
             allow_redirects=False,
             headers=HEADERS
         )
+        page_fa.raise_for_status()
         soup = BeautifulSoup(page_fa.text, 'html.parser')
         general_info = soup \
             .find('div', attrs={'class': 'cv-info'}) \
@@ -169,23 +159,19 @@ for row in rows:
             .find_all('tr')
 
         for item in general_info:
-            # table format:
-            # col0 -> item_type
-            # col1 -> ':' (just a colon)
-            # col2 -> item_content
+            # table columns format: [item_type, ':', item_content]
             columns = item.find_all('td')
             columns = [element.text.strip() for element in columns]
             column_name_fa = columns[0]
             column_name_en = fa_en_mapper[column_name_fa]
-            if 'Email' in column_name_en:
+            if 'Email' in column_name_en:  # emails are stored as images :(
                 continue
             row[column_name_en] = columns[2]
 
         main_content = soup.find('div', attrs={'class': 'main-content'})
-        pic = main_content \
+        row['Profile Picture URL'] = main_content \
             .find('div', attrs={'class': 'profile-pic'}) \
             .find('img', src=True)['src']
-        row['Profile Picture URL'] = pic
         print('Farsi page done ...', end=' ')
     except Exception as e:  # catchall
         print('Farsi page error ...', end=' ')
@@ -196,8 +182,12 @@ for row in rows:
 
     try:  # crawl the english page for general_info as well
         page_en = req.get(
-            url=row['Personal Website'], params={'lang': 'en-gb'},
-            allow_redirects=False, headers=HEADERS)
+            url=row['Personal Website'],
+            params={'lang': 'en-gb'},
+            allow_redirects=False,
+            headers=HEADERS
+        )
+        page_en.raise_for_status()
         general_info = BeautifulSoup(page_en.text, 'html.parser') \
             .find('div', attrs={'class': 'cv-info'}) \
             .find('table') \
@@ -219,11 +209,8 @@ for row in rows:
         pass
 
     nullify(row)
-    exporter(
-        CURRENT_DIR / DATA_PATH / FACULTY_DETAILS,
-        [row],
-        headers=csv_headers
-    )
+    exporter(CURRENT_DIR / DATA_PATH / FACULTY_DETAILS,
+             [row], headers=csv_headers)
     csv_headers = False
     print('exported')
 
