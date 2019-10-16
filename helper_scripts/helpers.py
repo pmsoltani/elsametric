@@ -24,7 +24,7 @@ def get_row(path: str, encoding: str = 'utf-8', delimiter: str = ','):
 
 
 def exporter(path: str, rows: list,
-             all_rows: bool = False, headers: bool = False,
+             reset: bool = False, bulk: bool = False, headers: bool = False,
              encoding='utf-8', delimiter=',', lineterminator='\n'):
     """Exports a list of dictionaries to a .csv file
 
@@ -35,7 +35,9 @@ def exporter(path: str, rows: list,
     Parameters:
         path (str): the path to the .csv file
         rows (list): the list of dictionaries to be written
-        all_rows (bool): whether to write the whole list or just the
+        reset (bool): whether to write to the file from the beginning or
+        append to it
+        bulk (bool): whether to write the whole list or just the
         last row
         headers (bool): whether to create a headers row or not
         encoding (str): encoding to be used when writing the .csv file
@@ -46,18 +48,21 @@ def exporter(path: str, rows: list,
         None
     """
 
+    if not rows:
+        return
+
     rows_key_count = [len(row.keys()) for row in rows]
     row_with_max_keys = rows_key_count.index(max(rows_key_count))
 
-    with io.open(path, 'a' if not all_rows else 'w', encoding=encoding) as file:
+    with io.open(path, 'a' if not reset else 'w', encoding=encoding) as file:
         writer = csv.DictWriter(file, fieldnames=rows[row_with_max_keys].keys(),
                                 delimiter=delimiter,
                                 lineterminator=lineterminator)
 
-        if headers or all_rows:  # if all_rows, write the headers row
+        if headers:
             writer.writeheader()
 
-        if all_rows:
+        if bulk:
             writer.writerows(rows)  # write to the csv file all at once
         else:
             writer.writerows(rows[-1:])  # write to the csv file row-by-row
