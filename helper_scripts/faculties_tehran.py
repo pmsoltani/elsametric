@@ -44,17 +44,17 @@ except (AttributeError, req.HTTPError):
 
 
 # ==============================================================================
-# Get a list of all faculties
+# Step 1: Get a list of all faculties
 # ==============================================================================
 
 
 table_attrs = {'class': 'table table-striped table-bordered responsive-table'}
-fa_en_mapper = {
+info_mapper = {
     'نام': 'First Fa',
     'نام خانوادگی': 'Last Fa',
-    'دانشکده/گروه': 'Department Full Fa',
+    'دانشکده/گروه': 'Faculty & Department Fa',
     'رتبه': 'Rank Fa',
-    'پست الکترونیکی': 'Email'
+    'پست الکترونیکی': ''  # Email address, which is shown as an image: skip it
 }
 # if file exists don't write headers row
 csv_headers = not(Path(FACULTY_LIST_PATH).is_file())
@@ -66,6 +66,7 @@ for page_num in range(FIRST_PAGE or 1, LAST_PAGE + 1):  # loop through each page
 
     try:
         page = req.get(url=BASE, params={'page': page_num}, headers=HEADERS)
+        page.raise_for_status()
         rows = BeautifulSoup(page.text, 'html.parser') \
             .find('table', attrs=table_attrs) \
             .find('tbody') \
@@ -75,52 +76,52 @@ for page_num in range(FIRST_PAGE or 1, LAST_PAGE + 1):  # loop through each page
         continue
 
     for row in rows:  # each row contains the contact info of a faculty member
-        parsed_row = {}
-        faculty_key = int(row['data-key'])  # an int assigned to each faculty
+        parsed_row = {
+            'Personal Website': None, 'Institution ID': None, 'Email': None}
         try:
-            faculty_link = row.find('a', href=True)['href']
-            faculty_id = furl(faculty_link).path.segments[-1]
-            faculty_email = f'{faculty_id}@ut.ac.ir'
-        except TypeError as e:
-            faculty_link = faculty_id = faculty_email = None
+            faculty_url = row.find('a', href=True)['href']
+            parsed_row['Personal Website'] = faculty_url
+            parsed_row['Institution ID'] = furl(faculty_url).path.segments[-1]
+            parsed_row['Email'] = f'{parsed_row["Institution ID"]}@ut.ac.ir'
+        except TypeError:
+            pass
 
         columns = row.find_all('td')
         for column in columns:
-            column_name_fa = column['data-title']
-            column_name_en = fa_en_mapper[column_name_fa]
-            parsed_row[column_name_en] = column.text.strip()
-        parsed_row['Department Full Fa'] = parsed_row['Department Full Fa'] \
-            .replace('\u200c', '')
+            column_name_en = info_mapper[column['data-title']]
+            if not column_name_en:
+                continue
+            parsed_row[column_name_en] = column.text \
+                .strip().replace('\u200c', '')
 
-        parsed_row = {
-            **parsed_row,
-            'Institution Key': faculty_key,
-            'Personal Website': faculty_link,
-            'Institution ID': faculty_id,
-            'Email': faculty_email
-        }
         nullify(parsed_row)  # replace null like values (e.g. '---') with None
-
         exporter(FACULTY_LIST_PATH, [parsed_row], headers=csv_headers)
         csv_headers = False
     print('exported')
 
 
 # ==============================================================================
-# Get additional data for each faculty member
+# Step 2: Get additional data for each faculty (from Farsi & English pages)
 # ==============================================================================
 
 
 rows = get_row(FACULTY_LIST_PATH)
-fa_en_mapper = {
-    'نام و نام خانوادگی': 'Full Name Fa',
-    'پست الکترونیک': 'Email Fa',
-    'مرتبه علمی': 'Rank Fa 2',
-    'آدرس محل کار': 'Address Fa',
+info_mapper = {
+    'نام و نام خانوادگی': '',  # Full Name, which is already collected: skip it
+    'پست الکترونیک': '',  # Email address, which is already collected: skip it
+    'مرتبه علمی': '',  # Rank, which is already collected: skip it
+    'آدرس محل کار': '',  # Office address, which is not needed: skip it
     'دانشکده/گروه': 'Department Fa',
-    'تلفن محل کار': 'Office Fa',
-    'نمابر': 'Fax Fa',
-    'ادرس وب سایت': 'Personal Website Fa',
+    'تلفن محل کار': 'Office',
+    'نمابر': 'Fax',
+    'ادرس وب سایت': '',  # Personal Website, which is already collected: skip it
+    'Full Name': 'Full Name En',
+    'Email': '',
+    'Academic Rank': 'Rank En',
+    'Department': 'Department En',
+    'Work phone': '',
+    'Fax': '',
+    'Website': '',
 }
 errors = []
 # if file exists don't write headers row
@@ -150,6 +151,16 @@ for row in rows:
         )
         page_fa.raise_for_status()
         soup = BeautifulSoup(page_fa.text, 'html.parser')
+    except req.HTTPError as e:
+        exporter(FACULTY_DETAILS_PATH, [row], headers=csv_headers)
+        csv_headers = False
+        errors.append({
+            'type': str(type(e)), 'msg': str(e), 'section': 'page',
+            'id': row['Institution ID']})
+        print('error (page not available) ... exported')
+        continue
+
+    try:  # faculty's general info
         general_info = soup \
             .find('div', attrs={'class': 'cv-info'}) \
             .find('table') \
@@ -159,21 +170,28 @@ for row in rows:
             # table columns format: [item_type, ':', item_content]
             columns = item.find_all('td')
             columns = [element.text.strip() for element in columns]
-            column_name_fa = columns[0]
-            column_name_en = fa_en_mapper[column_name_fa]
-            if 'Email' in column_name_en:  # emails are stored as images :(
+            column_name_en = info_mapper[columns[0]]
+            if not column_name_en:
                 continue
             row[column_name_en] = columns[2]
+        print('General info done ...', end=' ')
+    except AttributeError:
+        print('General info error ...', end=' ')
+        errors.append({
+            'type': str(type(e)), 'msg': str(e), 'section': 'info',
+            'id': row['Institution ID']})
+        pass
 
+    try:  # faculty's profile picture
         main_content = soup.find('div', attrs={'class': 'main-content'})
         row['Profile Picture URL'] = main_content \
             .find('div', attrs={'class': 'profile-pic'}) \
             .find('img', src=True)['src']
-        print('Farsi page done ...', end=' ')
+        print('Profile picture done ...', end=' ')
     except Exception as e:  # catchall
-        print('Farsi page error ...', end=' ')
+        print('Profile picture error ...', end=' ')
         errors.append({
-            'type': str(type(e)), 'msg': str(e), 'section': 'fa',
+            'type': str(type(e)), 'msg': str(e), 'section': 'pic',
             'id': row['Institution ID']})
         pass
 
@@ -193,15 +211,15 @@ for row in rows:
         for item in general_info:
             columns = item.find_all('td')
             columns = [element.text.strip() for element in columns]
-            column_name_en = columns[0]
-            if 'Email' in column_name_en:
+            column_name_en = info_mapper[columns[0]]
+            if not column_name_en:
                 continue
             row[column_name_en] = columns[2]
         print('English page done ...', end=' ')
     except Exception as e:  # catchall
         print('English page error ...', end=' ')
         errors.append({
-            'type': str(type(e)), 'msg': str(e), 'section': 'en',
+            'type': str(type(e)), 'msg': str(e), 'section': 'eng',
             'id': row['Institution ID']})
         pass
 

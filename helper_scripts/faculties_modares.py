@@ -185,9 +185,12 @@ for row in rows:
                           allow_redirects=False, headers=HEADERS)
         page_fa.raise_for_status()
         soup = BeautifulSoup(page_fa.text, 'html.parser')
-    except req.HTTPError:
+    except req.HTTPError as e:
         exporter(FACULTY_DETAILS_PATH, [row], headers=csv_headers)
         csv_headers = False
+        errors.append({
+            'type': str(type(e)), 'msg': str(e), 'section': 'page',
+            'id': row['Institution ID']})
         print('error (page not available) ... exported')
         continue
 
