@@ -84,3 +84,21 @@ def nullify(data: dict, null_types: tuple = ('', ' ', '-', '#N/A', '---')):
     for key in data:
         if data[key] in null_types:
             data[key] = None
+
+
+def upper_first(string: str) -> str:
+    """Changes the first letter of a name to uppercase
+
+    This simple function receives a string (a name) and changes the 1st
+    letter of that name to uppercase. Python's str.title() method does
+    this with an important difference: it changes the rest of the name's
+    letters to lowercase, which in some cases might be a bad idea.
+
+    Parameters:
+        string (str): the string to be manipulated
+    Returns:
+        the same string with its first letter changed to uppercase
+    """
+    if not string or not isinstance(string, str):
+        return string
+    return string[0].upper() + string[1:]
