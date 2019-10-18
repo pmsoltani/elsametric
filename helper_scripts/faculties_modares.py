@@ -176,6 +176,7 @@ for row in rows:
         continue
     if not row['Personal Website']:  # faculty page not available
         exporter(FACULTY_DETAILS_PATH, [row], headers=csv_headers)
+        csv_headers = False
         print('error (page not available) ... exported')
         continue
 
@@ -186,6 +187,7 @@ for row in rows:
         soup = BeautifulSoup(page_fa.text, 'html.parser')
     except req.HTTPError:
         exporter(FACULTY_DETAILS_PATH, [row], headers=csv_headers)
+        csv_headers = False
         print('error (page not available) ... exported')
         continue
 

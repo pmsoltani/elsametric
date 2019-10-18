@@ -1,4 +1,3 @@
-# %%
 import io
 import csv
 import json
@@ -11,7 +10,6 @@ from pathlib import Path
 from helpers import get_row, exporter, nullify
 
 
-# %%
 # ==============================================================================
 # Config
 # ==============================================================================
@@ -45,7 +43,6 @@ except (AttributeError, req.HTTPError):
     LAST_PAGE = 106  # hardcoded value
 
 
-# %%
 # ==============================================================================
 # Get a list of all faculties
 # ==============================================================================
@@ -109,7 +106,6 @@ for page_num in range(FIRST_PAGE or 1, LAST_PAGE + 1):  # loop through each page
     print('exported')
 
 
-# %%
 # ==============================================================================
 # Get additional data for each faculty member
 # ==============================================================================
@@ -141,6 +137,7 @@ for row in rows:
         continue
     if not row['Personal Website']:  # faculty page not available
         exporter(FACULTY_DETAILS_PATH, [row], headers=csv_headers)
+        csv_headers = False
         print('error (page not available) ... exported')
         continue
 
@@ -214,6 +211,7 @@ for row in rows:
     print('exported')
 
 if errors:
-    exporter(ERRORS_LOG_PATH, errors, all_rows=True)
+    csv_headers = not Path(ERRORS_LOG_PATH).is_file()
+    exporter(ERRORS_LOG_PATH, errors, bulk=True, headers=csv_headers)
     print()
     print('error logs exported')
