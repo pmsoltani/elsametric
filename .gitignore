@@ -22,5 +22,5 @@ thumbs.db
 *.mwb.bak
 
 # config
-config.json
+*config.json
 
