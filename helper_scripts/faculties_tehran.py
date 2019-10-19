@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 from furl import furl
 from pathlib import Path
 
-from helpers import get_row, exporter, nullify
+from helpers import get_row, exporter, nullify, new_columns
 
 
 # ==============================================================================
@@ -16,20 +16,19 @@ from helpers import get_row, exporter, nullify
 
 
 CURRENT_DIR = Path.cwd()
-with io.open(CURRENT_DIR / 'config.json', 'r') as config_file:
+with io.open(CURRENT_DIR / 'crawlers_config.json', 'r') as config_file:
     config = json.load(config_file)
-config = config['crawlers']['University of Tehran']
+config = config['institutions']['University of Tehran']
 
 DATA_PATH = CURRENT_DIR / config['data_directory']
-FACULTY_LIST_PATH = DATA_PATH / config['faculties_list']
-FACULTY_DETAILS_PATH = DATA_PATH / config['faculties_details']
+FACULTY_LIST_PATH = DATA_PATH / config['faculties_list_raw']
+FACULTY_DETAILS_PATH = DATA_PATH / config['faculties_details_raw']
 ERRORS_LOG_PATH = DATA_PATH / config['errors_log']
 BASE = config['base_url']
 FIRST_PAGE = config['first_page']
-FIRST_FACULTY_ID = config["first_faculty_id"]
+FIRST_FACULTY_ID = config['first_faculty_id']
 
-AGT = 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0'
-HEADERS = {'User-Agent': AGT}
+HEADERS = {'User-Agent': config['user_agent']}
 
 try:  # find the total number of pages
     page = req.get(url=BASE, headers=HEADERS)
@@ -57,6 +56,8 @@ info_mapper = {
     'پست الکترونیکی': ''  # Email address, which is shown as an image: skip it
 }
 # if file exists don't write headers row
+COLUMNS = ['First Fa', 'Last Fa', 'Faculty & Department Fa', 'Rank Fa',
+           'Email', 'Institution ID', 'Personal Website']
 csv_headers = not(Path(FACULTY_LIST_PATH).is_file())
 for page_num in range(FIRST_PAGE or 1, LAST_PAGE + 1):  # loop through each page
     print(f'Page {page_num}/{LAST_PAGE} ...', end=' ')
@@ -76,11 +77,11 @@ for page_num in range(FIRST_PAGE or 1, LAST_PAGE + 1):  # loop through each page
         continue
 
     for row in rows:  # each row contains the contact info of a faculty member
-        parsed_row = {
-            'Personal Website': None, 'Institution ID': None, 'Email': None}
+        parsed_row = {}
+        new_columns(parsed_row, COLUMNS, None)
         try:
             faculty_url = row.find('a', href=True)['href']
-            parsed_row['Personal Website'] = faculty_url
+            parsed_row['Personal Website'] = faculty_url.strip()
             parsed_row['Institution ID'] = furl(faculty_url).path.segments[-1]
             parsed_row['Email'] = f'{parsed_row["Institution ID"]}@ut.ac.ir'
         except TypeError:
@@ -123,6 +124,8 @@ info_mapper = {
     'Fax': '',
     'Website': '',
 }
+ADDITIONAL_COLUMNS = ['Department Fa', 'Office',
+                      'Fax', 'Full Name En', 'Rank En', 'Department En']
 errors = []
 # if file exists don't write headers row
 csv_headers = not(Path(FACULTY_DETAILS_PATH).is_file())
@@ -142,6 +145,7 @@ for row in rows:
         print('error (page not available) ... exported')
         continue
 
+    new_columns(row, ADDITIONAL_COLUMNS, None)
     try:
         page_fa = req.get(
             url=row['Personal Website'],
@@ -173,7 +177,7 @@ for row in rows:
             column_name_en = info_mapper[columns[0]]
             if not column_name_en:
                 continue
-            row[column_name_en] = columns[2]
+            row[column_name_en] = columns[2].strip()
         print('General info done ...', end=' ')
     except AttributeError:
         print('General info error ...', end=' ')
@@ -214,7 +218,7 @@ for row in rows:
             column_name_en = info_mapper[columns[0]]
             if not column_name_en:
                 continue
-            row[column_name_en] = columns[2]
+            row[column_name_en] = columns[2].strip()
         print('English page done ...', end=' ')
     except Exception as e:  # catchall
         print('English page error ...', end=' ')
