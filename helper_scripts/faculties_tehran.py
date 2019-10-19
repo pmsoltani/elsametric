@@ -113,7 +113,7 @@ info_mapper = {
     'مرتبه علمی': '',  # Rank, which is already collected: skip it
     'آدرس محل کار': '',  # Office address, which is not needed: skip it
     'دانشکده/گروه': 'Department Fa',
-    'تلفن محل کار': 'Office',
+    'تلفن محل کار': 'Phone (Office)',
     'نمابر': 'Fax',
     'ادرس وب سایت': '',  # Personal Website, which is already collected: skip it
     'Full Name': 'Full Name En',
@@ -124,7 +124,7 @@ info_mapper = {
     'Fax': '',
     'Website': '',
 }
-ADDITIONAL_COLUMNS = ['Department Fa', 'Office',
+ADDITIONAL_COLUMNS = ['Department Fa', 'Phone (Office)',
                       'Fax', 'Full Name En', 'Rank En', 'Department En']
 errors = []
 # if file exists don't write headers row

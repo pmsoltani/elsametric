@@ -1094,14 +1094,14 @@ def ext_faculty_process(session, file_path: str, dept_file_path: str,
     for row in rows:
         nullify(row)
         keys = row.keys()
-        if not row['Scopus']:  # faculty's Scopus ID not known: can't go on
+        if not row['Scopus ID']:  # faculty's Scopus ID not known: can't go on
             continue
         if not row['Departments']:  # faculty's dept. not known: can't go on
             continue
 
         # some faculties may have more than 1 Scopus ID, but for now,
         # we only use the first one
-        faculty_id_scp = int(row['Scopus'].split(',')[0])
+        faculty_id_scp = int(row['Scopus ID'].split(',')[0])
         faculty = session.query(Author) \
             .filter(Author.id_scp == faculty_id_scp) \
             .first()
@@ -1146,9 +1146,10 @@ def ext_faculty_process(session, file_path: str, dept_file_path: str,
                     continue
                 faculty.profiles.append(
                     Author_Profile(address=email.strip(), type='Email'))
-        if row['Office']:
+        if row['Phone (Office)']:
             faculty.profiles.append(
-                Author_Profile(address=row['Office'], type='Phone (Office)'))
+                Author_Profile(
+                    address=row['Phone (Office)'], type='Phone (Office)'))
         if row['Personal Website']:
             faculty.profiles.append(
                 Author_Profile(
@@ -1210,6 +1211,6 @@ def ext_department_process(file_path: str, encoding: str = 'utf-8-sig'):
     departments = {}
     rows = get_row(file_path, encoding)
     for row in rows:
-        departments[row['Abbreviation']] = {
-            'name': row['Full Name'], 'type': row['Type']}
+        departments[row['Department Abbreviation']] = {
+            'name': row['Department En'], 'type': row['Type']}
     return departments

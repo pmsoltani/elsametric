@@ -134,7 +134,7 @@ contact_icon_type_mapper = {
     'fa-envelope': None,  # Email address, which is already collected: skip it
     'fa-globe': 'Scopus ID',
     'fa-google': 'Google Scholar ID',
-    'fa-phone': 'Office',
+    'fa-phone': 'Phone (Office)',
     'fa-fax': 'Fax',
     'fa-link': None,  # Personal Website, which is already collected: skip it
     'fa-line-chart': None  # research.ac.ir ID, which is not needed: skip it
@@ -146,7 +146,7 @@ rank_fa_en_mapper = {
 }
 rows = get_row(FACULTY_LIST_PATH)
 COLUMNS = ['Profile Picture URL', 'Faculty Fa', 'Department Fa', 'Rank Fa',
-           'Rank', 'Office', 'Fax', 'Scopus ID', 'Google Scholar ID']
+           'Rank', 'Phone (Office)', 'Fax', 'Scopus ID', 'Google Scholar ID']
 errors = []
 csv_headers = not Path(FACULTY_DETAILS_PATH).is_file()
 first_faculty_crawled = not FIRST_FACULTY_ID or False  # no config => crawl all
@@ -254,7 +254,7 @@ for row in rows:
                     except KeyError:  # no valid scopus id found, either
                         pass
 
-            if contact_type in ['Office', 'Fax']:
+            if contact_type in ['Phone (Office)', 'Fax']:
                 contact_info = contact \
                     .find('span').text.strip().replace(' ', '')
                 row[contact_type] = contact_info
