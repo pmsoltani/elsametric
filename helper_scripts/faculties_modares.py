@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 from furl import furl
 from pathlib import Path
 
-from helpers import get_row, exporter, nullify, upper_first
+from helpers import get_row, exporter, nullify, upper_first, new_columns
 
 
 # ==============================================================================
@@ -16,20 +16,19 @@ from helpers import get_row, exporter, nullify, upper_first
 
 
 CURRENT_DIR = Path.cwd()
-with io.open(CURRENT_DIR / 'config.json', 'r') as config_file:
+with io.open(CURRENT_DIR / 'crawlers_config.json', 'r') as config_file:
     config = json.load(config_file)
-config = config['crawlers']['Tarbiat Modares University']
+config = config['institutions']['Tarbiat Modares University']
 
 DATA_PATH = CURRENT_DIR / config['data_directory']
-FACULTY_LIST_PATH = DATA_PATH / config['faculties_list']
-FACULTY_DETAILS_PATH = DATA_PATH / config['faculties_details']
+FACULTY_LIST_PATH = DATA_PATH / config['faculties_list_raw']
+FACULTY_DETAILS_PATH = DATA_PATH / config['faculties_details_raw']
 ERRORS_LOG_PATH = DATA_PATH / config['errors_log']
 BASE = config['base_url']
 FACULTIES_LIST_URL = config['faculties_list_url']
-FIRST_FACULTY_ID = config["first_faculty_id"]
+FIRST_FACULTY_ID = config['first_faculty_id']
 
-AGT = 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0'
-HEADERS = {'User-Agent': AGT}
+HEADERS = {'User-Agent': config['user_agent']}
 FA_ALPHABET = 'اآبپتثجچحخدذرزژسشصضطظعغفقکگلمنوهی'
 EN_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
@@ -58,9 +57,9 @@ for let in FA_ALPHABET:
         faculty_email = next(
             filter(lambda td: '@' in td.text, faculty.find_all('td')))
         faculty_email = faculty_email.text.strip()
-        faculty_id = faculty_email.split('@')[0]
+        faculty_id = faculty_email.split('@')[0].strip()
         faculty_url = faculty.find('a')
-        f.path = faculty_url['href']
+        f.path = faculty_url['href'].strip()
         faculty_name = [name.strip() for name in faculty_url.text.split('،')]
         parsed_faculties.append({
             'First Fa': faculty_name[1],
@@ -107,7 +106,7 @@ for let in EN_ALPHABET:
     for faculty in raw_faculties:
         faculty_url = faculty.find('a')
         faculty_id = furl(faculty_url['href']) \
-            .path.segments[-1].replace('~', '')
+            .path.segments[-1].strip().replace('~', '')
         cnt += 1
         faculty_name = [name.strip() for name in faculty_url.text.split(',')]
         faculty_department = faculty.find_all('td')[2].text.strip()
@@ -122,8 +121,7 @@ for let in EN_ALPHABET:
             faculties[index]['Department En'] = faculty_department
     print('done')
 
-exporter(FACULTY_LIST_PATH, faculties,
-         reset=True, bulk=True, headers=True)
+exporter(FACULTY_LIST_PATH, faculties, reset=True, bulk=True, headers=True)
 print('done')
 
 
@@ -147,6 +145,8 @@ rank_fa_en_mapper = {
     'استاد': 'Full Professor'
 }
 rows = get_row(FACULTY_LIST_PATH)
+COLUMNS = ['Profile Picture URL', 'Faculty Fa', 'Department Fa', 'Rank Fa',
+           'Rank', 'Office', 'Fax', 'Scopus ID', 'Google Scholar ID']
 errors = []
 csv_headers = not Path(FACULTY_DETAILS_PATH).is_file()
 first_faculty_crawled = not FIRST_FACULTY_ID or False  # no config => crawl all
@@ -156,18 +156,7 @@ for row in rows:
 
     print(f'ID: {row["Institution ID"]} ...', end=' ')
     f = furl(BASE)
-    row = {
-        **row,
-        'Profile Picture URL': None,
-        'Faculty Fa': None,
-        'Department Fa': None,
-        'Rank Fa': None,
-        'Rank': None,
-        'Office': None,
-        'Fax': None,
-        'Scopus ID': None,
-        'Google Scholar ID': None,
-    }
+    new_columns(row, COLUMNS, None)
 
     if row['Institution ID'] == FIRST_FACULTY_ID:  # reached the first faculty
         first_faculty_crawled = True
@@ -268,9 +257,6 @@ for row in rows:
             if contact_type in ['Office', 'Fax']:
                 contact_info = contact \
                     .find('span').text.strip().replace(' ', '')
-                if len(contact_info) == 8:
-                    # length of phone numbers in Iran without area code is 8
-                    contact_info = f'+98 21 {contact_info[:4]} {contact_info[4:]}'
                 row[contact_type] = contact_info
 
         print('Contacts done ...', end=' ')
