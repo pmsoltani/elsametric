@@ -1,5 +1,7 @@
 import io
 import csv
+import requests as req
+from bs4 import BeautifulSoup
 
 
 def get_row(path: str, encoding: str = 'utf-8', delimiter: str = ','):
@@ -96,9 +98,82 @@ def upper_first(string: str) -> str:
 
     Parameters:
         string (str): the string to be manipulated
+
     Returns:
         the same string with its first letter changed to uppercase
     """
+
     if not string or not isinstance(string, str):
         return string
     return string[0].upper() + string[1:]
+
+
+def new_columns(data: dict, columns: list, init_value):
+    """Initializes new columns to the provided table
+
+    The function receives a dictionary (the table), a list (the columns)
+    and an initial value. Then, it adds all columns that are not already
+    present in the table, using the initial value.
+
+    This function can help to export a more uniform csv table, by making
+    all rows have the same columns.
+
+    Parameters:
+        data (dict): the dictionary (table) to be expanded with new cols
+        columns (list): the list of columns to be added to the dict
+        init_value (): the value to initialize the new columns with
+
+    Returns:
+        the same string with its first letter changed to uppercase
+    """
+
+    if not isinstance(data, dict):
+        return data
+
+    for column in columns:
+        if column not in data.keys():  # skip already present columns
+            data[column] = init_value
+
+
+def gsc_metrics(base_url: str, gsc_id: str, headers: dict = {}):
+    """Retrieves h-index & i10-index metrics from google scholar
+
+    The function attempts to retrieve the h-index & i10-index of an
+    author (gsc_id) from google scholar.
+
+    The google scholar's base url and proper headers for making HTTP
+    requests must also be provided to the function.
+
+    Parameters:
+        base_url (str): the base url of every google scholar profile
+        gsc_id (str): the google scholar id of the author
+        headers (dict): the headers for the 'requests' package to make
+        HTTP requests
+
+    Returns:
+        h-index & i10-index of the author
+    """
+
+    params = {'user': gsc_id}
+    h_index = i10_index = None
+    try:
+        page = req.get(base_url, headers=headers, params=params)
+        page.raise_for_status()
+        index_table = BeautifulSoup(page.content, 'html.parser') \
+            .find('table', attrs={'id': 'gsc_rsb_st'})
+    except (AttributeError, req.HTTPError):
+        return h_index, i10_index
+
+    try:
+        h_index = index_table.find('td', string='h-index').find_next('td')
+        h_index = int(h_index.text)
+    except (ValueError, AttributeError):
+        pass
+
+    try:
+        i10_index = index_table.find('td', string='i10-index').find_next('td')
+        i10_index = int(i10_index.text)
+    except (ValueError, AttributeError):
+        pass
+
+    return h_index, i10_index
