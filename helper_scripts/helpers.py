@@ -1,7 +1,9 @@
 import io
 import csv
+from typing import Tuple
 import requests as req
 from bs4 import BeautifulSoup
+from fuzzywuzzy import fuzz
 
 
 def get_row(path: str, encoding: str = 'utf-8', delimiter: str = ','):
@@ -177,3 +179,68 @@ def gsc_metrics(base_url: str, gsc_id: str, headers: dict = {}):
         pass
 
     return h_index, i10_index
+
+
+def author_faculty_matcher(authors: list, first: str, last: str, initials: str,
+                 cutoff: int) -> Tuple[list, str]:
+    """Attemps to match the provided names with a list of authors
+
+    This function uses different methods (with different levels of
+    certainties) to match the provided 'first', 'last', and 'initials'
+    to a list of elsametric 'author' objects. The methods are sorted by
+    their level of confidence and if the names are matched, the function
+    returns a list of Scopus IDs, along with the confidence level.
+
+    If no methods are able to match, an empty list and an empty string
+    will be returned.
+
+    Parameters:
+        authors (list): a list of author objects, queried from database
+        first (str): first name of the faculty to be matched
+        last (str): last name of the faculty to be matched
+        initials (str): initials of the faculty to be matched
+        cutoff (int): indicates how high the score of fuzzy-matching
+        should be for the strings considered to be the same
+
+    Returns:
+        (list, str): a list of Scopus IDs and a level of confidence
+    """
+
+    # High confidence: first name (exact) & last name (exact) -> 100%
+    matches = [author.id_scp for author in authors
+               if author.last == last and author.first == first]
+    if matches:
+        return matches, 'High'
+
+    # Medium confidence: initials (exact) & last name (exact)
+    matches = []
+    for author in authors:
+        try:
+            if author.last == last and author.first[0] == initials:
+                matches.append(author.id_scp)
+        except TypeError:  # author did not have a first name
+            continue
+    if matches:
+        return matches, 'Medium'
+
+    # Medium confidence: first name(fuzzy) & last name(exact) -> 80%
+    matches = []
+    for author in authors:
+        condition_first = fuzz.partial_ratio(author.first, first) >= cutoff
+        if author.last == last and condition_first:
+            matches.append(author.id_scp)
+    if matches:
+        return matches, 'Medium'
+
+    # Low confidence: first name (fuzzy) & last name (fuzzy) -> 64%
+    matches = []
+    for author in authors:
+        condition_first = fuzz.partial_ratio(author.first, first) >= cutoff
+        condition_last = fuzz.partial_ratio(author.first, last) >= cutoff
+        if condition_first and condition_last:
+            matches.append(author.id_scp)
+    if matches:
+        return matches, 'Low'
+
+    # None of the above method worked
+    return [], ''
