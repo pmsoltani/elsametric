@@ -1,20 +1,28 @@
 """Setup for the elsametric"""
 
 import setuptools
+from elsametric import \
+    __name__, \
+    __author__, \
+    __license__, \
+    __version__, \
+    __email__, \
+    __url__, \
+    __description__
 
 
 # with open('README.md') as f:
 #     README = f.read()
 
 setuptools.setup(
-    author="Pooria Soltani",
-    author_email="pooria.ms@gmail.com",
-    name='elsametric',
-    # license="MIT",
-    description='elsametric creates a db to store academic publications data.',
-    version='v0.0.2',
+    author=__author__,
+    author_email=__email__,
+    name=__name__,
+    license=__license__,
+    description=__description__,
+    version=__version__,
     # long_description=README,
-    url='https://github.com/pmsoltani/elsametric',
+    url=__url__,
     packages=setuptools.find_packages(),
     python_requires=">=3.6",
     install_requires=[

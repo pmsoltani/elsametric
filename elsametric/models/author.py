@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import \
     BIGINT, CHAR, DATETIME, ENUM, INTEGER, VARCHAR
 
-from .base import Base, token_generator
+from .base import Base, token_generator, VARCHAR_COLUMN_LENGTH
 from .associations import Author_Department, Paper_Author
 
 
@@ -26,7 +26,8 @@ class Author(Base):
     id_scp = Column(BIGINT(unsigned=True), nullable=False, unique=True)
     id_gsc = Column(VARCHAR(12), nullable=True, unique=True)
     id_institution = Column(VARCHAR(45), nullable=True)
-    id_frontend = Column(VARCHAR(11), nullable=False, unique=True)
+    id_frontend = Column(
+        VARCHAR(VARCHAR_COLUMN_LENGTH), nullable=False, unique=True)
     first = Column(VARCHAR(45), nullable=True)
     middle = Column(VARCHAR(45), nullable=True)
     last = Column(VARCHAR(45), nullable=True)
@@ -59,11 +60,11 @@ class Author(Base):
         'Department', secondary=Author_Department, back_populates='authors')
 
     def __init__(
-        self, id_scp, id_gsc=None, id_institution=None, first=None, middle=None,
-        last=None, initials=None, first_pref=None, middle_pref=None,
-        last_pref=None, initials_pref=None, first_fa=None, last_fa=None,
-        sex=None, type=None, rank=None, h_index_gsc=None, i10_index_gsc=None,
-        retrieval_time_gsc=None, create_time=None, update_time=None):
+            self, id_scp, id_gsc=None, id_institution=None, first=None, middle=None,
+            last=None, initials=None, first_pref=None, middle_pref=None,
+            last_pref=None, initials_pref=None, first_fa=None, last_fa=None,
+            sex=None, type=None, rank=None, h_index_gsc=None, i10_index_gsc=None,
+            retrieval_time_gsc=None, create_time=None, update_time=None):
 
         self.id_scp = id_scp
         self.id_gsc = id_gsc

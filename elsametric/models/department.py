@@ -2,7 +2,7 @@ from sqlalchemy import Column, ForeignKey, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import DATETIME, DECIMAL, INTEGER, VARCHAR
 
-from .base import Base, token_generator
+from .base import Base, token_generator, VARCHAR_COLUMN_LENGTH
 from .associations import Author_Department
 
 
@@ -17,7 +17,8 @@ class Department(Base):
         INTEGER(unsigned=True),
         ForeignKey('institution.id'), primary_key=True, nullable=False
     )
-    id_frontend = Column(VARCHAR(11), nullable=False, unique=True)
+    id_frontend = Column(
+        VARCHAR(VARCHAR_COLUMN_LENGTH), nullable=False, unique=True)
     name = Column(VARCHAR(128), nullable=False)
     name_fa = Column(VARCHAR(128), nullable=True)
     abbreviation = Column(VARCHAR(45), nullable=True)
