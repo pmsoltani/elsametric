@@ -1,14 +1,4 @@
 '''elsametric package'''
-__name__ = 'elsametric'
-__author__ = 'Pooria Soltani'
-__copyright__ = 'Copyright 2019, Pooria Soltani'
-__license__ = ''
-__version__ = 'v0.0.3'
-__maintainer__ = 'Pooria Soltani'
-__email__ = 'pooria.ms@gmail.com',
-__status__ = 'Development'
-__url__ = 'https://github.com/pmsoltani/elsametric'
-__description__ = 'Designs a DB to store academic publications data.'
 
 
 import io
