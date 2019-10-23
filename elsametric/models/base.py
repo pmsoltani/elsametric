@@ -4,16 +4,20 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-from .. import engine_uri
+from .. import ENGINE_URI, TOKEN_BYTES
 
 
-engine = create_engine(engine_uri)
+engine = create_engine(ENGINE_URI)
 Session = sessionmaker(bind=engine)
 
 Base = declarative_base()
 
 
-# Helper function to generate 8-bytes tokens for 'id_front' columns
-# The text is Base64 encoded, so each byte is 1.3 chars (Total 11 chars).
-def token_generator(nbytes=8):
+# Helper function to generate tokens with 'TOKEN_BYTES' for 'id_front' columns
+def token_generator(nbytes=TOKEN_BYTES):
     return secrets.token_urlsafe(nbytes)
+
+
+# Import the following constant in modules employing `token_generator`. Note:
+# The text is Base64 encoded, so each byte is 4/3 chars.
+VARCHAR_COLUMN_LENGTH = -(-4 * TOKEN_BYTES // 3)  # ceiling division
