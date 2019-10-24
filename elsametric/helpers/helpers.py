@@ -22,6 +22,25 @@ def country_names(name: str) -> str:
 
 
 def data_inspector(data: dict) -> list:
+    """Inspects the Scopus API data for possible issues
+
+    The function traverses through the data provided by the Scopus API
+    and looks for important keys that are missing. These are mentioned
+    in the 'first_level_keys' list. Any missing key will be added as an
+    issue to the 'issues' list.
+
+    Some of the keys in the data are themselves dictionaries or lists of
+    dictionaries. For these, a second level inspection is performed and
+    if there are any keys missing, those will be added to the 'issues'
+    list as well.
+
+    Parameters:
+        data (dict): the dictionary to be inspected for issues
+
+    Returns:
+        list: the list of issues of the data
+    """
+
     issues = []
     first_level_keys = [
         'source-id',
@@ -79,6 +98,31 @@ def data_inspector(data: dict) -> list:
 
 
 def key_get(data: dict, key: str, many: bool = False, default=None):
+    """Retrieves the value of a certain key inside a dictionary
+
+    The function is designed to traverse a dictionary and retrieve the
+    value of the 'key' parameter inside that dictionary. If the 'key' is
+    not found, or if its value is null, the 'default' value will be
+    returned.
+
+    If the value is a list, the function will return the value of the
+    '$' key inside the first element, or all of the '$' values, based on
+    the state of the 'many' parameter (returns a set).
+
+    If the value is a dict, the function will return the value for the
+    '$' key inside that dict.
+
+    Parameters:
+        data (dict): a dict containing the desired (key, value) pair
+        key (str): the desired key within the dictionary
+        many (bool): if True, makes the function to return a list
+        default: the return value for when the key not found in the
+            dictionary or if it is null
+
+    Returns:
+        the value of the 'key' in the dictionary, or the 'default' value
+    """
+
     result = None
     try:
         result = data[key]
