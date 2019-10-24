@@ -2,6 +2,10 @@ import io
 import csv
 import json
 import datetime
+from pathlib import Path
+from typing import Iterator, List, Optional, Tuple
+
+from sqlalchemy.orm import Session
 
 from .helpers import country_names
 from .helpers import data_inspector
@@ -23,19 +27,20 @@ from ..models.source_metric import Source_Metric
 from ..models.subject import Subject
 
 
-def get_row(file_path: str, encoding: str = 'utf-8-sig', delimiter: str = ','):
+def get_row(file_path: Path, encoding: str = 'utf-8-sig',
+            delimiter: str = ',') -> Iterator[dict]:
     """Yields a row from a .csv file
 
     This simple function is used to yield a .csv file in 'file_path',
     row-by-row, so as not to consume too much memory.
 
     Parameters:
-        file_path (str): the path to the .csv file
+        file_path (Path): the path to the .csv file
         encoding (str): encoding to be used when reading the .csv file
         delimiter (str): the delimiter used in the .csv file
 
     Yields:
-        row: a row of the .csv file
+        row: a row of the .csv file as a dictionary
     """
 
     with io.open(file_path, 'r', encoding=encoding) as csv_file:
@@ -44,8 +49,8 @@ def get_row(file_path: str, encoding: str = 'utf-8-sig', delimiter: str = ','):
             yield row
 
 
-def file_process(session, file_path: str, retrieval_time: str,
-                 encoding: str = 'utf8'):
+def file_process(db: Session, file_path: Path, retrieval_time: str,
+                 encoding: str = 'utf8') -> Tuple[dict, list]:
     """Reads a JSON formatted file and creates 'Paper' objects from it
 
     This function is the upstream of the 'paper_process' function. It
@@ -76,10 +81,10 @@ def file_process(session, file_path: str, retrieval_time: str,
         Paper objects).
 
     Parameters:
-        session: a session instance of SQLAlchemy session factory to
+        db: a Session instance of SQLAlchemy session factory to
             interact with the database
-        file_path (str): the path to a JSON formatted file exported from
-            Scopus API containing information about some papers
+        file_path (Path): the path to a JSON formatted file exported
+            from Scopus API containing information about some papers
         retrieval_time (str): a 'datatime' string pointing to the time
             that the data was retrieved from the Scopus API
         encoding (str): encoding to be used when reading the JSON file
@@ -100,8 +105,7 @@ def file_process(session, file_path: str, retrieval_time: str,
         data = data['search-results']['entry']
 
         for cnt, entry in enumerate(data):
-            keys = entry.keys()
-            issues = data_inspector(entry, keys)
+            issues = data_inspector(entry)
             if issues:
                 bad_papers.append(
                     {'#': cnt, 'issues': [issue for issue in issues]})
@@ -121,7 +125,7 @@ def file_process(session, file_path: str, retrieval_time: str,
                 bad_papers[-1]['id_scp'] = entry['dc:identifier']
 
                 for minor_issue in minor_issues:
-                    # minor issues won't cause any problem for the program flow
+                    # minor issues won't cause any problem for program's flow
                     if minor_issue in issues:
                         issues.remove(minor_issue)
 
@@ -132,7 +136,7 @@ def file_process(session, file_path: str, retrieval_time: str,
             # no issues to begin with, or the program can deal with them.
             try:
                 papers_list.append(
-                    paper_process(session, entry, retrieval_time, keys))
+                    paper_process(db, entry, retrieval_time))
 
             except Exception as err:  # uh oh
                 problems = {
@@ -144,11 +148,15 @@ def file_process(session, file_path: str, retrieval_time: str,
 
     problems = {}
     if bad_papers:
-        problems = {'file': file_path, 'papers': bad_papers}
-    return (problems, papers_list)
+        problems = {
+            # mask the absolute path
+            'file': str(file_path.relative_to(Path.cwd())),
+            'papers': bad_papers
+        }
+    return problems, papers_list
 
 
-def paper_process(session, data: dict, retrieval_time: str, keys=None):
+def paper_process(db: Session, data: dict, retrieval_time: str) -> Paper:
     """Imports a paper to database
 
     Receives a dictionary containing information about a paper and
@@ -168,22 +176,18 @@ def paper_process(session, data: dict, retrieval_time: str, keys=None):
     functions.
 
     Parameters:
-        session: a session instance of SQLAlchemy session factory to
+        db: a Session instance of SQLAlchemy session factory to
             interact with the database
         data (dict): a pre-checked dictionary containing information
             about a paper registered in the Scopus database
         retrieval_time (str): a 'datatime' string pointing to the time
             that the data was retrieved from the Scopus API
-        keys: the keys from the data dictionary, to be used by the
-            key_get helper function
 
     Returns:
         Paper: a 'Paper' object to be added to the database
     """
 
     nullify(data, null_types=(None, '', ' ', '-', '#N/A', 'undefined'))
-    if not keys:
-        keys = data.keys()
 
     # There are several links included in the paper's JSON file, we only
     # need a specific one tagged 'scopus'.
@@ -195,9 +199,9 @@ def paper_process(session, data: dict, retrieval_time: str, keys=None):
 
     # An upstream function already confirmed that the paper does have a
     # Scopus ID, otherwise we couldn't go on.
-    # Scopus ID has the form 'SCOPUS_ID:123456789'. We need the part after colon.
+    # Scopus ID format: 'SCOPUS_ID:123456789'. We need what's after colon.
     paper_id_scp = int(data['dc:identifier'].split(':')[1])
-    paper = session.query(Paper) \
+    paper = db.query(Paper) \
         .filter(Paper.id_scp == paper_id_scp) \
         .first()
     if not paper:  # paper not found in the database
@@ -205,9 +209,9 @@ def paper_process(session, data: dict, retrieval_time: str, keys=None):
         # the Scopus database twice, with different Scopus IDs. In order
         # to make sure that the paper doesn't exist in our database, we
         # can double check with DOI
-        doi = key_get(data, keys, 'prism:doi')
+        doi = key_get(data, 'prism:doi')
         if doi:
-            paper = session.query(Paper) \
+            paper = db.query(Paper) \
                 .filter(Paper.doi == doi) \
                 .first()
     if not paper:
@@ -215,43 +219,43 @@ def paper_process(session, data: dict, retrieval_time: str, keys=None):
         # database's 'not null' constraint on that column(s).
         paper = Paper(
             id_scp=paper_id_scp,
-            eid=key_get(data, keys, 'eid', default=f'2-s2.0-{paper_id_scp}'),
+            eid=key_get(data, 'eid', default=f'2-s2.0-{paper_id_scp}'),
             title=strip(
-                key_get(data, keys, 'dc:title', default='NOT AVAILABLE'),
+                key_get(data, 'dc:title', default='NOT AVAILABLE'),
                 accepted_chars='', max_len=512
             ),  # yeah... some paper titles are even longer than 512 chars!
-            type=key_get(data, keys, 'subtype', default='na'),
-            type_description=key_get(data, keys, 'subtypeDescription'),
-            abstract=key_get(data, keys, 'dc:description'),
-            total_author=key_get(data, keys, 'author-count'),
-            open_access=int(key_get(data, keys, 'openaccess', default=0)),
-            cited_cnt=key_get(data, keys, 'citedby-count'),
+            type=key_get(data, 'subtype', default='na'),
+            type_description=key_get(data, 'subtypeDescription'),
+            abstract=key_get(data, 'dc:description'),
+            total_author=key_get(data, 'author-count'),
+            open_access=int(key_get(data, 'openaccess', default=0)),
+            cited_cnt=key_get(data, 'citedby-count'),
             url=paper_url,
-            article_no=key_get(data, keys, 'article-number'),
-            doi=key_get(data, keys, 'prism:doi'),
+            article_no=key_get(data, 'article-number'),
+            doi=key_get(data, 'prism:doi'),
             volume=strip(
-                key_get(data, keys, 'prism:volume'),
+                key_get(data, 'prism:volume'),
                 accepted_chars='', max_len=45
             ),
-            issue=key_get(data, keys, 'prism:issueIdentifier'),
-            date=key_get(data, keys, 'prism:coverDate'),
-            page_range=key_get(data, keys, 'prism:pageRange'),
+            issue=key_get(data, 'prism:issueIdentifier'),
+            date=key_get(data, 'prism:coverDate'),
+            page_range=key_get(data, 'prism:pageRange'),
             retrieval_time=retrieval_time,
         )
 
     if not paper.source:
-        paper.source = source_process(session, data, keys)
+        paper.source = source_process(db, data)
 
     if not paper.fund:
-        paper.fund = fund_process(session, data, keys)
+        paper.fund = fund_process(db, data)
 
     # NOTE: this is an 'all-or-nothing' check, which could cause problems
     if not paper.keywords:
-        paper.keywords = keyword_process(session, data, keys)
+        paper.keywords = keyword_process(db, data)
 
     # NOTE: this is an 'all-or-nothing' check, which could cause problems
     if not paper.authors:
-        authors_list = author_process(session, data)
+        authors_list = author_process(db, data)
         if authors_list:
             for auth in authors_list:
                 # using the SQLAlchemy's Association Object
@@ -262,7 +266,8 @@ def paper_process(session, data: dict, retrieval_time: str, keys=None):
     return paper
 
 
-def keyword_process(session, data: dict, keys=None, separator: str = '|'):
+def keyword_process(db: Session,
+                    data: dict, separator: str = '|') -> List[Keyword]:
     """Returns a list of Keyword objects to be added to a Paper object
 
     Receives a dictionary containing information about a paper and
@@ -272,12 +277,10 @@ def keyword_process(session, data: dict, keys=None, separator: str = '|'):
     added to the upstream Paper object.
 
     Parameters:
-        session: a session instance of SQLAlchemy session factory to
+        db: a Session instance of SQLAlchemy session factory to
             interact with the database
         data (dict): a pre-checked dictionary containing information
             about a paper registered in the Scopus database
-        keys: the keys from the data dictionary, to be used by the
-            key_get helper function
         separator (str): used to split the string from Scopus API which
             has concatenated the keywords using the '|' character
 
@@ -287,7 +290,7 @@ def keyword_process(session, data: dict, keys=None, separator: str = '|'):
     """
 
     keywords_list = []
-    raw_keywords = key_get(data, keys, 'authkeywords')
+    raw_keywords = key_get(data, 'authkeywords')
     if raw_keywords:
         # Some papers have the same keywords repeated more than once,
         # which can cause problem, since the database has a unique constraint.
@@ -304,7 +307,7 @@ def keyword_process(session, data: dict, keys=None, separator: str = '|'):
 
         # at this point, all keywords are stripped and unique within the paper
         for key in keywords:
-            keyword = session.query(Keyword) \
+            keyword = db.query(Keyword) \
                 .filter(Keyword.keyword == key) \
                 .first()
             if not keyword:  # keyword not in database, let's add it
@@ -313,50 +316,48 @@ def keyword_process(session, data: dict, keys=None, separator: str = '|'):
     return keywords_list
 
 
-def source_process(session, data: dict, keys=None):
+def source_process(db: Session, data: dict) -> Optional[Source]:
     """Returns a Source object to be added to a Paper object
 
     Receives a dictionary containing information about a paper and
     extracts the paper's source from it.
 
     Parameters:
-        session: a session instance of SQLAlchemy session factory to
+        db: a Session instance of SQLAlchemy session factory to
             interact with the database
         data (dict): a pre-checked dictionary containing information
             about a paper registered in the Scopus database
-        keys: the keys from the data dictionary, to be used by the
-            key_get helper function
 
     Returns:
         Source: a 'Source' object to be added to a 'Paper' object
     """
 
     source = None
-    source_id_scp = key_get(data, keys, 'source-id')
+    source_id_scp = key_get(data, 'source-id')
     if not source_id_scp:  # data doesn't have Scopus Source ID: can't go on
         return source
 
     source_id_scp = int(source_id_scp)
-    source = session.query(Source) \
+    source = db.query(Source) \
         .filter(Source.id_scp == source_id_scp) \
         .first()
     if not source:  # source not in database, let's create one
         # The default argument for the 'key_get' function is because of the
         # database's 'not null' constraint on that column(s).
-        # We will strip issn, e_issn, and isbn from any non-alphanumeric chars.
+        # Strip issn, e_issn, and isbn from any non-alphanumeric chars.
         source = Source(
             id_scp=source_id_scp,
             title=key_get(
-                data, keys, 'prism:publicationName', default='NOT AVAILABLE'),
-            type=key_get(data, keys, 'prism:aggregationType'),
-            issn=strip(key_get(data, keys, 'prism:issn'), max_len=8),
-            e_issn=strip(key_get(data, keys, 'prism:eIssn'), max_len=8),
-            isbn=strip(key_get(data, keys, 'prism:isbn'), max_len=13),
+                data, 'prism:publicationName', default='NOT AVAILABLE'),
+            type=key_get(data, 'prism:aggregationType'),
+            issn=strip(key_get(data, 'prism:issn'), max_len=8),
+            e_issn=strip(key_get(data, 'prism:eIssn'), max_len=8),
+            isbn=strip(key_get(data, 'prism:isbn'), max_len=13),
         )
     return source
 
 
-def fund_process(session, data: dict, keys=None):
+def fund_process(db: Session, data: dict) -> Optional[Fund]:
     """Returns a single Source object to be added to a Paper object
 
     Receives a dictionary containing information about a paper and
@@ -372,41 +373,36 @@ def fund_process(session, data: dict, keys=None):
     the database cannot have a unique constrain on any columns, alone.
 
     Parameters:
-        session: a session instance of SQLAlchemy session factory to
+        db: a Session instance of SQLAlchemy session factory to
             interact with the database
         data (dict): a pre-checked dictionary containing information
             about a paper registered in the Scopus database
-        keys: the keys from the data dictionary, to be used by the
-            key_get helper function
 
     Returns:
         Fund: a 'Fund' object to be added to a 'Paper' object
     """
 
-    if not keys:
-        keys = data.keys()
-
-    fund_id_scp = key_get(data, keys, 'fund-no')
+    fund_id_scp = key_get(data, 'fund-no')
     if fund_id_scp == 'undefined':
         fund_id_scp = None
-    agency = key_get(data, keys, 'fund-sponsor')
+    agency = key_get(data, 'fund-sponsor')
 
     fund = None
     if (not fund_id_scp) and (not agency):
         return fund
 
-    agency_acronym = key_get(data, keys, 'fund-acr')
+    agency_acronym = key_get(data, 'fund-acr')
 
     if fund_id_scp and agency:
-        fund = session.query(Fund) \
+        fund = db.query(Fund) \
             .filter(Fund.id_scp == fund_id_scp, Fund.agency == agency) \
             .first()
     elif fund_id_scp:
-        fund = session.query(Fund) \
+        fund = db.query(Fund) \
             .filter(Fund.id_scp == fund_id_scp) \
             .first()
     elif agency:
-        fund = session.query(Fund) \
+        fund = db.query(Fund) \
             .filter(Fund.agency == agency) \
             .first()
     else:
@@ -428,7 +424,7 @@ def fund_process(session, data: dict, keys=None):
     return fund
 
 
-def author_process(session, data: dict):
+def author_process(db: Session, data: dict) -> List[list]:
     """Returns a list of Author objects to be added to a Paper object
 
     Receives a dictionary containing information about a paper and
@@ -449,7 +445,7 @@ def author_process(session, data: dict):
     having profiles, institutions, and departments.
 
     Parameters:
-        session: a session instance of SQLAlchemy session factory to
+        db: a Session instance of SQLAlchemy session factory to
             interact with the database
         data (dict): a pre-checked dictionary containing information
             about a paper registered in the Scopus database
@@ -467,8 +463,7 @@ def author_process(session, data: dict):
     author_url = 'https://www.scopus.com/authid/detail.uri?authorId='
 
     for auth in data['author']:
-        keys = auth.keys()
-        author_id_scp = key_get(auth, keys, 'authid')
+        author_id_scp = key_get(auth, 'authid')
         if not author_id_scp:  # Scopus Author ID not found: go to next author
             continue
         author_id_scp = int(author_id_scp)
@@ -484,15 +479,15 @@ def author_process(session, data: dict):
         author_ids.append(author_id_scp)
 
         author_no = int(auth['@seq'])  # position of author in the paper
-        author = session.query(Author) \
+        author = db.query(Author) \
             .filter(Author.id_scp == author_id_scp) \
             .first()
         if not author:  # author not in database, let's create one
             author = Author(
                 id_scp=author_id_scp,
-                first=key_get(auth, keys, 'given-name'),
-                last=key_get(auth, keys, 'surname'),
-                initials=key_get(auth, keys, 'initials')
+                first=key_get(auth, 'given-name'),
+                last=key_get(auth, 'surname'),
+                initials=key_get(auth, 'initials')
             )
             # add the first profile for this author
             author_profile = Author_Profile(
@@ -502,7 +497,7 @@ def author_process(session, data: dict):
             author.profiles.append(author_profile)
 
         # get a list of all institution ids for the author in the paper
-        inst_ids = key_get(auth, keys, 'afid', many=True)
+        inst_ids = key_get(auth, 'afid', many=True)
         if inst_ids:
             for inst_id in inst_ids:
                 # Since all of the institutions mentioned in a paper are
@@ -511,7 +506,7 @@ def author_process(session, data: dict):
                 # the same institution to the database twice. The variable
                 # 'new_institutions' is used to acheive this.
                 (institution, department) = institution_process(
-                    session, data, int(inst_id), new_institutions)
+                    db, data, int(inst_id), new_institutions)
 
                 if department:
                     author.departments.append(department)
@@ -523,8 +518,10 @@ def author_process(session, data: dict):
     return authors_list
 
 
-def institution_process(session, data: dict, inst_id: int,
-                        new_institutions: list):
+def institution_process(
+        db: Session, data: dict, inst_id: int,
+        new_institutions: list) -> Tuple[
+            Optional[Institution], Optional[Department]]:
     """Returns a tuple of (Institution, Department) objects
 
     Receives a dictionary containing information about a paper and
@@ -548,7 +545,7 @@ def institution_process(session, data: dict, inst_id: int,
     (Institution, Department) to be added to the current Author object.
 
     Parameters:
-        session: a session instance of SQLAlchemy session factory to
+        db: a Session instance of SQLAlchemy session factory to
             interact with the database
         data (dict): a pre-checked dictionary containing information
             about a paper registered in the Scopus database
@@ -561,7 +558,7 @@ def institution_process(session, data: dict, inst_id: int,
     institution = None
     department = None
     if not data['affiliation']:  # no institution info available: can't go on
-        return (institution, department)
+        return institution, department
 
     # from the list of all institutions in a paper, select the one relating to
     # the current author (using Affiliation ID)
@@ -570,60 +567,60 @@ def institution_process(session, data: dict, inst_id: int,
         if inst_id != institution_id_scp:
             continue
 
-        keys = affil.keys()
-
-        institution = session.query(Institution) \
+        institution = db.query(Institution) \
             .filter(Institution.id_scp == institution_id_scp) \
             .first()
         if institution:  # institution found in database
             # It should already have an 'Undefined' department.
-            department = session.query(Department) \
+            department = db.query(Department) \
                 .with_parent(institution, Institution.departments) \
                 .filter(Department.name == 'Undefined') \
                 .first()
         else:  # institution not in database
             # Before creating a new institution, search for it in the
-            # 'new_institutions' list, which contain institutions that are going
-            # to be added to the database (but not added yet).
+            # 'new_institutions' list, which contain institutions that are
+            # going to be added to the database (but not added yet).
             institution = next(
                 filter(lambda inst: inst.id_scp == inst_id, new_institutions),
                 None
             )
-            if institution:  # institution found in the 'new_institutions' list
-                # Institutions in the 'new_institutions' list are just created,
+            if institution:  # institution found in 'new_institutions' list
+                # Institutions in 'new_institutions' list are just created,
                 # so they should have only an 'Undefined' department.
                 department = institution.departments[0]
             else:  # institution not in 'new_institutions' list, creating one
-                # The default argument for the 'key_get' function is because of
-                # the database's 'not null' constraint on that column(s).
+                # The default argument for the 'key_get' function is because
+                # of the database's 'not null' constraint on that column(s).
                 institution = Institution(
                     id_scp=institution_id_scp,
-                    name=key_get(affil, keys, 'affilname',
+                    name=key_get(affil, 'affilname',
                                  default='NOT AVAILABLE'),
-                    city=key_get(affil, keys, 'affiliation-city'),
+                    city=key_get(affil, 'affiliation-city'),
                 )
                 country_name = country_names(
-                    key_get(affil, keys, 'affiliation-country'))
+                    key_get(affil, 'affiliation-country'))
                 if country_name:
-                    country = session.query(Country) \
+                    country = db.query(Country) \
                         .filter(Country.name == country_name) \
                         .first()
                     institution.country = country  # either found or None
         if not department:
             # Either an institution already in 'new_institutions' list or
-            # the database doesn't have an 'Undefined' department, or we are yet
-            # to create an 'Undefined' department for a newly created institution
-            # (which is more likely the case):
+            # the database doesn't have an 'Undefined' department, or we are
+            # yet to create an 'Undefined' department for a newly created
+            # institution (which is more likely the case):
             department = Department(name='Undefined', abbreviation='No Dept.')
             institution.departments.append(department)
 
-        # At this point we have both the institution and the department for the
+        # At this point we have both the institution and the department for
         # current author in the current paper. No need to continue the loop.
         break
-    return (institution, department)
+    return institution, department
 
 
-def ext_country_process(session, file_path: str, encoding: str = 'utf-8-sig'):
+def ext_country_process(
+        db: Session, file_path: Path,
+        encoding: str = 'utf-8-sig') -> List[Country]:
     """Imports a list of countries to database
 
     Reads a .csv file and creates 'Country' objects which represent
@@ -645,9 +642,9 @@ def ext_country_process(session, file_path: str, encoding: str = 'utf-8-sig'):
             variations
 
     Parameters:
-        session: a session instance of SQLAlchemy session factory to
+        db: a Session instance of SQLAlchemy session factory to
             interact with the database
-        file_path (str): the path to a .csv file containing a list of
+        file_path (Path): the path to a .csv file containing a list of
             country names with details
         encoding (str): encoding to be used when reading the .csv file
 
@@ -660,7 +657,7 @@ def ext_country_process(session, file_path: str, encoding: str = 'utf-8-sig'):
     for row in rows:
         nullify(row)
         country_name = country_names(row['name']).strip()
-        country = session.query(Country) \
+        country = db.query(Country) \
             .filter(Country.name == country_name) \
             .first()
         if not country:  # country not in database, let's create it
@@ -673,7 +670,9 @@ def ext_country_process(session, file_path: str, encoding: str = 'utf-8-sig'):
     return countries_list
 
 
-def ext_subject_process(session, file_path: str, encoding: str = 'utf-8-sig'):
+def ext_subject_process(
+        db: Session, file_path: Path,
+        encoding: str = 'utf-8-sig') -> List[Subject]:
     """Imports a list of subjects to database
 
     Reads a .csv file and creates 'Subject' objects which represent
@@ -694,9 +693,9 @@ def ext_subject_process(session, file_path: str, encoding: str = 'utf-8-sig'):
         nullify: changes any null-looking value to None
 
     Parameters:
-        session: a session instance of SQLAlchemy session factory to
+        db: a Session instance of SQLAlchemy session factory to
             interact with the database
-        file_path (str): the path to a .csv file containing a list of
+        file_path (Path): the path to a .csv file containing a list of
             subjects with details
         encoding (str): encoding to be used when reading the .csv file
 
@@ -709,7 +708,7 @@ def ext_subject_process(session, file_path: str, encoding: str = 'utf-8-sig'):
     for row in rows:
         nullify(row)
         asjc = row['asjc']
-        subject = session.query(Subject) \
+        subject = db.query(Subject) \
             .filter(Subject.asjc == asjc) \
             .first()
         if not subject:  # subject not in database, let's create it
@@ -721,8 +720,8 @@ def ext_subject_process(session, file_path: str, encoding: str = 'utf-8-sig'):
     return subjects_list
 
 
-def ext_source_process(session, file_path: str, src_type: str = '',
-                       encoding: str = 'utf-8-sig'):
+def ext_source_process(db: Session, file_path: Path, src_type: str = '',
+                       encoding: str = 'utf-8-sig') -> List[Source]:
     """Imports a list of sources to database
 
     Reads a .csv file and creates 'Source' objects which represent
@@ -745,9 +744,9 @@ def ext_source_process(session, file_path: str, src_type: str = '',
         nullify: changes any null-looking value to None
 
     Parameters:
-        session: a session instance of SQLAlchemy session factory to
+        db: a Session instance of SQLAlchemy session factory to
             interact with the database
-        file_path (str): the path to a .csv file containing a list of
+        file_path (Path): the path to a .csv file containing a list of
             subjects with details
         src_type (str): used to distinguish between files for conference
             proceeding & other source types which are located in
@@ -763,7 +762,7 @@ def ext_source_process(session, file_path: str, src_type: str = '',
 
     sources_list = []
 
-    subjects = session.query(Subject).all()
+    subjects = db.query(Subject).all()
     # Turn 'subjects' which is a list of 'Subject' objects, into a dict:
     # {asjc1: Subject1, asjc2: Subject2, ...}
     subjects = {subject.asjc: subject for subject in subjects}
@@ -772,7 +771,7 @@ def ext_source_process(session, file_path: str, src_type: str = '',
     for row in rows:
         nullify(row)
         source_id_scp = row['id_scp']
-        source = session.query(Source) \
+        source = db.query(Source) \
             .filter(Source.id_scp == source_id_scp) \
             .first()
         if source:  # source found in database, skipping
@@ -787,7 +786,7 @@ def ext_source_process(session, file_path: str, src_type: str = '',
             # adding country info to the source
             country_name = country_names(row['country'])
             if country_name:
-                country = session.query(Country) \
+                country = db.query(Country) \
                     .filter(Country.name == country_name) \
                     .first()
                 source.country = country  # country either found or None
@@ -819,11 +818,11 @@ def ext_source_process(session, file_path: str, src_type: str = '',
     return sources_list
 
 
-def ext_source_metric_process(session, file_path: str, file_year: int,
-                              encoding: str = 'utf-8-sig'):
+def ext_source_metric_process(db: Session, file_path: Path, file_year: int,
+                              encoding: str = 'utf-8-sig') -> List[Source]:
     sources_list = []
 
-    subjects = session.query(Subject).all()
+    subjects = db.query(Subject).all()
     # Turn 'subjects' which is a list of 'Subject' objects, into a dict:
     # {asjc1: Subject1, asjc2: Subject2, ...}
     subjects = {subject.asjc: subject for subject in subjects}
@@ -839,33 +838,33 @@ def ext_source_metric_process(session, file_path: str, file_year: int,
             continue
 
         nullify(row)
-        keys = row.keys()
         source_id_scp = row['id_scp']
-        source = session.query(Source) \
+        source = db.query(Source) \
             .filter(Source.id_scp == source_id_scp) \
             .first()
         if not source:  # source not in database, let's create it
-            publisher = key_get(row, keys, 'publisher')
+            publisher = key_get(row, 'publisher')
             source = Source(
                 id_scp=source_id_scp,
-                title=key_get(row, keys, 'title', default='NOT AVAILABLE'),
-                type=key_get(row, keys, 'type'),
-                issn=strip(key_get(row, keys, 'issn'), max_len=8),
-                e_issn=strip(key_get(row, keys, 'e_issn'), max_len=8),
+                title=key_get(row, 'title', default='NOT AVAILABLE'),
+                type=key_get(row, 'type'),
+                issn=strip(key_get(row, 'issn'), max_len=8),
+                e_issn=strip(key_get(row, 'e_issn'), max_len=8),
                 publisher=publisher
             )
 
             if publisher:
                 # trying to find country using publisher of other sources
-                query = session.query(Source) \
+                query = db.query(Source) \
                     .filter(
-                        Source.publisher == publisher, Source.country != None) \
+                        Source.publisher == publisher,
+                        Source.country != None) \
                     .first()
                 if query:
                     source.country = query.country
 
         if not source.publisher:
-            source.publisher = key_get(row, keys, 'publisher')
+            source.publisher = key_get(row, 'publisher')
 
         if row['asjc']:
             asjc = int(row['asjc'])
@@ -893,7 +892,7 @@ def ext_source_metric_process(session, file_path: str, file_year: int,
                 continue
             # using pre-defined names for metrics
             metric = metric_types[metric]
-            if metric not in source_metrics.keys():
+            if metric not in source_metrics:
                 source.metrics.append(
                     Source_Metric(
                         type=metric, value=metric_value, year=file_year))
@@ -905,8 +904,9 @@ def ext_source_metric_process(session, file_path: str, file_year: int,
     return sources_list
 
 
-def ext_scimago_process(session, file_path: str, file_year: int,
-                        encoding: str = 'utf-8-sig', delimiter: str = ';'):
+def ext_scimago_process(
+        db: Session, file_path: Path, file_year: int,
+        encoding: str = 'utf-8-sig', delimiter: str = ';') -> List[Source]:
     """Adds source metrics to database
 
     DEPRECATED FUNCTION: use 'ext_source_metric_process' function.
@@ -920,8 +920,8 @@ def ext_scimago_process(session, file_path: str, file_year: int,
     best to be fed to the function from the most recent year.
 
     Parameters:
-        session: a session instance of SQLAlchemy session factory to
-        file_path (str): the path to a .csv file containing a list of
+        db: a Session instance of SQLAlchemy session factory to
+        file_path (Path): the path to a .csv file containing a list of
             sources along with metric details
         file_year (int): an integer to indicate the year that the metric
             was evaluated for the source
@@ -945,19 +945,18 @@ def ext_scimago_process(session, file_path: str, file_year: int,
     ]
     rows = get_row(file_path, encoding, delimiter)
     for row in rows:
-        keys = row.keys()
         nullify(row)
         source_id_scp = row['Sourceid']
-        source = session.query(Source) \
+        source = db.query(Source) \
             .filter(Source.id_scp == source_id_scp) \
             .first()
         if not source:
             source = Source(
                 id_scp=source_id_scp,
-                title=key_get(row, keys, 'Title', default='NOT AVAILABLE'),
-                type=key_get(row, keys, 'Type'),
+                title=key_get(row, 'Title', default='NOT AVAILABLE'),
+                type=key_get(row, 'Type'),
                 issn=None, e_issn=None, isbn=None,
-                publisher=key_get(row, keys, 'Publisher'),
+                publisher=key_get(row, 'Publisher'),
             )
 
             # some minor modifications to keep the database clean
@@ -969,12 +968,12 @@ def ext_scimago_process(session, file_path: str, file_year: int,
         # doing some repairs to sources already in the database, like
         # add missing publisher and country data
         if not source.publisher:
-            source.publisher = key_get(row, keys, 'Publisher')
+            source.publisher = key_get(row, 'Publisher')
 
         if not source.country:
             country_name = country_names(row['Country'])
             if country_name:
-                country = session.query(Country) \
+                country = db.query(Country) \
                     .filter(Country.name == country_name) \
                     .first()
                 source.country = country  # country either found or None
@@ -989,7 +988,7 @@ def ext_scimago_process(session, file_path: str, file_year: int,
                     low = low.strip()
                     if low[-4:] in ['(Q1)', '(Q2)', '(Q3)', '(Q4)']:
                         low = low[:-4].strip()  # removing the '(Qs)'
-                    subject = session.query(Subject) \
+                    subject = db.query(Subject) \
                         .filter(Subject.low == low) \
                         .first()
                     if subject:
@@ -1031,8 +1030,9 @@ def ext_scimago_process(session, file_path: str, file_year: int,
     return sources_list
 
 
-def ext_faculty_process(session, file_path: str, dept_file_path: str,
-                        institution_id_scp: int, encoding: str = 'utf-8-sig'):
+def ext_faculty_process(
+        db: Session, file_path: Path, dept_file_path: Path,
+        institution_id_scp: int, encoding: str = 'utf-8-sig') -> List[Author]:
     """Updates author information with faculty data
 
     This function uses a .csv file containing faculty data (such as sex,
@@ -1058,10 +1058,10 @@ def ext_faculty_process(session, file_path: str, dept_file_path: str,
     available. Faculties must also belong to at least 1 department.
 
     Parameters:
-        session: a session instance of SQLAlchemy session factory to
-        file_path (str): the path to a .csv file containing a list of
+        db: a Session instance of SQLAlchemy session factory to
+        file_path (Path): the path to a .csv file containing a list of
             faculties along with some details
-        dept_file_path (str): the path to a .csv file containing a list
+        dept_file_path (Path): the path to a .csv file containing a list
             of all department & other 'sub-institutes' belonging to the
             institution
         institution_id_scp (int): the Scopus ID (Affiliation ID) of the
@@ -1077,7 +1077,7 @@ def ext_faculty_process(session, file_path: str, dept_file_path: str,
     faculty_depts = ext_department_process(dept_file_path, encoding)
 
     # find the institution in the database
-    institution = session.query(Institution) \
+    institution = db.query(Institution) \
         .filter(Institution.id_scp == institution_id_scp) \
         .first()
 
@@ -1085,7 +1085,7 @@ def ext_faculty_process(session, file_path: str, dept_file_path: str,
         return faculties_list
 
     # find the 'Undefined' department within the institution
-    no_dept = session.query(Department) \
+    no_dept = db.query(Department) \
         .with_parent(institution, Institution.departments) \
         .filter(Department.name == 'Undefined') \
         .first()
@@ -1093,7 +1093,6 @@ def ext_faculty_process(session, file_path: str, dept_file_path: str,
     rows = get_row(file_path, encoding)
     for row in rows:
         nullify(row)
-        keys = row.keys()
         if not row['Scopus ID']:  # faculty's Scopus ID not known: can't go on
             continue
         if not row['Departments']:  # faculty's dept. not known: can't go on
@@ -1102,32 +1101,32 @@ def ext_faculty_process(session, file_path: str, dept_file_path: str,
         # some faculties may have more than 1 Scopus ID, but for now,
         # we only use the first one
         faculty_id_scp = int(row['Scopus ID'].split(',')[0])
-        faculty = session.query(Author) \
+        faculty = db.query(Author) \
             .filter(Author.id_scp == faculty_id_scp) \
             .first()
         if not faculty:  # faculty not found in the database: can't to go on
             continue
 
         # adding faculty details
-        faculty.id_gsc = key_get(row, keys, 'Google Scholar ID')
-        faculty.id_institution = key_get(row, keys, 'Institution ID')
-        faculty.first_pref = key_get(row, keys, 'First En') or \
+        faculty.id_gsc = key_get(row, 'Google Scholar ID')
+        faculty.id_institution = key_get(row, 'Institution ID')
+        faculty.first_pref = key_get(row, 'First En') or \
             faculty.first_pref
-        faculty.middle_pref = key_get(row, keys, 'Middle En') or \
+        faculty.middle_pref = key_get(row, 'Middle En') or \
             faculty.middle_pref
-        faculty.last_pref = key_get(row, keys, 'Last En') or faculty.last_pref
-        faculty.initials_pref = key_get(row, keys, 'Initials En') or \
+        faculty.last_pref = key_get(row, 'Last En') or faculty.last_pref
+        faculty.initials_pref = key_get(row, 'Initials En') or \
             faculty.initials_pref
-        faculty.first_fa = key_get(row, keys, 'First Fa')
-        faculty.last_fa = key_get(row, keys, 'Last Fa')
-        sex = key_get(row, keys, 'Sex')
+        faculty.first_fa = key_get(row, 'First Fa')
+        faculty.last_fa = key_get(row, 'Last Fa')
+        sex = key_get(row, 'Sex')
         if sex in ['M', 'F']:
             faculty.sex = sex.lower()
         faculty.type = 'Faculty'
-        faculty.rank = key_get(row, keys, 'Rank')
+        faculty.rank = key_get(row, 'Rank')
 
         retrieval_time_gsc = key_get(
-            row, keys, 'Google Scholar Retrieval Time')
+            row, 'Google Scholar Retrieval Time')
 
         if retrieval_time_gsc:
             # converting int timestamp to datetime
@@ -1135,9 +1134,9 @@ def ext_faculty_process(session, file_path: str, dept_file_path: str,
                 int(retrieval_time_gsc))
 
             faculty.retrieval_time_gsc = retrieval_time_gsc
-            faculty.h_index_gsc = key_get(row, keys, 'Google Scholar h-index')
+            faculty.h_index_gsc = key_get(row, 'Google Scholar h-index')
             faculty.i10_index_gsc = key_get(
-                row, keys, 'Google Scholar i10-index')
+                row, 'Google Scholar i10-index')
 
         # adding faculty profiles
         if row['Email']:
@@ -1165,7 +1164,7 @@ def ext_faculty_process(session, file_path: str, dept_file_path: str,
         for dept in row['Departments'].split(','):
             if not dept:
                 continue
-            department = session.query(Department) \
+            department = db.query(Department) \
                 .with_parent(institution, Institution.departments) \
                 .filter(Department.abbreviation == dept) \
                 .first()
@@ -1191,7 +1190,8 @@ def ext_faculty_process(session, file_path: str, dept_file_path: str,
     return faculties_list
 
 
-def ext_department_process(file_path: str, encoding: str = 'utf-8-sig'):
+def ext_department_process(
+        file_path: Path, encoding: str = 'utf-8-sig') -> dict:
     """Returns a dictionary of department data
 
     This function is a helper tool for the function ext_faculty_process.
@@ -1199,7 +1199,7 @@ def ext_department_process(file_path: str, encoding: str = 'utf-8-sig'):
     assign the departments of each faculty member in the institution.
 
     Parameters:
-        file_path (str): the path to a .csv file containing a list of
+        file_path (Path): the path to a .csv file containing a list of
             faculties along with some details
         encoding (str): encoding to be used when reading the .csv file
 

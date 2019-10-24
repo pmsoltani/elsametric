@@ -29,12 +29,13 @@ class Fund(Base):
     # Relationships
     papers = relationship('Paper', back_populates='fund')
 
-    def __init__(self, id_scp=None, agency=None, agency_acronym=None):
+    def __init__(self, id_scp: str = None,
+                 agency: str = None, agency_acronym: str = None) -> None:
         self.id_scp = id_scp
         self.agency = agency
         self.agency_acronym = agency_acronym
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if not self.agency_acronym:
             return f'{self.id_scp} by {self.agency}'
         return f'{self.id_scp} by {self.agency} ({self.agency_acronym})'

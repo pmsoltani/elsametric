@@ -22,11 +22,11 @@ class Subject(Base):
     sources = relationship(
         'Source', secondary=Source_Subject, back_populates='subjects')
 
-    def __init__(self, asjc, top, middle, low):
+    def __init__(self, asjc: int, top: str, middle: str, low: str) -> None:
         self.asjc = asjc
         self.top = top
         self.middle = middle
         self.low = low
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'{self.asjc}: {self.low}'

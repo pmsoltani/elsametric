@@ -8,13 +8,13 @@ from .. import ENGINE_URI, TOKEN_BYTES
 
 
 engine = create_engine(ENGINE_URI)
-Session = sessionmaker(bind=engine)
+SessionLocal = sessionmaker(bind=engine)
 
 Base = declarative_base()
 
 
 # Helper function to generate tokens with 'TOKEN_BYTES' for 'id_front' columns
-def token_generator(nbytes=TOKEN_BYTES):
+def token_generator(nbytes: int = TOKEN_BYTES) -> str:
     return secrets.token_urlsafe(nbytes)
 
 

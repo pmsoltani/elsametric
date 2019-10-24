@@ -22,10 +22,10 @@ class Author_Profile(Base):
     # Relationships
     author = relationship('Author', back_populates='profiles')
 
-    def __init__(self, address, type, author_id=None):
+    def __init__(self, address: str, type: str, author_id: int = None) -> None:
         self.author_id = author_id
         self.address = address
         self.type = type
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'{self.type}: {self.address} for {self.author}'

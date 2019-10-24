@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime, date
 
 from sqlalchemy import Column, ForeignKey, text
 from sqlalchemy.orm import relationship
@@ -57,11 +57,15 @@ class Paper(Base):
     authors = relationship('Paper_Author', back_populates='paper')
 
     def __init__(
-            self, id_scp, eid, title, type, total_author, open_access, cited_cnt,
-            url, date, retrieval_time, type_description=None, abstract=None,
-            article_no=None, fund_id=None, source_id=None, doi=None, volume=None,
-            issue=None, page_range=None, create_time=None, update_time=None,
-    ):
+            self, *, id_scp: int, eid: str, title: str, type: str,
+            type_description: str = None, abstract: str = None,
+            total_author: int, open_access: bool, cited_cnt: int,
+            url: str, article_no: str = None, date: date, fund_id: int = None,
+            source_id: int = None, doi: str = None, volume: str = None,
+            issue: str = None, page_range: str = None,
+            retrieval_time: datetime,
+            create_time: datetime = None, update_time: datetime = None,
+    ) -> None:
         self.id_scp = id_scp
         self.eid = eid
         self.title = title
@@ -84,11 +88,11 @@ class Paper(Base):
         self.create_time = create_time
         self.update_time = update_time
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         max_len = 50
         if len(self.title) <= max_len:
             return f'{self.id_scp}: {self.title}; DOI: {self.doi}'
         return f'{self.id_scp}: {self.title[:max_len-3]}...; DOI: {self.doi}'
 
-    def get_year(self):
+    def get_year(self) -> int:
         return self.date.year

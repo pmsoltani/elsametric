@@ -22,11 +22,12 @@ class Country(Base):
     sources = relationship('Source', back_populates='country')
     institutions = relationship('Institution', back_populates='country')
 
-    def __init__(self, name, domain, region, sub_region=None):
+    def __init__(self, name: str,
+                 domain: str, region: str, sub_region: str = None) -> None:
         self.name = name
         self.domain = domain
         self.region = region
         self.sub_region = sub_region
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'{self.domain}: {self.name}'

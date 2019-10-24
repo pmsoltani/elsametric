@@ -4,7 +4,7 @@ from pathlib import Path
 from time import time, strftime, gmtime
 from datetime import datetime
 
-from elsametric.models.base import engine, Session, Base
+from elsametric.models.base import engine, SessionLocal, Base
 from elsametric.helpers.process import file_process
 from elsametric.helpers.process import ext_country_process
 from elsametric.helpers.process import ext_subject_process
@@ -25,7 +25,7 @@ with io.open(CURRENT_DIR / 'config.json', 'r') as config_file:
 config = config['database']['populate']
 
 Base.metadata.create_all(engine)
-session = Session()
+db = SessionLocal()
 
 DATA_PATH = CURRENT_DIR / config['data_directory']
 
@@ -42,10 +42,10 @@ if config['countries']['process']:
     print('@ countries')
 
     countries_list = ext_country_process(
-        session, DATA_PATH / config['countries']['path'])
+        db, DATA_PATH / config['countries']['path'])
     if countries_list:
-        session.add_all(countries_list)
-    session.commit()
+        db.add_all(countries_list)
+    db.commit()
 
     print(f'Op. Time: {strftime("%H:%M:%S", gmtime(time() - t0))}')
 
@@ -55,10 +55,10 @@ if config['subjects']['process']:
     print('@ subjects')
 
     subjects_list = ext_subject_process(
-        session, DATA_PATH / config['subjects']['path'])
+        db, DATA_PATH / config['subjects']['path'])
     if subjects_list:
-        session.add_all(subjects_list)
-    session.commit()
+        db.add_all(subjects_list)
+    db.commit()
 
     print(f'Op. Time: {strftime("%H:%M:%S", gmtime(time() - t0))}')
 
@@ -68,11 +68,11 @@ if config['journals']['process']:
     print('@ journals')
 
     sources_list = ext_source_process(
-        session, DATA_PATH / config['journals']['path'],
+        db, DATA_PATH / config['journals']['path'],
         src_type='Journal')
     if sources_list:
-        session.add_all(sources_list)
-    session.commit()
+        db.add_all(sources_list)
+    db.commit()
 
     print(f'Op. Time: {strftime("%H:%M:%S", gmtime(time() - t0))}')
 
@@ -82,11 +82,11 @@ if config['conferences']['process']:
     print('@ conference proceedings')
 
     sources_list = ext_source_process(
-        session, DATA_PATH / config['conferences']['path'],
+        db, DATA_PATH / config['conferences']['path'],
         src_type='Conference Proceeding')
     if sources_list:
-        session.add_all(sources_list)
-    session.commit()
+        db.add_all(sources_list)
+    db.commit()
 
     print(f'Op. Time: {strftime("%H:%M:%S", gmtime(time() - t0))}')
 
@@ -98,8 +98,8 @@ for item in config['metrics']:
     print(f'@ metrics: {item["path"]}')
 
     sources_list = ext_source_metric_process(
-        session, DATA_PATH / item['path'], item['year'])
-    session.commit()
+        db, DATA_PATH / item['path'], item['year'])
+    db.commit()
 
     print(f'Op. Time: {strftime("%H:%M:%S", gmtime(time() - t0))}')
 
@@ -129,8 +129,8 @@ for item in config['papers']:
             .utcfromtimestamp(int(file.stem.split('_')[-1])) \
             .strftime('%Y-%m-%d %H:%M:%S')
         (problems, papers_list) = file_process(
-            session, file, retrieval_time, encoding='utf8')
-        if 'error_msg' in problems.keys():  # there was an exception: break
+            db, file, retrieval_time, encoding='utf8')
+        if 'error_msg' in problems:  # there was an exception: break
             print()
             print(problems['file'])
             print(problems['id_scp'])
@@ -139,11 +139,11 @@ for item in config['papers']:
             break
 
         if papers_list:
-            session.add_all(papers_list)
+            db.add_all(papers_list)
         if problems:
             institution_bad_papers.append(problems)
 
-        session.commit()
+        db.commit()
 
     if institution_bad_papers:
         log_folder = DATA_PATH / config['logs']
@@ -155,7 +155,7 @@ for item in config['papers']:
 
     print(f'Op. Time: {strftime("%H:%M:%S", gmtime(time() - t0))}')
 
-session.close()
+db.close()
 
 
 # ==============================================================================
@@ -169,13 +169,13 @@ for item in config['institutions']:
     print(f'@ faculties & departments for: {item["id_scp"]}: {item["name"]}')
 
     faculties_list = ext_faculty_process(
-        session,
+        db,
         DATA_PATH / item['faculties'],
         DATA_PATH / item['departments'],
         institution_id_scp=item['id_scp']
     )
-    session.commit()
+    db.commit()
 
     print(f'Op. Time: {strftime("%H:%M:%S", gmtime(time() - t0))}')
 
-session.close()
+db.close()

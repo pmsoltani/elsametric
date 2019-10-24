@@ -1,4 +1,4 @@
-def country_names(name: str):
+def country_names(name: str) -> str:
     """Changes the name of some countries to pre-defined values
 
     Parameters:
@@ -16,12 +16,12 @@ def country_names(name: str):
         'Zweden': 'Sweden',
         'Czech Republic': 'Czechia',
     }
-    if name in countries.keys():
+    if name in countries:
         return countries[name]
     return name
 
 
-def data_inspector(data: dict, keys):
+def data_inspector(data: dict) -> list:
     """Inspects the Scopus API data for possible issues
 
     The function traverses through the data provided by the Scopus API
@@ -36,7 +36,6 @@ def data_inspector(data: dict, keys):
 
     Parameters:
         data (dict): the dictionary to be inspected for issues
-        keys: the keys of the dictionary
 
     Returns:
         list: the list of issues of the data
@@ -63,7 +62,7 @@ def data_inspector(data: dict, keys):
 
     # first level inspection
     for key in first_level_keys:
-        if key not in keys:
+        if key not in data:
             issues.append(key)
 
     # second level inspections
@@ -78,20 +77,18 @@ def data_inspector(data: dict, keys):
     # by the 'author_keys' and 'affiliation_keys' respectively.
     if 'author' not in issues:
         for author in data['author']:
-            keys = author.keys()
             for key in author_keys:
-                if key not in keys:
+                if key not in author:
                     issues.append(f'author:{key}')
     if 'affiliation' not in issues:
         for affiliation in data['affiliation']:
-            keys = affiliation.keys()
             for key in affiliation_keys:
-                if key not in keys:
+                if key not in affiliation:
                     issues.append(f'affiliation:{key}')
 
     # check for the presence of the '$' key and its value inside 'author-count':
     if 'author-count' not in issues:
-        if '$' not in data['author-count'].keys():
+        if '$' not in data['author-count']:
             issues.append('author-count')
         else:
             if not data['author-count']['$']:
@@ -100,7 +97,7 @@ def data_inspector(data: dict, keys):
     return issues
 
 
-def key_get(data: dict, keys, key: str, many: bool = False, default=None):
+def key_get(data: dict, key: str, many: bool = False, default=None):
     """Retrieves the value of a certain key inside a dictionary
 
     The function is designed to traverse a dictionary and retrieve the
@@ -117,7 +114,6 @@ def key_get(data: dict, keys, key: str, many: bool = False, default=None):
 
     Parameters:
         data (dict): a dict containing the desired (key, value) pair
-        keys: the keys of the data, passed to avoid repeated evaluation
         key (str): the desired key within the dictionary
         many (bool): if True, makes the function to return a list
         default: the return value for when the key not found in the
@@ -128,8 +124,10 @@ def key_get(data: dict, keys, key: str, many: bool = False, default=None):
     """
 
     result = None
-    if key in keys:
+    try:
         result = data[key]
+    except KeyError:
+        pass
 
     if result is None:
         return default
@@ -146,7 +144,8 @@ def key_get(data: dict, keys, key: str, many: bool = False, default=None):
     return result
 
 
-def nullify(data: dict, null_types: tuple = (None, '', ' ', '-', '#N/A')):
+def nullify(data: dict,
+            null_types: tuple = (None, '', ' ', '-', '#N/A')) -> None:
     """Changes the null-looking values in a dictionary to None
 
     The function receives a dictionary and looping through its items. If
@@ -157,6 +156,9 @@ def nullify(data: dict, null_types: tuple = (None, '', ' ', '-', '#N/A')):
     Parameters:
         data (dict): the dictionary to be processed for its null values
         null_types (tuple): a tuple of values that resemble null
+
+    Returns:
+        None
     """
 
     for key in data:
@@ -164,7 +166,8 @@ def nullify(data: dict, null_types: tuple = (None, '', ' ', '-', '#N/A')):
             data[key] = None
 
 
-def strip(string, accepted_chars: str = '0123456789xX', max_len: int = 0):
+def strip(string: str,
+          accepted_chars: str = '0123456789xX', max_len: int = 0) -> str:
     """Strips a string from unwanted characters
 
     Parameters:

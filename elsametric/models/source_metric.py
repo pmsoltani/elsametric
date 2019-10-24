@@ -29,15 +29,15 @@ class Source_Metric(Base):
     # Relationships
     source = relationship('Source', back_populates='metrics')
 
-    def __init__(self, type, value, year):
+    def __init__(self, type: str, value: float, year: int) -> None:
         self.type = type
         self.value = value
         self.year = year
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self.is_integer():
             return f'{self.type} {self.year}: {int(self.value)}'
         return f'{self.type} {self.year}: {self.value}'
 
-    def is_integer(self):
+    def is_integer(self) -> bool:
         return float(self.value).is_integer()

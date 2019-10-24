@@ -19,8 +19,8 @@ class Keyword(Base):
     papers = relationship(
         'Paper', secondary=Paper_Keyword, back_populates='keywords')
 
-    def __init__(self, keyword):
+    def __init__(self, keyword: str) -> None:
         self.keyword = keyword
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return self.keyword
