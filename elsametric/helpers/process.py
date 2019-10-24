@@ -105,8 +105,7 @@ def file_process(db: Session, file_path: Path, retrieval_time: str,
         data = data['search-results']['entry']
 
         for cnt, entry in enumerate(data):
-            keys = entry.keys()
-            issues = data_inspector(entry, keys)
+            issues = data_inspector(entry)
             if issues:
                 bad_papers.append(
                     {'#': cnt, 'issues': [issue for issue in issues]})
@@ -137,7 +136,7 @@ def file_process(db: Session, file_path: Path, retrieval_time: str,
             # no issues to begin with, or the program can deal with them.
             try:
                 papers_list.append(
-                    paper_process(db, entry, retrieval_time, keys))
+                    paper_process(db, entry, retrieval_time))
 
             except Exception as err:  # uh oh
                 problems = {
@@ -157,7 +156,7 @@ def file_process(db: Session, file_path: Path, retrieval_time: str,
     return problems, papers_list
 
 
-def paper_process(db: Session, data: dict, retrieval_time: str, keys=None):
+def paper_process(db: Session, data: dict, retrieval_time: str):
     """Imports a paper to database
 
     Receives a dictionary containing information about a paper and
@@ -183,16 +182,12 @@ def paper_process(db: Session, data: dict, retrieval_time: str, keys=None):
             about a paper registered in the Scopus database
         retrieval_time (str): a 'datatime' string pointing to the time
             that the data was retrieved from the Scopus API
-        keys: the keys from the data dictionary, to be used by the
-            key_get helper function
 
     Returns:
         Paper: a 'Paper' object to be added to the database
     """
 
     nullify(data, null_types=(None, '', ' ', '-', '#N/A', 'undefined'))
-    if not keys:
-        keys = data.keys()
 
     # There are several links included in the paper's JSON file, we only
     # need a specific one tagged 'scopus'.
@@ -214,7 +209,7 @@ def paper_process(db: Session, data: dict, retrieval_time: str, keys=None):
         # the Scopus database twice, with different Scopus IDs. In order
         # to make sure that the paper doesn't exist in our database, we
         # can double check with DOI
-        doi = key_get(data, keys, 'prism:doi')
+        doi = key_get(data, 'prism:doi')
         if doi:
             paper = db.query(Paper) \
                 .filter(Paper.doi == doi) \
@@ -224,39 +219,39 @@ def paper_process(db: Session, data: dict, retrieval_time: str, keys=None):
         # database's 'not null' constraint on that column(s).
         paper = Paper(
             id_scp=paper_id_scp,
-            eid=key_get(data, keys, 'eid', default=f'2-s2.0-{paper_id_scp}'),
+            eid=key_get(data, 'eid', default=f'2-s2.0-{paper_id_scp}'),
             title=strip(
-                key_get(data, keys, 'dc:title', default='NOT AVAILABLE'),
+                key_get(data, 'dc:title', default='NOT AVAILABLE'),
                 accepted_chars='', max_len=512
             ),  # yeah... some paper titles are even longer than 512 chars!
-            type=key_get(data, keys, 'subtype', default='na'),
-            type_description=key_get(data, keys, 'subtypeDescription'),
-            abstract=key_get(data, keys, 'dc:description'),
-            total_author=key_get(data, keys, 'author-count'),
-            open_access=int(key_get(data, keys, 'openaccess', default=0)),
-            cited_cnt=key_get(data, keys, 'citedby-count'),
+            type=key_get(data, 'subtype', default='na'),
+            type_description=key_get(data, 'subtypeDescription'),
+            abstract=key_get(data, 'dc:description'),
+            total_author=key_get(data, 'author-count'),
+            open_access=int(key_get(data, 'openaccess', default=0)),
+            cited_cnt=key_get(data, 'citedby-count'),
             url=paper_url,
-            article_no=key_get(data, keys, 'article-number'),
-            doi=key_get(data, keys, 'prism:doi'),
+            article_no=key_get(data, 'article-number'),
+            doi=key_get(data, 'prism:doi'),
             volume=strip(
-                key_get(data, keys, 'prism:volume'),
+                key_get(data, 'prism:volume'),
                 accepted_chars='', max_len=45
             ),
-            issue=key_get(data, keys, 'prism:issueIdentifier'),
-            date=key_get(data, keys, 'prism:coverDate'),
-            page_range=key_get(data, keys, 'prism:pageRange'),
+            issue=key_get(data, 'prism:issueIdentifier'),
+            date=key_get(data, 'prism:coverDate'),
+            page_range=key_get(data, 'prism:pageRange'),
             retrieval_time=retrieval_time,
         )
 
     if not paper.source:
-        paper.source = source_process(db, data, keys)
+        paper.source = source_process(db, data)
 
     if not paper.fund:
-        paper.fund = fund_process(db, data, keys)
+        paper.fund = fund_process(db, data)
 
     # NOTE: this is an 'all-or-nothing' check, which could cause problems
     if not paper.keywords:
-        paper.keywords = keyword_process(db, data, keys)
+        paper.keywords = keyword_process(db, data)
 
     # NOTE: this is an 'all-or-nothing' check, which could cause problems
     if not paper.authors:
@@ -271,7 +266,7 @@ def paper_process(db: Session, data: dict, retrieval_time: str, keys=None):
     return paper
 
 
-def keyword_process(db: Session, data: dict, keys=None, separator: str = '|'):
+def keyword_process(db: Session, data: dict, separator: str = '|'):
     """Returns a list of Keyword objects to be added to a Paper object
 
     Receives a dictionary containing information about a paper and
@@ -285,8 +280,6 @@ def keyword_process(db: Session, data: dict, keys=None, separator: str = '|'):
             interact with the database
         data (dict): a pre-checked dictionary containing information
             about a paper registered in the Scopus database
-        keys: the keys from the data dictionary, to be used by the
-            key_get helper function
         separator (str): used to split the string from Scopus API which
             has concatenated the keywords using the '|' character
 
@@ -296,7 +289,7 @@ def keyword_process(db: Session, data: dict, keys=None, separator: str = '|'):
     """
 
     keywords_list = []
-    raw_keywords = key_get(data, keys, 'authkeywords')
+    raw_keywords = key_get(data, 'authkeywords')
     if raw_keywords:
         # Some papers have the same keywords repeated more than once,
         # which can cause problem, since the database has a unique constraint.
@@ -322,7 +315,7 @@ def keyword_process(db: Session, data: dict, keys=None, separator: str = '|'):
     return keywords_list
 
 
-def source_process(db: Session, data: dict, keys=None):
+def source_process(db: Session, data: dict):
     """Returns a Source object to be added to a Paper object
 
     Receives a dictionary containing information about a paper and
@@ -333,15 +326,13 @@ def source_process(db: Session, data: dict, keys=None):
             interact with the database
         data (dict): a pre-checked dictionary containing information
             about a paper registered in the Scopus database
-        keys: the keys from the data dictionary, to be used by the
-            key_get helper function
 
     Returns:
         Source: a 'Source' object to be added to a 'Paper' object
     """
 
     source = None
-    source_id_scp = key_get(data, keys, 'source-id')
+    source_id_scp = key_get(data, 'source-id')
     if not source_id_scp:  # data doesn't have Scopus Source ID: can't go on
         return source
 
@@ -356,16 +347,16 @@ def source_process(db: Session, data: dict, keys=None):
         source = Source(
             id_scp=source_id_scp,
             title=key_get(
-                data, keys, 'prism:publicationName', default='NOT AVAILABLE'),
-            type=key_get(data, keys, 'prism:aggregationType'),
-            issn=strip(key_get(data, keys, 'prism:issn'), max_len=8),
-            e_issn=strip(key_get(data, keys, 'prism:eIssn'), max_len=8),
-            isbn=strip(key_get(data, keys, 'prism:isbn'), max_len=13),
+                data, 'prism:publicationName', default='NOT AVAILABLE'),
+            type=key_get(data, 'prism:aggregationType'),
+            issn=strip(key_get(data, 'prism:issn'), max_len=8),
+            e_issn=strip(key_get(data, 'prism:eIssn'), max_len=8),
+            isbn=strip(key_get(data, 'prism:isbn'), max_len=13),
         )
     return source
 
 
-def fund_process(db: Session, data: dict, keys=None):
+def fund_process(db: Session, data: dict):
     """Returns a single Source object to be added to a Paper object
 
     Receives a dictionary containing information about a paper and
@@ -385,26 +376,21 @@ def fund_process(db: Session, data: dict, keys=None):
             interact with the database
         data (dict): a pre-checked dictionary containing information
             about a paper registered in the Scopus database
-        keys: the keys from the data dictionary, to be used by the
-            key_get helper function
 
     Returns:
         Fund: a 'Fund' object to be added to a 'Paper' object
     """
 
-    if not keys:
-        keys = data.keys()
-
-    fund_id_scp = key_get(data, keys, 'fund-no')
+    fund_id_scp = key_get(data, 'fund-no')
     if fund_id_scp == 'undefined':
         fund_id_scp = None
-    agency = key_get(data, keys, 'fund-sponsor')
+    agency = key_get(data, 'fund-sponsor')
 
     fund = None
     if (not fund_id_scp) and (not agency):
         return fund
 
-    agency_acronym = key_get(data, keys, 'fund-acr')
+    agency_acronym = key_get(data, 'fund-acr')
 
     if fund_id_scp and agency:
         fund = db.query(Fund) \
@@ -476,8 +462,7 @@ def author_process(db: Session, data: dict):
     author_url = 'https://www.scopus.com/authid/detail.uri?authorId='
 
     for auth in data['author']:
-        keys = auth.keys()
-        author_id_scp = key_get(auth, keys, 'authid')
+        author_id_scp = key_get(auth, 'authid')
         if not author_id_scp:  # Scopus Author ID not found: go to next author
             continue
         author_id_scp = int(author_id_scp)
@@ -499,9 +484,9 @@ def author_process(db: Session, data: dict):
         if not author:  # author not in database, let's create one
             author = Author(
                 id_scp=author_id_scp,
-                first=key_get(auth, keys, 'given-name'),
-                last=key_get(auth, keys, 'surname'),
-                initials=key_get(auth, keys, 'initials')
+                first=key_get(auth, 'given-name'),
+                last=key_get(auth, 'surname'),
+                initials=key_get(auth, 'initials')
             )
             # add the first profile for this author
             author_profile = Author_Profile(
@@ -511,7 +496,7 @@ def author_process(db: Session, data: dict):
             author.profiles.append(author_profile)
 
         # get a list of all institution ids for the author in the paper
-        inst_ids = key_get(auth, keys, 'afid', many=True)
+        inst_ids = key_get(auth, 'afid', many=True)
         if inst_ids:
             for inst_id in inst_ids:
                 # Since all of the institutions mentioned in a paper are
@@ -579,8 +564,6 @@ def institution_process(db: Session, data: dict, inst_id: int,
         if inst_id != institution_id_scp:
             continue
 
-        keys = affil.keys()
-
         institution = db.query(Institution) \
             .filter(Institution.id_scp == institution_id_scp) \
             .first()
@@ -607,12 +590,12 @@ def institution_process(db: Session, data: dict, inst_id: int,
                 # of the database's 'not null' constraint on that column(s).
                 institution = Institution(
                     id_scp=institution_id_scp,
-                    name=key_get(affil, keys, 'affilname',
+                    name=key_get(affil, 'affilname',
                                  default='NOT AVAILABLE'),
-                    city=key_get(affil, keys, 'affiliation-city'),
+                    city=key_get(affil, 'affiliation-city'),
                 )
                 country_name = country_names(
-                    key_get(affil, keys, 'affiliation-country'))
+                    key_get(affil, 'affiliation-country'))
                 if country_name:
                     country = db.query(Country) \
                         .filter(Country.name == country_name) \
@@ -850,19 +833,18 @@ def ext_source_metric_process(db: Session, file_path: Path, file_year: int,
             continue
 
         nullify(row)
-        keys = row.keys()
         source_id_scp = row['id_scp']
         source = db.query(Source) \
             .filter(Source.id_scp == source_id_scp) \
             .first()
         if not source:  # source not in database, let's create it
-            publisher = key_get(row, keys, 'publisher')
+            publisher = key_get(row, 'publisher')
             source = Source(
                 id_scp=source_id_scp,
-                title=key_get(row, keys, 'title', default='NOT AVAILABLE'),
-                type=key_get(row, keys, 'type'),
-                issn=strip(key_get(row, keys, 'issn'), max_len=8),
-                e_issn=strip(key_get(row, keys, 'e_issn'), max_len=8),
+                title=key_get(row, 'title', default='NOT AVAILABLE'),
+                type=key_get(row, 'type'),
+                issn=strip(key_get(row, 'issn'), max_len=8),
+                e_issn=strip(key_get(row, 'e_issn'), max_len=8),
                 publisher=publisher
             )
 
@@ -877,7 +859,7 @@ def ext_source_metric_process(db: Session, file_path: Path, file_year: int,
                     source.country = query.country
 
         if not source.publisher:
-            source.publisher = key_get(row, keys, 'publisher')
+            source.publisher = key_get(row, 'publisher')
 
         if row['asjc']:
             asjc = int(row['asjc'])
@@ -957,7 +939,6 @@ def ext_scimago_process(db: Session, file_path: Path, file_year: int,
     ]
     rows = get_row(file_path, encoding, delimiter)
     for row in rows:
-        keys = row.keys()
         nullify(row)
         source_id_scp = row['Sourceid']
         source = db.query(Source) \
@@ -966,10 +947,10 @@ def ext_scimago_process(db: Session, file_path: Path, file_year: int,
         if not source:
             source = Source(
                 id_scp=source_id_scp,
-                title=key_get(row, keys, 'Title', default='NOT AVAILABLE'),
-                type=key_get(row, keys, 'Type'),
+                title=key_get(row, 'Title', default='NOT AVAILABLE'),
+                type=key_get(row, 'Type'),
                 issn=None, e_issn=None, isbn=None,
-                publisher=key_get(row, keys, 'Publisher'),
+                publisher=key_get(row, 'Publisher'),
             )
 
             # some minor modifications to keep the database clean
@@ -981,7 +962,7 @@ def ext_scimago_process(db: Session, file_path: Path, file_year: int,
         # doing some repairs to sources already in the database, like
         # add missing publisher and country data
         if not source.publisher:
-            source.publisher = key_get(row, keys, 'Publisher')
+            source.publisher = key_get(row, 'Publisher')
 
         if not source.country:
             country_name = country_names(row['Country'])
@@ -1105,7 +1086,6 @@ def ext_faculty_process(db: Session, file_path: Path, dept_file_path: Path,
     rows = get_row(file_path, encoding)
     for row in rows:
         nullify(row)
-        keys = row.keys()
         if not row['Scopus ID']:  # faculty's Scopus ID not known: can't go on
             continue
         if not row['Departments']:  # faculty's dept. not known: can't go on
@@ -1121,25 +1101,25 @@ def ext_faculty_process(db: Session, file_path: Path, dept_file_path: Path,
             continue
 
         # adding faculty details
-        faculty.id_gsc = key_get(row, keys, 'Google Scholar ID')
-        faculty.id_institution = key_get(row, keys, 'Institution ID')
-        faculty.first_pref = key_get(row, keys, 'First En') or \
+        faculty.id_gsc = key_get(row, 'Google Scholar ID')
+        faculty.id_institution = key_get(row, 'Institution ID')
+        faculty.first_pref = key_get(row, 'First En') or \
             faculty.first_pref
-        faculty.middle_pref = key_get(row, keys, 'Middle En') or \
+        faculty.middle_pref = key_get(row, 'Middle En') or \
             faculty.middle_pref
-        faculty.last_pref = key_get(row, keys, 'Last En') or faculty.last_pref
-        faculty.initials_pref = key_get(row, keys, 'Initials En') or \
+        faculty.last_pref = key_get(row, 'Last En') or faculty.last_pref
+        faculty.initials_pref = key_get(row, 'Initials En') or \
             faculty.initials_pref
-        faculty.first_fa = key_get(row, keys, 'First Fa')
-        faculty.last_fa = key_get(row, keys, 'Last Fa')
-        sex = key_get(row, keys, 'Sex')
+        faculty.first_fa = key_get(row, 'First Fa')
+        faculty.last_fa = key_get(row, 'Last Fa')
+        sex = key_get(row, 'Sex')
         if sex in ['M', 'F']:
             faculty.sex = sex.lower()
         faculty.type = 'Faculty'
-        faculty.rank = key_get(row, keys, 'Rank')
+        faculty.rank = key_get(row, 'Rank')
 
         retrieval_time_gsc = key_get(
-            row, keys, 'Google Scholar Retrieval Time')
+            row, 'Google Scholar Retrieval Time')
 
         if retrieval_time_gsc:
             # converting int timestamp to datetime
@@ -1147,9 +1127,9 @@ def ext_faculty_process(db: Session, file_path: Path, dept_file_path: Path,
                 int(retrieval_time_gsc))
 
             faculty.retrieval_time_gsc = retrieval_time_gsc
-            faculty.h_index_gsc = key_get(row, keys, 'Google Scholar h-index')
+            faculty.h_index_gsc = key_get(row, 'Google Scholar h-index')
             faculty.i10_index_gsc = key_get(
-                row, keys, 'Google Scholar i10-index')
+                row, 'Google Scholar i10-index')
 
         # adding faculty profiles
         if row['Email']:
