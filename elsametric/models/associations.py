@@ -46,8 +46,8 @@ class Paper_Author(Base):
     paper = relationship('Paper', back_populates='authors')
     author = relationship('Author', back_populates='papers')
 
-    def __init__(self, author_no):
+    def __init__(self, author_no: int) -> None:
         self.author_no = author_no
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'{self.paper} <-> {self.author}'

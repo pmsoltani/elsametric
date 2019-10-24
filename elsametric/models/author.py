@@ -1,3 +1,6 @@
+from datetime import datetime
+from typing import Mapping, Set
+
 from sqlalchemy import Column, CheckConstraint, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import \
@@ -5,6 +8,10 @@ from sqlalchemy.dialects.mysql import \
 
 from .base import Base, token_generator, VARCHAR_COLUMN_LENGTH
 from .associations import Author_Department, Paper_Author
+from .country import Country
+from .institution import Institution
+from .source import Source
+from .subject import Subject
 
 
 class Author(Base):
@@ -60,11 +67,17 @@ class Author(Base):
         'Department', secondary=Author_Department, back_populates='authors')
 
     def __init__(
-            self, id_scp, id_gsc=None, id_institution=None, first=None, middle=None,
-            last=None, initials=None, first_pref=None, middle_pref=None,
-            last_pref=None, initials_pref=None, first_fa=None, last_fa=None,
-            sex=None, type=None, rank=None, h_index_gsc=None, i10_index_gsc=None,
-            retrieval_time_gsc=None, create_time=None, update_time=None):
+            self, id_scp: int, id_gsc: str = None, id_institution: str = None,
+            first: str = None, middle: str = None, last: str = None,
+            initials: str = None, first_pref: str = None,
+            middle_pref: str = None, last_pref: str = None,
+            initials_pref: str = None, first_fa: str = None,
+            last_fa: str = None, sex: str = None, type: str = None,
+            rank: str = None,
+            h_index_gsc: int = None, i10_index_gsc: int = None,
+            retrieval_time_gsc: datetime = None,
+            create_time: datetime = None, update_time: datetime = None
+    ) -> None:
 
         self.id_scp = id_scp
         self.id_gsc = id_gsc
@@ -91,10 +104,10 @@ class Author(Base):
         self._institutions = set()
         self._countries = set()
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'{self.id_scp}: {self.first} {self.last}'
 
-    def get_institutions(self):
+    def get_institutions(self) -> Set[Institution]:
         self._institutions = set()
         for department in self.departments:
             try:
@@ -105,7 +118,7 @@ class Author(Base):
         self.total_institutions = len(self._institutions)
         return self._institutions
 
-    def get_countries(self):
+    def get_countries(self) -> Set[Country]:
         self._countries = set()
         for institution in self.get_institutions():
             try:
@@ -116,7 +129,7 @@ class Author(Base):
         self.total_countries = len(self._countries)
         return self._countries
 
-    def get_papers(self):
+    def get_papers_trend(self) -> Mapping[int, int]:
         self._papers = {}
         for paper_author in self.papers:
             try:
@@ -127,7 +140,7 @@ class Author(Base):
 
         return self._papers
 
-    def get_citations(self):
+    def get_citations_trend(self) -> Mapping[int, int]:
         self._citations = {}
         for paper_author in self.papers:
             try:
@@ -142,7 +155,7 @@ class Author(Base):
 
         return self._citations
 
-    def get_sources(self):
+    def get_sources(self) -> Set[Source]:
         self._sources = set()
         for paper_author in self.papers:
             try:
@@ -153,7 +166,7 @@ class Author(Base):
         self.total_sources = len(self._sources)
         return self._sources
 
-    def get_metrics(self, histogram=False):
+    def get_metrics(self, histogram: bool = False) -> list:
         self._metrics = [[i, 0] for i in range(100)]
         self._metrics.append(['Undefined', 0])
         for paper_author in self.papers:
@@ -180,7 +193,7 @@ class Author(Base):
             return result
         return self._metrics
 
-    def get_co_authors(self, threshold: int = 0):
+    def get_co_authors(self, threshold: int = 0) -> Mapping['Author', int]:
         self._co_authors = {}
         for paper_author_1 in self.papers:
             paper = paper_author_1.paper
@@ -199,7 +212,7 @@ class Author(Base):
 
         return self._co_authors
 
-    def get_subjects(self):
+    def get_subjects(self) -> Mapping[Subject, int]:
         self._subjects = {}
         for paper_author in self.papers:
             try:
@@ -215,7 +228,7 @@ class Author(Base):
 
         return self._subjects
 
-    def get_keywords(self, text: bool = False, threshold: int = 0):
+    def get_keywords(self, threshold: int = 0) -> Mapping[str, int]:
         self._keywords = {}
         for paper_author in self.papers:
             try:
@@ -234,14 +247,9 @@ class Author(Base):
             self._keywords = {
                 k: v for k, v in self._keywords.items() if threshold <= v}
 
-        if text:
-            result = []
-            for k, v in self._keywords.items():
-                result.append((str(k) + ' ') * v)
-            return ' '.join(result)
         return self._keywords
 
-    def get_funds(self):
+    def get_funds(self) -> Mapping[str, int]:
         self._funds = {'unknown': 0}
         for paper_author in self.papers:
             try:

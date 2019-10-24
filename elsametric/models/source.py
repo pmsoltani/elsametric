@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import Column, ForeignKey, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import BIGINT, DATETIME, INTEGER, VARCHAR
@@ -40,9 +42,11 @@ class Source(Base):
     metrics = relationship('Source_Metric', back_populates='source')
 
     def __init__(
-            self, id_scp, title, type=None, issn=None, e_issn=None, isbn=None,
-            publisher=None, country_id=None, create_time=None, update_time=None
-    ):
+            self, id_scp: int, title: str, type: str = None,
+            issn: str = None, e_issn: str = None, isbn: str = None,
+            publisher: str = None, country_id: int = None,
+            create_time: datetime = None, update_time: datetime = None
+    ) -> None:
         self.id_scp = id_scp
         self.title = title
         self.url = f'https://www.scopus.com/sourceid/{id_scp}'
@@ -55,7 +59,7 @@ class Source(Base):
         self.create_time = create_time
         self.update_time = update_time
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         max_len = 50
         if len(self.title) <= max_len:
             return f'{self.id_scp}: {self.title}; Type: {self.type}'

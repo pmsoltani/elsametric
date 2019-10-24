@@ -1,9 +1,15 @@
+from datetime import datetime
+from typing import Mapping, Set
+
 from sqlalchemy import Column, ForeignKey, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import DATETIME, DECIMAL, INTEGER, VARCHAR
 
 from .base import Base, token_generator, VARCHAR_COLUMN_LENGTH
+from .author import Author
 from .associations import Author_Department
+from .source import Source
+from .subject import Subject
 
 
 class Department(Base):
@@ -42,9 +48,11 @@ class Department(Base):
         'Author', secondary=Author_Department, back_populates='departments')
 
     def __init__(
-            self, name, institution_id=None, abbreviation=None, type=None,
-            lat=None, lng=None, create_time=None, update_time=None
-    ):
+            self, name: str, name_fa: str = None, institution_id: int = None,
+            abbreviation: str = None, url: str = None, type: str = None,
+            lat: float = None, lng: float = None,
+            create_time: datetime = None, update_time: datetime = None
+    ) -> None:
         self.institution_id = institution_id
         self.id_frontend = token_generator()
         self.name = name
@@ -55,13 +63,13 @@ class Department(Base):
         self.create_time = create_time
         self.update_time = update_time
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         max_len = 50
         if len(self.name) <= max_len:
             return f'{self.name} @ {self.institution}'
         return f'{self.name[:max_len-3]}... @ {self.institution}'
 
-    def get_papers(self):
+    def get_papers_trend(self) -> Mapping[int, int]:
         self._papers = {}
         for author in self.authors:
             for paper_author in author.papers:
@@ -73,7 +81,7 @@ class Department(Base):
         self.total_papers = sum(self._papers.values())
         return self._papers
 
-    def get_citations(self):
+    def get_citations_trend(self) -> Mapping[int, int]:
         self._citations = {}
         for author in self.authors:
             for paper_author in author.papers:
@@ -88,7 +96,7 @@ class Department(Base):
         self.total_citations = sum(self._citations.values())
         return self._citations
 
-    def get_sources(self):
+    def get_sources(self) -> Set[Source]:
         self._sources = set()
         for author in self.authors:
             for paper_author in author.papers:
@@ -100,7 +108,7 @@ class Department(Base):
         self.total_sources = len(self._sources)
         return self._sources
 
-    def get_metrics(self, histogram=False):
+    def get_metrics(self, histogram: bool = False) -> list:
         self._metrics = [[i, 0] for i in range(100)]
         for author in self.authors:
             for paper_author in author.papers:
@@ -125,7 +133,7 @@ class Department(Base):
             return result
         return self._metrics
 
-    def get_co_authors(self, threshold: int = 0):
+    def get_co_authors(self, threshold: int = 0) -> Mapping[Author, int]:
         self._co_authors = {}
         for author in self.authors:
             for paper_author_1 in author.papers:
@@ -145,7 +153,7 @@ class Department(Base):
 
         return self._co_authors
 
-    def get_subjects(self):
+    def get_subjects(self) -> Mapping[Subject, int]:
         self._subjects = {}
         for author in self.authors:
             for paper_author in author.papers:
@@ -162,7 +170,7 @@ class Department(Base):
 
         return self._subjects
 
-    def get_keywords(self, text: bool = False, threshold: int = 0):
+    def get_keywords(self, threshold: int = 0) -> Mapping[str, int]:
         self._keywords = {}
         for author in self.authors:
             for paper_author in author.papers:
@@ -170,9 +178,9 @@ class Department(Base):
                     keywords = paper_author.paper.keywords
                     for keyword in keywords:
                         try:
-                            self._keywords[keyword] += 1
+                            self._keywords[keyword.keyword] += 1
                         except KeyError:
-                            self._keywords[keyword] = 1
+                            self._keywords[keyword.keyword] = 1
                 except AttributeError:
                     # paper doesn't have any keywords registered
                     continue
@@ -181,14 +189,9 @@ class Department(Base):
             self._keywords = {
                 k: v for k, v in self._keywords.items() if threshold <= v}
 
-        if text:
-            result = []
-            for k, v in self._keywords.items():
-                result.append((str(k) + ' ') * v)
-            return ' '.join(result)
         return self._keywords
 
-    def get_funds(self):
+    def get_funds(self) -> Mapping[str, int]:
         self._funds = {'unknown': 0}
         for author in self.authors:
             for paper_author in author.papers:

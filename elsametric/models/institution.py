@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import Column, ForeignKey, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.mysql import \
@@ -41,13 +43,16 @@ class Institution(Base):
     # aliases = relationship('Institution_Alias', back_populates='institution')
 
     def __init__(
-            self, id_scp, name, abbreviation=None, city=None, country_id=None,
-            url=None, type=None, lat=None, lng=None,
-            create_time=None, update_time=None
-    ):
+            self, id_scp: int, name: str, name_fa: str = None,
+            abbreviation: str = None,
+            city: str = None, country_id: int = None, url: str = None,
+            type: str = None, lat: float = None, lng: float = None,
+            create_time: datetime = None, update_time: datetime = None
+    ) -> None:
         self.id_scp = id_scp
         self.id_frontend = token_generator()
         self.name = name
+        self.name_fa = name_fa
         self.abbreviation = abbreviation
         self.city = city
         self.country_id = country_id
@@ -58,7 +63,7 @@ class Institution(Base):
         self.create_time = create_time
         self.update_time = update_time
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         max_len = 50
         if len(self.name) <= max_len:
             return f'{self.id_scp}: {self.name}'

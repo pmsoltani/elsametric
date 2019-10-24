@@ -3,7 +3,7 @@ import csv
 import json
 import datetime
 from pathlib import Path
-from typing import Iterator, Tuple
+from typing import Iterator, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
@@ -156,7 +156,7 @@ def file_process(db: Session, file_path: Path, retrieval_time: str,
     return problems, papers_list
 
 
-def paper_process(db: Session, data: dict, retrieval_time: str):
+def paper_process(db: Session, data: dict, retrieval_time: str) -> Paper:
     """Imports a paper to database
 
     Receives a dictionary containing information about a paper and
@@ -266,7 +266,8 @@ def paper_process(db: Session, data: dict, retrieval_time: str):
     return paper
 
 
-def keyword_process(db: Session, data: dict, separator: str = '|'):
+def keyword_process(db: Session,
+                    data: dict, separator: str = '|') -> List[Keyword]:
     """Returns a list of Keyword objects to be added to a Paper object
 
     Receives a dictionary containing information about a paper and
@@ -315,7 +316,7 @@ def keyword_process(db: Session, data: dict, separator: str = '|'):
     return keywords_list
 
 
-def source_process(db: Session, data: dict):
+def source_process(db: Session, data: dict) -> Optional[Source]:
     """Returns a Source object to be added to a Paper object
 
     Receives a dictionary containing information about a paper and
@@ -356,7 +357,7 @@ def source_process(db: Session, data: dict):
     return source
 
 
-def fund_process(db: Session, data: dict):
+def fund_process(db: Session, data: dict) -> Optional[Fund]:
     """Returns a single Source object to be added to a Paper object
 
     Receives a dictionary containing information about a paper and
@@ -423,7 +424,7 @@ def fund_process(db: Session, data: dict):
     return fund
 
 
-def author_process(db: Session, data: dict):
+def author_process(db: Session, data: dict) -> List[list]:
     """Returns a list of Author objects to be added to a Paper object
 
     Receives a dictionary containing information about a paper and
@@ -517,8 +518,10 @@ def author_process(db: Session, data: dict):
     return authors_list
 
 
-def institution_process(db: Session, data: dict, inst_id: int,
-                        new_institutions: list):
+def institution_process(
+        db: Session, data: dict, inst_id: int,
+        new_institutions: list) -> Tuple[
+            Optional[Institution], Optional[Department]]:
     """Returns a tuple of (Institution, Department) objects
 
     Receives a dictionary containing information about a paper and
@@ -555,7 +558,7 @@ def institution_process(db: Session, data: dict, inst_id: int,
     institution = None
     department = None
     if not data['affiliation']:  # no institution info available: can't go on
-        return (institution, department)
+        return institution, department
 
     # from the list of all institutions in a paper, select the one relating to
     # the current author (using Affiliation ID)
@@ -612,11 +615,12 @@ def institution_process(db: Session, data: dict, inst_id: int,
         # At this point we have both the institution and the department for
         # current author in the current paper. No need to continue the loop.
         break
-    return (institution, department)
+    return institution, department
 
 
-def ext_country_process(db: Session,
-                        file_path: Path, encoding: str = 'utf-8-sig'):
+def ext_country_process(
+        db: Session, file_path: Path,
+        encoding: str = 'utf-8-sig') -> List[Country]:
     """Imports a list of countries to database
 
     Reads a .csv file and creates 'Country' objects which represent
@@ -666,8 +670,9 @@ def ext_country_process(db: Session,
     return countries_list
 
 
-def ext_subject_process(db: Session,
-                        file_path: Path, encoding: str = 'utf-8-sig'):
+def ext_subject_process(
+        db: Session, file_path: Path,
+        encoding: str = 'utf-8-sig') -> List[Subject]:
     """Imports a list of subjects to database
 
     Reads a .csv file and creates 'Subject' objects which represent
@@ -716,7 +721,7 @@ def ext_subject_process(db: Session,
 
 
 def ext_source_process(db: Session, file_path: Path, src_type: str = '',
-                       encoding: str = 'utf-8-sig'):
+                       encoding: str = 'utf-8-sig') -> List[Source]:
     """Imports a list of sources to database
 
     Reads a .csv file and creates 'Source' objects which represent
@@ -814,7 +819,7 @@ def ext_source_process(db: Session, file_path: Path, src_type: str = '',
 
 
 def ext_source_metric_process(db: Session, file_path: Path, file_year: int,
-                              encoding: str = 'utf-8-sig'):
+                              encoding: str = 'utf-8-sig') -> List[Source]:
     sources_list = []
 
     subjects = db.query(Subject).all()
@@ -899,8 +904,9 @@ def ext_source_metric_process(db: Session, file_path: Path, file_year: int,
     return sources_list
 
 
-def ext_scimago_process(db: Session, file_path: Path, file_year: int,
-                        encoding: str = 'utf-8-sig', delimiter: str = ';'):
+def ext_scimago_process(
+        db: Session, file_path: Path, file_year: int,
+        encoding: str = 'utf-8-sig', delimiter: str = ';') -> List[Source]:
     """Adds source metrics to database
 
     DEPRECATED FUNCTION: use 'ext_source_metric_process' function.
@@ -1024,8 +1030,9 @@ def ext_scimago_process(db: Session, file_path: Path, file_year: int,
     return sources_list
 
 
-def ext_faculty_process(db: Session, file_path: Path, dept_file_path: Path,
-                        institution_id_scp: int, encoding: str = 'utf-8-sig'):
+def ext_faculty_process(
+        db: Session, file_path: Path, dept_file_path: Path,
+        institution_id_scp: int, encoding: str = 'utf-8-sig') -> List[Author]:
     """Updates author information with faculty data
 
     This function uses a .csv file containing faculty data (such as sex,
@@ -1183,7 +1190,8 @@ def ext_faculty_process(db: Session, file_path: Path, dept_file_path: Path,
     return faculties_list
 
 
-def ext_department_process(file_path: Path, encoding: str = 'utf-8-sig'):
+def ext_department_process(
+        file_path: Path, encoding: str = 'utf-8-sig') -> dict:
     """Returns a dictionary of department data
 
     This function is a helper tool for the function ext_faculty_process.

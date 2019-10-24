@@ -1,12 +1,14 @@
 import io
 import csv
-from typing import Tuple
+from typing import Iterator, List, Tuple
+from pathlib import Path
 import requests as req
 from bs4 import BeautifulSoup
 from fuzzywuzzy import fuzz
 
 
-def get_row(path: str, encoding: str = 'utf-8', delimiter: str = ','):
+def get_row(path: Path, encoding: str = 'utf-8',
+            delimiter: str = ',') -> Iterator[dict]:
     """Yields a row from a .csv file
 
     This simple function is used to yield a .csv file in 'path',
@@ -27,9 +29,10 @@ def get_row(path: str, encoding: str = 'utf-8', delimiter: str = ','):
             yield row
 
 
-def exporter(path: str, rows: list,
+def exporter(path: Path, rows: List[dict],
              reset: bool = False, bulk: bool = False, headers: bool = False,
-             encoding='utf-8', delimiter=',', lineterminator='\n'):
+             encoding: str = 'utf-8', delimiter: str = ',',
+             lineterminator: str = '\n') -> None:
     """Exports a list of dictionaries to a .csv file
 
     The function receives a list of dictionaries, 'rows', and attempt to
@@ -72,7 +75,8 @@ def exporter(path: str, rows: list,
             writer.writerows(rows[-1:])  # write to the csv file row-by-row
 
 
-def nullify(data: dict, null_types: tuple = ('', ' ', '-', '#N/A', '---')):
+def nullify(data: dict,
+            null_types: tuple = (None, '', ' ', '-', '#N/A', '---')) -> None:
     """Changes the null-looking values in a dictionary to None in-place
 
     The function receives a dictionary and looping through its items. If
@@ -110,7 +114,7 @@ def upper_first(string: str) -> str:
     return string[0].upper() + string[1:]
 
 
-def new_columns(data: dict, columns: list, init_value):
+def new_columns(data: dict, columns: list, init_value) -> None:
     """Initializes new columns to the provided table
 
     The function receives a dictionary (the table), a list (the columns)
@@ -126,18 +130,17 @@ def new_columns(data: dict, columns: list, init_value):
         init_value (): the value to initialize the new columns with
 
     Returns:
-        the same string with its first letter changed to uppercase
+        None
     """
 
-    if not isinstance(data, dict):
-        return data
-
-    for column in columns:
-        if column not in data:  # skip already present columns
-            data[column] = init_value
+    if isinstance(data, dict):
+        for column in columns:
+            if column not in data:  # skip already present columns
+                data[column] = init_value
 
 
-def gsc_metrics(base_url: str, gsc_id: str, headers: dict = {}):
+def gsc_metrics(
+        base_url: str, gsc_id: str, headers: dict = {}) -> Tuple[int, int]:
     """Retrieves h-index & i10-index metrics from google scholar
 
     The function attempts to retrieve the h-index & i10-index of an
@@ -182,7 +185,7 @@ def gsc_metrics(base_url: str, gsc_id: str, headers: dict = {}):
 
 
 def author_faculty_matcher(authors: list, first: str, last: str, initials: str,
-                 cutoff: int) -> Tuple[list, str]:
+                           cutoff: int) -> Tuple[list, str]:
     """Attemps to match the provided names with a list of authors
 
     This function uses different methods (with different levels of
