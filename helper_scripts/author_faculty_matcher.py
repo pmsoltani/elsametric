@@ -6,7 +6,7 @@ from pathlib import Path
 from fuzzywuzzy import fuzz
 from sqlalchemy import extract
 
-from elsametric.models.base import Session
+from elsametric.models.base import SessionLocal
 from elsametric.models.associations import Author_Department
 from elsametric.models.associations import Paper_Keyword
 from elsametric.models.associations import Paper_Author
@@ -57,8 +57,8 @@ for item in config['institutions']:
     faculties = get_row(DATA_PATH / item['faculties'])
     export_path = DATA_PATH / f'{institution}_scp.csv'
 
-    session = Session()
-    authors = session \
+    db = SessionLocal()
+    authors = db \
         .query(Author) \
         .join((Department, Author.departments)) \
         .join((Institution, Department.institution)) \

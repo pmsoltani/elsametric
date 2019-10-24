@@ -8,7 +8,7 @@ from .. import ENGINE_URI, TOKEN_BYTES
 
 
 engine = create_engine(ENGINE_URI)
-Session = sessionmaker(bind=engine)
+SessionLocal = sessionmaker(bind=engine)
 
 Base = declarative_base()
 

@@ -4,7 +4,7 @@ import csv
 
 from sqlalchemy import extract
 
-from elsametric.models.base import Session
+from elsametric.models.base import SessionLocal
 from elsametric.models.associations import Author_Department
 from elsametric.models.associations import Paper_Keyword
 from elsametric.models.associations import Paper_Author
@@ -25,19 +25,19 @@ from elsametric.models.subject import Subject
 # Queries
 # ==============================================================================
 
-session = Session()
+db = SessionLocal()
 
-authors = session.query(Author)
-profiles = session.query(Author_Profile)
-countries = session.query(Country)
-departments = session.query(Department)
-funds = session.query(Fund)
-institutions = session.query(Institution)
-keywords = session.query(Keyword)
-papers = session.query(Paper)
-sources = session.query(Source)
-metrics = session.query(Source_Metric)
-subjects = session.query(Subject)
+authors = db.query(Author)
+profiles = db.query(Author_Profile)
+countries = db.query(Country)
+departments = db.query(Department)
+funds = db.query(Fund)
+institutions = db.query(Institution)
+keywords = db.query(Keyword)
+papers = db.query(Paper)
+sources = db.query(Source)
+metrics = db.query(Source_Metric)
+subjects = db.query(Subject)
 
 # ==============================================================================
 # Playground
@@ -45,7 +45,7 @@ subjects = session.query(Subject)
 
 t0 = time.time()
 
-# p = session.query(Paper, Author, Department, Institution) \
+# p = db.query(Paper, Author, Department, Institution) \
 #     .filter(
 #             Paper.id == Paper_Author.paper_id,
 #             Paper_Author.author_id == Author.id) \
