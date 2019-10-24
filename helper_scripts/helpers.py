@@ -55,7 +55,7 @@ def exporter(path: str, rows: list,
     if not rows:
         return
 
-    rows_key_count = [len(row.keys()) for row in rows]
+    rows_key_count = [len(row) for row in rows]
     row_with_max_keys = rows_key_count.index(max(rows_key_count))
 
     with io.open(path, 'a' if not reset else 'w', encoding=encoding) as file:
@@ -133,7 +133,7 @@ def new_columns(data: dict, columns: list, init_value):
         return data
 
     for column in columns:
-        if column not in data.keys():  # skip already present columns
+        if column not in data:  # skip already present columns
             data[column] = init_value
 
 
