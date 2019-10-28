@@ -10,7 +10,7 @@
 
 ## Motivations
 
-The idea began when working with the [Scopus](https://www.scopus.com) website and `.csv` export files from its database. I was tasked to find academic contacts that had joint-papers with Sharif's faculty members. At first, I tried to work it out using MS Excel functions. Then I realized that some of tasks could be done better using VBA macros.
+The idea began when working with the [Scopus](https://www.scopus.com) website and `.csv` export files from its database. I was tasked to find academic contacts that had joint-papers with Sharif's faculty members. At first, I tried to work it out using MS Excel functions. Then I realized that some of the tasks could be done better using VBA macros.
 
 That also became problematic, as it essentially used MS Excel to store multi-dimension data into 2D Excel sheets. That year, I began learning Python, since I've been hearing about it everywhere, and so the next version of the script I wrote was in a [Jupyter](https://jupyter.org) notebook.
 
@@ -30,13 +30,13 @@ The info provided could be used to help make better policies to improve the qual
 
 The first step was to wrap my head around the idea of databases. I had prior exposer to SQLite, to which I had imported the data of a couple of thousand papers. But because of my lack of knowledge, the data of each paper was jammed together in 1 row of only 1 table; for example, if a paper had multiple authors they all occupied a single field and were separated using `;` character.
 
-This initially led me to believe that I needed to use non-relational databases like MongoDB. I then discovered that relational databases (as the name suggests) can achieve this with ease. So, I began studying how to design a database. I've got several books, which I did not even look at, and read some online tutorials which were helpful. Among these, I should mention a series of articles by ?? published at [Medium](https://medium.com/) ??.
+This initially led me to believe that I needed to use non-relational databases like MongoDB. I then discovered that relational databases (as the name suggests) can achieve this with ease. So, I began studying how to design a database. I've got several books, which I did not even look at, and read some helpful online tutorials. Among these, I should mention a series of articles by ?? published at [Medium](https://medium.com/) ??.
 
-I spent a significant amount of time deciding between MySQL & PostgreSQL. In the end I landed with MySQL (which has a design tool called MySQL Workbench). I design & re-designed the database, each model more expansive than the last. The current design can be seen in fig??.
+I spent a significant amount of time deciding between MySQL & PostgreSQL. In the end, I landed with MySQL (which has a design tool called MySQL Workbench). I design & re-designed the database, each model more expansive than the last. The current design can be seen in fig??.
 
 I should probably mention that some months before all these, I had started contacting the Scopus support team and requested they gave me API access. That road had its bumps too, as my institution, Sharif, was not (and isn't still) a subscriber of any Scopus product. But Scopus was generous enough to grant me access to use the API for a year, which unfortunately ended in August.
 
-Then came the time to create a script that would get publication data from Scopus. I wanted to use the already available Python packages developed for this purpose, but since I didn't know anything about object oriented programming, I ended up writing my own module. This module, which even now exists in the repo (`custom.ipynb`), was a Jupyter Notebook.
+Then came the time to create a script that would get publication data from Scopus. I wanted to use the already available Python packages developed for this purpose, but since I didn't know anything about object-oriented programming, I ended up writing my own module. This module, which even now exists in the repo (`custom.ipynb`), was a Jupyter Notebook.
 
 I had trouble downloading the paper's data all at once (and it was probably never a good idea anyway) and so I ended up dividing each institution's papers by publication year and downloaded them separately. These are `JSON` files and each of them contains the publications data of at most 25 papers.
 
@@ -58,7 +58,7 @@ The project was growing and it was time for a demonstration. I knew that at some
 
 I always knew though, that I couldn't rely on Python to create a full website, especially when there are mature `JavaScript` frameworks such as `Node.js` and `React` around. So I started thinking that maybe I've come all this way wrong and I should have used `JavaScript` from the start. But then I learned that I could develop and serve an API using a Python webserver and render the result in a front-end `JavaScript` framework such as `React`. These subjects, however, will be discussed in texts like these hosted in the two other repositories that I am developing.
 
-It was on October that I really got into turning `elsametric` into smaller, more managable pieces. I researched for a way of moving files (along with their histories) to another repo, and on Oct. 15, 2019, the repo `elsametric-api` was created.
+It was in October that I got into turning `elsametric` into smaller, more manageable pieces. I researched for a way of moving files (along with their histories) to another repo, and on Oct. 15, 2019, the repo `elsametric-api` was created.
 
 For now, I think it's enough to talk about the past. The next section reviews the current state of the `elsametric` repo.
 
@@ -71,24 +71,24 @@ Currently, the `elsametric` repo has the following structure:
 ```python
 .
 │
-├── data  # all the data elsametric needs to populate a db (ignored by git)
+├── data  # all the data elsametric needs to populate a DB (ignored by git)
 │
 ├── db_design  # visual guides on the current shape of elsametric
 │   ├── ER Diagram.pdf  # initial elsametric ER diagram (pdf, deprecated)
 │   ├── ER Diagram.vsdx  # initial elsametric ER diagram (MS Visio, deprecated)
-│   ├── map_to_db.xlsx  # how Scopus JSON keys map to db columns (MS Excel)
+│   ├── map_to_db.xlsx  # how Scopus JSON keys map to DB columns (MS Excel)
 │   ├── Scopus DB.mwb  # current ER diagram of elsametric (MySQL Workbench)
 │   ├── Scopus DB.pdf  # current ER diagram of elsametric (pdf)
 │   ├── Scopus DB.png  # current ER diagram of elsametric (png)
-│   ├── Scopus DB.sql  # current ER diagram of elsametric (sql commands)
-│   └── scp search response json.vsdx  # mapping of Scopus JSON to db tables
+│   ├── Scopus DB.sql  # current ER diagram of elsametric (SQL commands)
+│   └── scp search response json.vsdx  # mapping of Scopus JSON to DB tables
 │
 ├── elsametric  # the main package
 │   │
-│   ├── helpers  # functions that help analyze the data and populate the db
+│   ├── helpers  # functions that help analyze the data and populate the DB
 │   │   ├── __init__.py  # currently empty
 │   │   ├── helpers.py  # functions to analyze the data (used by process.py)
-│   │   └── process.py  # functions to populate the db (used by db_populate.py)
+│   │   └── process.py  # functions to populate the DB (used by db_populate.py)
 │   │
 │   ├── models  # SQLAlchemy models (classes)
 │   │   ├── __init__.py  # currently empty
@@ -108,10 +108,10 @@ Currently, the `elsametric` repo has the following structure:
 │   │   ├── source.py  # source table
 │   │   └── subject.py  # subject table
 │   │
-│   └── __init__.py  # reads config.json and creates an empty db if not found
+│   └── __init__.py  # reads config.json and creates an empty DB if not found
 │
 ├── helper_scripts  # scripts for different tasks
-│   ├── author_faculty_matcher.py  # matches faculty names against db records
+│   ├── author_faculty_matcher.py  # matches faculty names against DB records
 │   ├── custom.ipynb  # uses Scopus API to download an institution's papers data
 │   ├── faculties_modares.py  # faculty crawler for Tarbiat Modares University
 │   ├── faculties_tehran.py  # faculty crawler for University of Tehran
@@ -129,20 +129,45 @@ Currently, the `elsametric` repo has the following structure:
 
 ## Current issues
 
-There are several issues that need fixing:
+Several issues need fixing:
 
-- Functions inside `./elsametric/helpers` need to be refactored. They have been reviewed recently for Python's new Type Annotaions (#45), but still, they could be made simpler. Also, there are some and "TODO"s that need attention.
+- Functions inside `./elsametric/helpers` need to be refactored. They have been reviewed recently for Python's new Type Annotations (#45), but still, they could be made simpler. Also, there are some and _TODOs_ that need attention.
 - The content of `./db_design` needs to be updated to the current state (v0.0.4, 9d1b556).
 - The `./data` directory needs to be rid of unnecessary files and folders.
 - The script `./helper_scripts/custom.ipynb` should be turned into a `.py` file with our current programming style (like #30, #31, and #32).
 - The SQLAlchemy model should be refactored in a way that `elsametric` could work with both MySQL & PostgreSQL.
-- Incorporate TDD (Test Driven Developement) in the code-base (#23) for a more robust application.
-- Support for two-level departmental structure should be added (#40).
-- Currently there is no way of updating the data already in the db. `elsametric` has only one script to "populate" the db for the first time. Since some of the publications data will change with time (such as citations count, or even the Scopus id of authors and institutions), there should be a script to use the API (if available) or exported `.csv` files from Scopus to update the db.
-- At the moment, if the design of the database changes (even the type of a column) there is now way to apply that change to an already populated db. The Only way would be to create a new database from the start. This is very inefficient in terms of resource and time. `elsametric` should employ the `SQLAlchemy`'s `Alembic` package to help with the database migrations.
-- It could be argued that some functions & scripts within the repo could be placed in the `elsaserver` repository, as `elsametric` should only deal with the _design_ of the database, not maintaining it. This one needs more thought and should be persuid after similar a account has been made for `elsaserver`.
-- An important issue that affects every result extracted from the database, is that Scopus entities (papers, authors, institutions) can have duplicates. Scopus itself has algorithms in place to detect and merge these entities and even individuals can request for some profiles to be merged. But `elsametric` cannot and should not rely on Scopus to deal with the issue. It should have functions in place to detect similar entities and report them to the system's admin for the final decision. There can be two ways of achieving a merge of two or more entities. One way is to remove all but 1 entity and replace their relationships with the remaining primary key. The better way would be select one of these entities as the main one and register others as its alias. Whenever the info for one of these entities are requested, to information regarding all of them would be fetched.
+- Incorporate TDD (Test Driven Development) in the code-base (#23) for a more robust application.
+
+* Support for two-level departmental structure should be added (#40).
+
+- Currently, there is no way of updating the data already in the DB. `elsametric` has only one script to "populate" the DB for the first time. Since some of the publications data will change with time (such as citations count, or even the Scopus id of authors and institutions), there should be a script to use the API (if available) or exported `.csv` files from Scopus to update the DB.
+- At the moment, if the design of the database changes (even the type of a column) there is no way to apply that change to an already populated DB. The Only way would be to create a new database from the start. This is very inefficient in terms of resource and time. `elsametric` should employ the `SQLAlchemy`'s `Alembic` package to help with the database migrations.
+- It could be argued that some functions & scripts within the repo could be placed in the `elsaserver` repository, as `elsametric` should only deal with the _design_ of the database, not maintaining it. This one needs more thought and should be pursued after a similar account has been made for `elsaserver`.
+- An important issue that affects every result extracted from the database, is that Scopus entities (papers, authors, institutions) can have duplicates. Scopus itself has algorithms in place to detect and merge these entities and even individuals can request for some profiles to be merged. But `elsametric` cannot and should not rely on Scopus to deal with the issue. It should have functions in place to detect similar entities and report them to the system's admin for the final decision. There can be two ways of achieving a merge of two or more entities. One way is to remove all but 1 entity and replace their relationships with the remaining primary key. The better way would be to select one of these entities as the main one and register others as its alias. Whenever the info for one of these entities is requested, information regarding all of them would be fetched.
 
 ## What to do next
 
-To be continued.
+### Phase 1
+
+1. Refactor the code in `./elsametric/helpers`. Deal with the _TODOs_.
+2. Refactor `./helper_scripts/custom.ipynb`.
+3. Get rid of unnecessary files in the `./data` directory.
+4. Make `elsametric` compatible with PostgreSQL.
+5. Add tests to the package.
+6. Update the contents of `./db_design`.
+
+### Phase 2
+
+1. Add a script to update the database using Scopus API or `.csv` files. Changes to publication data include:
+
+   - change in Scopus ID of paper, author, institution, source
+   - change in citations count
+   - change in the type of the paper (if it's retracted)
+
+2. Study and use `Alembic` from `SQLAlchemy`.
+3. Add functionality to inspect the DB and report back possible merges.
+4. Think about where different functions and scripts should be housed.
+
+### Phase 3
+
+1. Support for two-tier departmental structure (test DB migration capabilities using `Alembic`).
