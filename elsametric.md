@@ -2,11 +2,14 @@
 
 ## General Info
 
-- Project name: **undecided**
-- Slug name: [elsametric](https://github.com/pmsoltani/elsametric)
-- Short description: `elsametric` defines a set of SQLAlchemy models (classes) that help create a database for storing academic publication data.
-- Initial commit: Apr. 27, 2019
-- Ancestor project name: [shcopus](https://github.com/pmsoltani/shcopus)
+| Attribute | Value |
+| --------- | ----- |
+| Project name | **undecided**|
+| Slug name | [elsametric](https://github.com/pmsoltani/elsametric)|
+| Description | `elsametric` defines a set of SQLAlchemy models (classes) that help create a database for storing academic publication data.|
+| Initial commit | [`e0175a2`](https://github.com/pmsoltani/elsametric/commit/e0175a27c09327754a5b0c69741ca70f9583e59b), Apr. 27, 2019|
+| Current version | v0.0.4, Oct. 28, 2019 |
+| Ancestor project | [shcopus](https://github.com/pmsoltani/shcopus)|
 
 ## Motivations
 
@@ -52,17 +55,17 @@ Inserting Scopus data was not my only task. My database design demanded to store
 
 Acquiring, cleaning, and formatting the data from external sources consumed a lot of time. For example, to get Sharif's faculty data, each one's web page was examined closely to retrieve what was needed. All that resulted in a set of nicely formatted `.csv` files that my Python script, `db_populate.py` along with several helper functions (nested in the `helpers` directory of `elsametric`) uses to populate the database.
 
-This whole experience helped me understand some essential programming routines and know that I should not just jump headfirst into coding. I know now that I should have learned `Git` and [GitHub](https://github.com) much sooner. I still don't use all their features. I've only started using GitHub's issues and pull requests only recently. I've learned some SQL commands, but that too requires more study and practice. I've also started to use `config.json` file extensively, instead of hard-coding constants.
+This whole experience helped me understand some essential programming routines and know that I should not just jump headfirst into coding. I know now that I should have learned `Git` and [GitHub](https://github.com) much sooner. I still don't use all their features. I've only started using GitHub's issues and pull requests only recently. I've learned some SQL commands, but that too requires more study and practice. I've also started to use `config.json` file extensively, instead of hard-coding constants. Additionally, I've learned about virtual environments and packages like `pipenv`. I keep an up-to-date `Pipfile`, but I don't always use the environment, as I have installed all the packages using `pip` too. All in all, the website [Real Python](https://realpython.com) and its tutorials were a great help in my journey.
 
 The project was growing and it was time for a demonstration. I knew that at some point, I needed to make a website. The _how_ I didn't know (to be honest, I still don't). I had some experience with `HTML`, `CSS`, and `JavaScript` but didn't go far. So I started reading a [tutorial](https://blog.miguelgrinberg.com/post/the-flask-mega-tutorial-part-i-hello-world) on Python's `flask` framework and created a server that would serve some very simple `HTML` pages. I used the awesome [`amCharts 4`](https://www.amcharts.com) library to make a bar chart, a force-directed network graph, and a word cloud.
 
 I always knew though, that I couldn't rely on Python to create a full website, especially when there are mature `JavaScript` frameworks such as `Node.js` and `React` around. So I started thinking that maybe I've come all this way wrong and I should have used `JavaScript` from the start. But then I learned that I could develop and serve an API using a Python webserver and render the result in a front-end `JavaScript` framework such as `React`. These subjects, however, will be discussed in texts like this one, hosted in the two other repositories that I am developing.
 
-It was in October that I got into turning `elsametric` into smaller, more manageable pieces. I researched for a way of moving files (along with their histories) to another repo, and on Oct. 15, 2019, the repo `elsametric-api` was created.
+It was in October that I got into turning `elsametric` into smaller, more manageable pieces. On Oct. 14, 2019, [#22](https://github.com/pmsoltani/elsametric/issues/22) was created and a day later, I used `setuptools` to turn `elsametric` into its own package. On the same day, I researched for a way of moving files (along with their histories) to another repository, and so the repo `elsametric-api` (now `elsaserver`) was created.
 
 For now, I think it's enough to talk about the past. The next section reviews the current state of the `elsametric` repo.
 
-## Current state (Oct. 27, 2019)
+## Current state (Oct. 28, 2019)
 
 After 5 months of continues development, let's have a look at where things stand. Currently, the `elsametric` repo has the following structure:
 
