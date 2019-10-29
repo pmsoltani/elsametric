@@ -4,13 +4,22 @@ from sqlalchemy import CheckConstraint, Column, DDL, event, ForeignKey, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import BIGINT, DateTime, DECIMAL, INTEGER, VARCHAR
 
-from .base import Base, token_generator, VARCHAR_COLUMN_LENGTH
+from .base import (
+    Base,
+    DIALECT,
+    token_generator,
+    UPDATE_TIME_DEFAULT,
+    VARCHAR_COLUMN_LENGTH
+)
 
 
 class Institution(Base):
     __tablename__ = 'institution'
     __table_args__ = (
-        # CheckConstraint('id >= 0', name='institution_id_unsigned'),
+        CheckConstraint(
+            'id >= 0',
+            name='institution_id_unsigned'
+        ) if DIALECT == "postgresql" else None,
         CheckConstraint('id_scp >= 0', name='institution_id_scp_unsigned'),
     )
 
@@ -30,7 +39,7 @@ class Institution(Base):
     create_time = Column(
         DateTime(), nullable=False, server_default=text('CURRENT_TIMESTAMP'))
     update_time = Column(
-        DateTime(), nullable=False, server_default=text('CURRENT_TIMESTAMP'))
+        DateTime(), nullable=False, server_default=text(UPDATE_TIME_DEFAULT))
 
     # Relationships
     country = relationship('Country', back_populates='institutions')
@@ -65,21 +74,22 @@ class Institution(Base):
         return f'{self.id_scp}: {self.name[:max_len-3]}...'
 
 
-# update_time_trigger = DDL(
-#     '''
-#     CREATE OR REPLACE FUNCTION set_update_time()
-#     RETURNS TRIGGER AS $$
-#     BEGIN
-#         NEW.update_time = now();
-#         RETURN NEW;
-#     END;
-#     $$ language 'plpgsql';
+if DIALECT == "postgresql":
+    update_time_trigger = DDL(
+        '''
+        CREATE OR REPLACE FUNCTION set_update_time()
+        RETURNS TRIGGER AS $$
+        BEGIN
+            NEW.update_time = now();
+            RETURN NEW;
+        END;
+        $$ language 'plpgsql';
 
-#     CREATE TRIGGER institution_update_time
-#         BEFORE UPDATE ON institution
-#         FOR EACH ROW
-#         EXECUTE PROCEDURE  set_update_time();
-#     '''
-# )
+        CREATE TRIGGER institution_update_time
+            BEFORE UPDATE ON institution
+            FOR EACH ROW
+            EXECUTE PROCEDURE  set_update_time();
+        '''
+    )
 
-# event.listen(Institution.__table__, 'after_create', update_time_trigger)
+    event.listen(Institution.__table__, 'after_create', update_time_trigger)

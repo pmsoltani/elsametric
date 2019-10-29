@@ -13,14 +13,17 @@ from sqlalchemy.types import (
     VARCHAR
 )
 
-from .base import Base
+from .base import Base, DIALECT, UPDATE_TIME_DEFAULT
 from .associations import Paper_Keyword, Paper_Author
 
 
 class Paper(Base):
     __tablename__ = 'paper'
     __table_args__ = (
-        # CheckConstraint('id >= 0', name='paper_id_unsigned'),
+        CheckConstraint(
+            'id >= 0',
+            name='paper_id_unsigned'
+        ) if DIALECT == "postgresql" else None,
         CheckConstraint('id_scp >= 0', name='paper_id_scp_unsigned'),
         CheckConstraint('total_author >= 0', name='total_author_unsigned'),
         CheckConstraint('cited_cnt >= 0', name='cited_cnt_unsigned'),
@@ -52,7 +55,7 @@ class Paper(Base):
     create_time = Column(
         DateTime(), nullable=False, server_default=text('CURRENT_TIMESTAMP'))
     update_time = Column(
-        DateTime(), nullable=False, server_default=text('CURRENT_TIMESTAMP'))
+        DateTime(), nullable=False, server_default=text(UPDATE_TIME_DEFAULT))
 
     # Relationships
     fund = relationship('Fund', back_populates='papers')
@@ -103,21 +106,22 @@ class Paper(Base):
         return self.date.year
 
 
-# update_time_trigger = DDL(
-#     '''
-#     CREATE OR REPLACE FUNCTION set_update_time()
-#     RETURNS TRIGGER AS $$
-#     BEGIN
-#         NEW.update_time = now();
-#         RETURN NEW;
-#     END;
-#     $$ language 'plpgsql';
+if DIALECT == "postgresql":
+    update_time_trigger = DDL(
+        '''
+        CREATE OR REPLACE FUNCTION set_update_time()
+        RETURNS TRIGGER AS $$
+        BEGIN
+            NEW.update_time = now();
+            RETURN NEW;
+        END;
+        $$ language 'plpgsql';
 
-#     CREATE TRIGGER paper_update_time
-#         BEFORE UPDATE ON paper
-#         FOR EACH ROW
-#         EXECUTE PROCEDURE  set_update_time();
-#     '''
-# )
+        CREATE TRIGGER paper_update_time
+            BEFORE UPDATE ON paper
+            FOR EACH ROW
+            EXECUTE PROCEDURE  set_update_time();
+        '''
+    )
 
-# event.listen(Paper.__table__, 'after_create', update_time_trigger)
+    event.listen(Paper.__table__, 'after_create', update_time_trigger)

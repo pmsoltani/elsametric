@@ -5,7 +5,13 @@ from sqlalchemy import CheckConstraint, Column, DDL, event, ForeignKey, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import DateTime, DECIMAL, INTEGER, VARCHAR
 
-from .base import Base, token_generator, VARCHAR_COLUMN_LENGTH
+from .base import (
+    Base,
+    DIALECT,
+    token_generator,
+    UPDATE_TIME_DEFAULT,
+    VARCHAR_COLUMN_LENGTH
+)
 from .author import Author
 from .associations import Author_Department
 from .source import Source
@@ -14,9 +20,12 @@ from .subject import Subject
 
 class Department(Base):
     __tablename__ = 'department'
-    # __table_args__ = (
-    #     CheckConstraint('id >= 0', name='department_id_unsigned'),
-    # )
+    __table_args__ = (
+        CheckConstraint(
+            'id >= 0',
+            name='department_id_unsigned'
+        ) if DIALECT == "postgresql" else None,
+    )
 
     id = Column(INTEGER, primary_key=True, autoincrement=True)
     institution_id = Column(
@@ -33,7 +42,7 @@ class Department(Base):
     create_time = Column(
         DateTime(), nullable=False, server_default=text('CURRENT_TIMESTAMP'))
     update_time = Column(
-        DateTime(), nullable=False, server_default=text('CURRENT_TIMESTAMP'))
+        DateTime(), nullable=False, server_default=text(UPDATE_TIME_DEFAULT))
 
     # Relationships
     institution = relationship('Institution', back_populates='departments')
@@ -204,21 +213,22 @@ class Department(Base):
         return self._funds
 
 
-# update_time_trigger = DDL(
-#     '''
-#     CREATE OR REPLACE FUNCTION set_update_time()
-#     RETURNS TRIGGER AS $$
-#     BEGIN
-#         NEW.update_time = now();
-#         RETURN NEW;
-#     END;
-#     $$ language 'plpgsql';
+if DIALECT == "postgresql":
+    update_time_trigger = DDL(
+        '''
+        CREATE OR REPLACE FUNCTION set_update_time()
+        RETURNS TRIGGER AS $$
+        BEGIN
+            NEW.update_time = now();
+            RETURN NEW;
+        END;
+        $$ language 'plpgsql';
 
-#     CREATE TRIGGER department_update_time
-#         BEFORE UPDATE ON department
-#         FOR EACH ROW
-#         EXECUTE PROCEDURE  set_update_time();
-#     '''
-# )
+        CREATE TRIGGER department_update_time
+            BEFORE UPDATE ON department
+            FOR EACH ROW
+            EXECUTE PROCEDURE  set_update_time();
+        '''
+    )
 
-# event.listen(Department.__table__, 'after_create', update_time_trigger)
+    event.listen(Department.__table__, 'after_create', update_time_trigger)

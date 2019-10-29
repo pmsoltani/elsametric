@@ -2,13 +2,16 @@ from sqlalchemy import CheckConstraint, Column, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import DECIMAL, INTEGER, VARCHAR
 
-from .base import Base
+from .base import Base, DIALECT
 
 
 class Source_Metric(Base):
     __tablename__ = 'source_metric'
     __table_args__ = (
-        # CheckConstraint('id >= 0', name='source_metric_id_unsigned'),
+        CheckConstraint(
+            'id >= 0',
+            name='source_metric_id_unsigned'
+        ) if DIALECT == "postgresql" else None,
         CheckConstraint('year >= 1970 AND year <= 2069', name='year_range'),
         UniqueConstraint(
             'source_id', 'type', 'year', name='uq_sourceid_type_year'),

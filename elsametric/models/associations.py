@@ -8,7 +8,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import BIGINT, INTEGER, SMALLINT
 
-from .base import Base
+from .base import Base, DIALECT
 
 Source_Subject = Table(
     'source_subject', Base.metadata,

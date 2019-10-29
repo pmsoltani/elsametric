@@ -5,7 +5,13 @@ from sqlalchemy import CheckConstraint, Column, DDL, event, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import BIGINT, CHAR, DateTime, Enum, INTEGER, VARCHAR
 
-from .base import Base, token_generator, VARCHAR_COLUMN_LENGTH
+from .base import (
+    Base,
+    DIALECT,
+    token_generator,
+    UPDATE_TIME_DEFAULT,
+    VARCHAR_COLUMN_LENGTH
+)
 from .associations import Author_Department, Paper_Author
 from .country import Country
 from .institution import Institution
@@ -17,6 +23,13 @@ class Author(Base):
     __tablename__ = 'author'
     __table_args__ = (
         CheckConstraint(
+            'id >= 0',
+            name='author_id_unsigned'
+        ) if DIALECT == "postgresql" else None,
+        CheckConstraint('id_scp >= 0', name='author_id_scp_unsigned'),
+        CheckConstraint('h_index_gsc >= 0', name='h_index_gsc_unsigned'),
+        CheckConstraint('i10_index_gsc >= 0', name='i10_index_gsc_unsigned'),
+        CheckConstraint(
             '''NOT(
                 (NOT(h_index_gsc IS NULL) OR NOT(i10_index_gsc IS NULL)) AND
                 (retrieval_time_gsc IS NULL)
@@ -24,10 +37,6 @@ class Author(Base):
             name='ck_author_google_scholar'
         ),
         CheckConstraint('''sex IN ('m', 'f')''', name='gender_types'),
-        # CheckConstraint('id >= 0', name='author_id_unsigned'),
-        CheckConstraint('id_scp >= 0', name='author_id_scp_unsigned'),
-        CheckConstraint('h_index_gsc >= 0', name='h_index_gsc_unsigned'),
-        CheckConstraint('i10_index_gsc >= 0', name='i10_index_gsc_unsigned'),
     )
 
     id = Column(INTEGER, primary_key=True, autoincrement=True)
@@ -55,7 +64,7 @@ class Author(Base):
     create_time = Column(
         DateTime(), nullable=False, server_default=text('CURRENT_TIMESTAMP'))
     update_time = Column(
-        DateTime(), nullable=False, server_default=text('CURRENT_TIMESTAMP'))
+        DateTime(), nullable=False, server_default=text(UPDATE_TIME_DEFAULT))
 
     # Relationships
     papers = relationship('Paper_Author', back_populates='author')
@@ -264,21 +273,22 @@ class Author(Base):
         return self._funds
 
 
-# update_time_trigger = DDL(
-#     '''
-#     CREATE OR REPLACE FUNCTION set_update_time()
-#     RETURNS TRIGGER AS $$
-#     BEGIN
-#         NEW.update_time = now();
-#         RETURN NEW;
-#     END;
-#     $$ language 'plpgsql';
+if DIALECT == "postgresql":
+    update_time_trigger = DDL(
+        '''
+        CREATE OR REPLACE FUNCTION set_update_time()
+        RETURNS TRIGGER AS $$
+        BEGIN
+            NEW.update_time = now();
+            RETURN NEW;
+        END;
+        $$ language 'plpgsql';
 
-#     CREATE TRIGGER author_update_time
-#         BEFORE UPDATE ON author
-#         FOR EACH ROW
-#         EXECUTE PROCEDURE  set_update_time();
-#     '''
-# )
+        CREATE TRIGGER author_update_time
+            BEFORE UPDATE ON author
+            FOR EACH ROW
+            EXECUTE PROCEDURE  set_update_time();
+        '''
+    )
 
-# event.listen(Author.__table__, 'after_create', update_time_trigger)
+    event.listen(Author.__table__, 'after_create', update_time_trigger)

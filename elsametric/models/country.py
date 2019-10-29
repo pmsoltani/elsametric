@@ -2,14 +2,17 @@ from sqlalchemy import CheckConstraint, Column
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import INTEGER, VARCHAR
 
-from .base import Base
+from .base import Base, DIALECT
 
 
 class Country(Base):
     __tablename__ = 'country'
-    # __table_args__ = (
-    #     CheckConstraint('id >= 0', name='country_id_unsigned'),
-    # )
+    __table_args__ = (
+        CheckConstraint(
+            'id >= 0',
+            name='country_id_unsigned'
+        ) if DIALECT == "postgresql" else None,
+    )
 
     id = Column(INTEGER, primary_key=True, autoincrement=True)
     name = Column(VARCHAR(45), nullable=False, unique=True)

@@ -2,14 +2,17 @@ from sqlalchemy import CheckConstraint, Column, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import BIGINT, INTEGER, SMALLINT, VARCHAR
 
-from .base import Base
+from .base import Base, DIALECT
 
 
 class Author_Profile(Base):
     __tablename__ = 'author_profile'
-    # __table_args__ = (
-    #     CheckConstraint('id >= 0', name='author_profile_id_unsigned'),
-    # )
+    __table_args__ = (
+        CheckConstraint(
+            'id >= 0',
+            name='author_profile_id_unsigned'
+        ) if DIALECT == "postgresql" else None,
+    )
 
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     author_id = Column(INTEGER, ForeignKey('author.id'), primary_key=True)

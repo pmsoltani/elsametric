@@ -14,11 +14,16 @@ config = config['database']
 
 TOKEN_BYTES = config['token_bytes']
 
-DB_USER = config['startup']['mysql_user']
-DB_PASS = config['startup']['mysql_pass']
-DB_HOST = config['startup']['mysql_host']
-DB_NAME = config['startup']['mysql_schema']
-ENGINE_URI = f'mysql+mysqlconnector://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}'
+DIALECT = config['startup']['dialect']
+assert DIALECT in ('mysql', 'postgresql')
+
+DB_DRIVER = config['startup'][DIALECT]['driver']
+DB_USER = config['startup'][DIALECT]['user']
+DB_PASS = config['startup'][DIALECT]['pass']
+DB_HOST = config['startup'][DIALECT]['host']
+DB_NAME = config['startup'][DIALECT]['schema']
+
+ENGINE_URI = f'{DIALECT}+{DB_DRIVER}://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}'
 
 if not database_exists(ENGINE_URI):
-    create_database(ENGINE_URI, encoding='utf8mb4')
+    create_database(ENGINE_URI, encoding='utf8')

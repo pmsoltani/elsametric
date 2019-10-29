@@ -2,17 +2,20 @@ from sqlalchemy import CheckConstraint, Column, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import BIGINT, VARCHAR
 
-from .base import Base
+from .base import Base, DIALECT
 
 
 class Fund(Base):
     __tablename__ = 'fund'
     __table_args__ = (
         CheckConstraint(
+            'id >= 0',
+            name='fund_id_unsigned'
+        ) if DIALECT == "postgresql" else None,
+        CheckConstraint(
             'NOT(id_scp IS NULL AND agency IS NULL)',
             name='ck_fund_idscp_agency'
         ),
-        # CheckConstraint('id >= 0', name='fund_id_unsigned'),
         UniqueConstraint('id_scp', 'agency', name='uq_fund_idscp_agency'),
     )
 

@@ -2,14 +2,17 @@ from sqlalchemy import CheckConstraint, Column
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import INTEGER, VARCHAR
 
-from .base import Base
+from .base import Base, DIALECT
 from .associations import Source_Subject
 
 
 class Subject(Base):
     __tablename__ = 'subject'
     __table_args__ = (
-        # CheckConstraint('id >= 0', name='subject_id_unsigned'),
+        CheckConstraint(
+            'id >= 0',
+            name='subject_id_unsigned'
+        ) if DIALECT == "postgresql" else None,
         CheckConstraint('asjc >= 0', name='subject_asjc_unsigned'),
     )
 
