@@ -26,4 +26,5 @@ DB_NAME = config['startup'][DIALECT]['schema']
 ENGINE_URI = f'{DIALECT}+{DB_DRIVER}://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}'
 
 if not database_exists(ENGINE_URI):
-    create_database(ENGINE_URI, encoding='utf8')
+    encoding = 'utf8mb4' if DIALECT == 'mysql' else 'utf8'
+    create_database(ENGINE_URI, encoding=encoding)
