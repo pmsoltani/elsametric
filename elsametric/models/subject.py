@@ -1,6 +1,6 @@
-from sqlalchemy import Column
+from sqlalchemy import CheckConstraint, Column
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.mysql import INTEGER, VARCHAR
+from sqlalchemy.types import INTEGER, VARCHAR
 
 from .base import Base
 from .associations import Source_Subject
@@ -8,12 +8,13 @@ from .associations import Source_Subject
 
 class Subject(Base):
     __tablename__ = 'subject'
-
-    id = Column(
-        INTEGER(unsigned=True),
-        primary_key=True, autoincrement=True, nullable=False
+    __table_args__ = (
+        # CheckConstraint('id >= 0', name='subject_id_unsigned'),
+        CheckConstraint('asjc >= 0', name='subject_asjc_unsigned'),
     )
-    asjc = Column(INTEGER(unsigned=True), nullable=False, unique=True)
+
+    id = Column(INTEGER, primary_key=True, autoincrement=True)
+    asjc = Column(INTEGER, nullable=False, unique=True)
     top = Column(VARCHAR(128), nullable=False)
     middle = Column(VARCHAR(128), nullable=False)
     low = Column(VARCHAR(128), nullable=False)

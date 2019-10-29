@@ -1,10 +1,9 @@
 from datetime import datetime
 from typing import Mapping, Set
 
-from sqlalchemy import Column, CheckConstraint, text
+from sqlalchemy import CheckConstraint, Column, DDL, event, text
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.mysql import \
-    BIGINT, CHAR, DATETIME, ENUM, INTEGER, VARCHAR
+from sqlalchemy.types import BIGINT, CHAR, DateTime, Enum, INTEGER, VARCHAR
 
 from .base import Base, token_generator, VARCHAR_COLUMN_LENGTH
 from .associations import Author_Department, Paper_Author
@@ -24,41 +23,39 @@ class Author(Base):
             )''',
             name='ck_author_google_scholar'
         ),
+        CheckConstraint('''sex IN ('m', 'f')''', name='gender_types'),
+        # CheckConstraint('id >= 0', name='author_id_unsigned'),
+        CheckConstraint('id_scp >= 0', name='author_id_scp_unsigned'),
+        CheckConstraint('h_index_gsc >= 0', name='h_index_gsc_unsigned'),
+        CheckConstraint('i10_index_gsc >= 0', name='i10_index_gsc_unsigned'),
     )
 
-    id = Column(
-        INTEGER(unsigned=True),
-        primary_key=True, autoincrement=True, nullable=False
-    )
-    id_scp = Column(BIGINT(unsigned=True), nullable=False, unique=True)
-    id_gsc = Column(VARCHAR(12), nullable=True, unique=True)
-    id_institution = Column(VARCHAR(45), nullable=True)
+    id = Column(INTEGER, primary_key=True, autoincrement=True)
+    id_scp = Column(BIGINT, nullable=False, unique=True)
+    id_gsc = Column(VARCHAR(12), unique=True)
+    id_institution = Column(VARCHAR(45))
     id_frontend = Column(
         VARCHAR(VARCHAR_COLUMN_LENGTH), nullable=False, unique=True)
-    first = Column(VARCHAR(45), nullable=True)
-    middle = Column(VARCHAR(45), nullable=True)
-    last = Column(VARCHAR(45), nullable=True)
-    initials = Column(VARCHAR(45), nullable=True)
-    first_pref = Column(VARCHAR(45), nullable=True)
-    middle_pref = Column(VARCHAR(45), nullable=True)
-    last_pref = Column(VARCHAR(45), nullable=True)
-    initials_pref = Column(VARCHAR(45), nullable=True)
-    first_fa = Column(VARCHAR(45), nullable=True)
-    last_fa = Column(VARCHAR(45), nullable=True)
-    sex = Column(CHAR(1), ENUM('m', 'f'), nullable=True)
-    type = Column(VARCHAR(45), nullable=True)
-    rank = Column(VARCHAR(45), nullable=True)
-    h_index_gsc = Column(INTEGER(unsigned=True), nullable=True)
-    i10_index_gsc = Column(INTEGER(unsigned=True), nullable=True)
-    retrieval_time_gsc = Column(DATETIME(), nullable=True)
+    first = Column(VARCHAR(45))
+    middle = Column(VARCHAR(45))
+    last = Column(VARCHAR(45))
+    initials = Column(VARCHAR(45))
+    first_pref = Column(VARCHAR(45))
+    middle_pref = Column(VARCHAR(45))
+    last_pref = Column(VARCHAR(45))
+    initials_pref = Column(VARCHAR(45))
+    first_fa = Column(VARCHAR(45))
+    last_fa = Column(VARCHAR(45))
+    sex = Column(CHAR(1), Enum('m', 'f', name='gender_types'))
+    type = Column(VARCHAR(45))
+    rank = Column(VARCHAR(45))
+    h_index_gsc = Column(INTEGER)
+    i10_index_gsc = Column(INTEGER)
+    retrieval_time_gsc = Column(DateTime())
     create_time = Column(
-        DATETIME(), nullable=False,
-        server_default=text('CURRENT_TIMESTAMP')
-    )
+        DateTime(), nullable=False, server_default=text('CURRENT_TIMESTAMP'))
     update_time = Column(
-        DATETIME(), nullable=False,
-        server_default=text('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP')
-    )
+        DateTime(), nullable=False, server_default=text('CURRENT_TIMESTAMP'))
 
     # Relationships
     papers = relationship('Paper_Author', back_populates='author')
@@ -265,3 +262,23 @@ class Author(Base):
                 continue
 
         return self._funds
+
+
+# update_time_trigger = DDL(
+#     '''
+#     CREATE OR REPLACE FUNCTION set_update_time()
+#     RETURNS TRIGGER AS $$
+#     BEGIN
+#         NEW.update_time = now();
+#         RETURN NEW;
+#     END;
+#     $$ language 'plpgsql';
+
+#     CREATE TRIGGER author_update_time
+#         BEFORE UPDATE ON author
+#         FOR EACH ROW
+#         EXECUTE PROCEDURE  set_update_time();
+#     '''
+# )
+
+# event.listen(Author.__table__, 'after_create', update_time_trigger)

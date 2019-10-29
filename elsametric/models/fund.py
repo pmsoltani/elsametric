@@ -1,6 +1,6 @@
-from sqlalchemy import Column, CheckConstraint, UniqueConstraint
+from sqlalchemy import CheckConstraint, Column, UniqueConstraint
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.mysql import BIGINT, VARCHAR
+from sqlalchemy.types import BIGINT, VARCHAR
 
 from .base import Base
 
@@ -12,19 +12,14 @@ class Fund(Base):
             'NOT(id_scp IS NULL AND agency IS NULL)',
             name='ck_fund_idscp_agency'
         ),
-        UniqueConstraint(
-            'id_scp', 'agency',
-            name='uq_fund_idscp_agency'
-        ),
+        # CheckConstraint('id >= 0', name='fund_id_unsigned'),
+        UniqueConstraint('id_scp', 'agency', name='uq_fund_idscp_agency'),
     )
 
-    id = Column(
-        BIGINT(unsigned=True),
-        primary_key=True, autoincrement=True, nullable=False
-    )
-    id_scp = Column(VARCHAR(256), nullable=True)
-    agency = Column(VARCHAR(256), nullable=True)
-    agency_acronym = Column(VARCHAR(256), nullable=True)
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    id_scp = Column(VARCHAR(256))
+    agency = Column(VARCHAR(256))
+    agency_acronym = Column(VARCHAR(256))
 
     # Relationships
     papers = relationship('Paper', back_populates='fund')

@@ -1,6 +1,6 @@
-from sqlalchemy import Column
+from sqlalchemy import CheckConstraint, Column
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.mysql import BIGINT, VARCHAR
+from sqlalchemy.types import BIGINT, VARCHAR
 
 from .base import Base
 from .associations import Paper_Keyword
@@ -8,11 +8,11 @@ from .associations import Paper_Keyword
 
 class Keyword(Base):
     __tablename__ = 'keyword'
+    # __table_args__ = (
+    #     CheckConstraint('id >= 0', name='keyword_id_unsigned'),
+    # )
 
-    id = Column(
-        BIGINT(unsigned=True),
-        primary_key=True, autoincrement=True, nullable=False
-    )
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
     keyword = Column(VARCHAR(256), nullable=False, unique=True)
 
     # Relationships

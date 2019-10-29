@@ -1,9 +1,9 @@
 from datetime import datetime
 from typing import Mapping, Set
 
-from sqlalchemy import Column, ForeignKey, text
+from sqlalchemy import CheckConstraint, Column, DDL, event, ForeignKey, text
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.mysql import DATETIME, DECIMAL, INTEGER, VARCHAR
+from sqlalchemy.types import DateTime, DECIMAL, INTEGER, VARCHAR
 
 from .base import Base, token_generator, VARCHAR_COLUMN_LENGTH
 from .author import Author
@@ -14,32 +14,26 @@ from .subject import Subject
 
 class Department(Base):
     __tablename__ = 'department'
+    # __table_args__ = (
+    #     CheckConstraint('id >= 0', name='department_id_unsigned'),
+    # )
 
-    id = Column(
-        INTEGER(unsigned=True),
-        primary_key=True, autoincrement=True, nullable=False
-    )
+    id = Column(INTEGER, primary_key=True, autoincrement=True)
     institution_id = Column(
-        INTEGER(unsigned=True),
-        ForeignKey('institution.id'), primary_key=True, nullable=False
-    )
+        INTEGER, ForeignKey('institution.id'), primary_key=True)
     id_frontend = Column(
         VARCHAR(VARCHAR_COLUMN_LENGTH), nullable=False, unique=True)
     name = Column(VARCHAR(128), nullable=False)
-    name_fa = Column(VARCHAR(128), nullable=True)
-    abbreviation = Column(VARCHAR(45), nullable=True)
-    url = Column(VARCHAR(256), nullable=True, unique=True)
-    type = Column(VARCHAR(45), nullable=True)
-    lat = Column(DECIMAL(8, 6), nullable=True)
-    lng = Column(DECIMAL(9, 6), nullable=True)
+    name_fa = Column(VARCHAR(128))
+    abbreviation = Column(VARCHAR(45))
+    url = Column(VARCHAR(256), unique=True)
+    type = Column(VARCHAR(45))
+    lat = Column(DECIMAL(8, 6))
+    lng = Column(DECIMAL(9, 6))
     create_time = Column(
-        DATETIME(), nullable=False,
-        server_default=text('CURRENT_TIMESTAMP')
-    )
+        DateTime(), nullable=False, server_default=text('CURRENT_TIMESTAMP'))
     update_time = Column(
-        DATETIME(), nullable=False,
-        server_default=text('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP')
-    )
+        DateTime(), nullable=False, server_default=text('CURRENT_TIMESTAMP'))
 
     # Relationships
     institution = relationship('Institution', back_populates='departments')
@@ -208,3 +202,23 @@ class Department(Base):
                     continue
 
         return self._funds
+
+
+# update_time_trigger = DDL(
+#     '''
+#     CREATE OR REPLACE FUNCTION set_update_time()
+#     RETURNS TRIGGER AS $$
+#     BEGIN
+#         NEW.update_time = now();
+#         RETURN NEW;
+#     END;
+#     $$ language 'plpgsql';
+
+#     CREATE TRIGGER department_update_time
+#         BEFORE UPDATE ON department
+#         FOR EACH ROW
+#         EXECUTE PROCEDURE  set_update_time();
+#     '''
+# )
+
+# event.listen(Department.__table__, 'after_create', update_time_trigger)

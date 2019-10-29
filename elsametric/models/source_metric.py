@@ -1,6 +1,6 @@
-from sqlalchemy import Column, ForeignKey, UniqueConstraint
+from sqlalchemy import CheckConstraint, Column, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.mysql import DECIMAL, INTEGER, VARCHAR, YEAR
+from sqlalchemy.types import DECIMAL, INTEGER, VARCHAR
 
 from .base import Base
 
@@ -8,23 +8,17 @@ from .base import Base
 class Source_Metric(Base):
     __tablename__ = 'source_metric'
     __table_args__ = (
+        # CheckConstraint('id >= 0', name='source_metric_id_unsigned'),
+        CheckConstraint('year >= 1970 AND year <= 2069', name='year_range'),
         UniqueConstraint(
-            'source_id', 'type', 'year',
-            name='uq_sourcemetric_sourceid_type_year'
-        ),
+            'source_id', 'type', 'year', name='uq_sourceid_type_year'),
     )
 
-    id = Column(
-        INTEGER(unsigned=True),
-        primary_key=True, autoincrement=True, nullable=False
-    )
-    source_id = Column(
-        INTEGER(unsigned=True),
-        ForeignKey('source.id'), primary_key=True, nullable=False
-    )
+    id = Column(INTEGER, primary_key=True, autoincrement=True)
+    source_id = Column(INTEGER, ForeignKey('source.id'), primary_key=True)
     type = Column(VARCHAR(45), nullable=False)
     value = Column(DECIMAL(13, 3), nullable=False)
-    year = Column(YEAR(4), nullable=False)
+    year = Column(INTEGER, nullable=False)
 
     # Relationships
     source = relationship('Source', back_populates='metrics')
