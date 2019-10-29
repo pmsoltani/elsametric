@@ -1,21 +1,21 @@
-from sqlalchemy import Column, ForeignKey
+from sqlalchemy import CheckConstraint, Column, ForeignKey
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.mysql import BIGINT, INTEGER, VARCHAR
+from sqlalchemy.types import BIGINT, INTEGER, SMALLINT, VARCHAR
 
-from .base import Base
+from .base import Base, DIALECT
 
 
 class Author_Profile(Base):
     __tablename__ = 'author_profile'
+    __table_args__ = (
+        CheckConstraint(
+            'id >= 0',
+            name='author_profile_id_unsigned'
+        ) if DIALECT == "postgresql" else None,
+    )
 
-    id = Column(
-        BIGINT(unsigned=True),
-        primary_key=True, autoincrement=True, nullable=False
-    )
-    author_id = Column(
-        INTEGER(unsigned=True),
-        ForeignKey('author.id'), primary_key=True, nullable=False
-    )
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    author_id = Column(INTEGER, ForeignKey('author.id'), primary_key=True)
     address = Column(VARCHAR(256), nullable=False, unique=True)
     type = Column(VARCHAR(45), nullable=False)
 
