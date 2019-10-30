@@ -184,35 +184,37 @@ def paper_process(db: Session, data: dict, retrieval_time: str) -> Paper:
             paper_url = link['@href']
             break
 
-    # An upstream function already confirmed that the paper does have a
-    # Scopus ID, otherwise we couldn't go on.
+    # The upstream function, 'file_process' already confirmed that the paper
+    # does have a Scopus ID, otherwise we couldn't go on.
     # Scopus ID format: 'SCOPUS_ID:123456789'. We need what's after colon.
     paper_id_scp = int(data['dc:identifier'].split(':')[1])
-    paper = db.query(Paper) \
+    paper: Optional[Paper] = db.query(Paper) \
         .filter(Paper.id_scp == paper_id_scp) \
         .first()
-    if not paper:  # paper not found in the database
+    if not paper:  # Paper not found in the database.
         # There have been cases were the same paper where repeated in
         # the Scopus database twice, with different Scopus IDs. In order
         # to make sure that the paper doesn't exist in our database, we
-        # can double check with DOI
+        # can double check with DOI:
         doi = get_key(data, 'prism:doi')
         if doi:
             paper = db.query(Paper) \
                 .filter(Paper.doi == doi) \
                 .first()
-    if not paper:
-        # The default argument for the 'get_key' function is because of the
-        # database's 'not null' constraint on that column(s).
+    if not paper:  # Paper not in database, let's create one.
+        # The 'default' argument for the 'get_key' function is because of the
+        # database's 'not null' constraint on certain columns.
         paper = Paper(
             id_scp=paper_id_scp,
             eid=get_key(data, 'eid', default=f'2-s2.0-{paper_id_scp}'),
             title=strip(
                 get_key(data, 'dc:title', default='NOT AVAILABLE'),
-                accepted_chars='', max_len=512
-            ),  # yeah... some paper titles are even longer than 512 chars!
+                accepted_chars='',
+                max_len=512
+            ),  # Yeah... some paper titles are even longer than 512 chars!
             type=get_key(data, 'subtype', default='na'),
-            type_description=get_key(data, 'subtypeDescription'),
+            type_description=get_key(
+                data, 'subtypeDescription', default='NOT AVAILABLE'),
             abstract=get_key(data, 'dc:description'),
             total_author=get_key(data, 'author-count'),
             open_access=int(get_key(data, 'openaccess', default=0)),
@@ -222,7 +224,8 @@ def paper_process(db: Session, data: dict, retrieval_time: str) -> Paper:
             doi=get_key(data, 'prism:doi'),
             volume=strip(
                 get_key(data, 'prism:volume'),
-                accepted_chars='', max_len=45
+                accepted_chars='',
+                max_len=45
             ),
             issue=get_key(data, 'prism:issueIdentifier'),
             date=get_key(data, 'prism:coverDate'),
@@ -230,25 +233,33 @@ def paper_process(db: Session, data: dict, retrieval_time: str) -> Paper:
             retrieval_time=retrieval_time,
         )
 
-    if not paper.source:
+    # Checking for additional data:
+    try:
+        assert paper.source
+    except (AssertionError, AttributeError):
         paper.source = source_process(db, data)
 
-    if not paper.fund:
+    try:
+        assert paper.fund
+    except (AssertionError, AttributeError):
         paper.fund = fund_process(db, data)
 
-    # NOTE: this is an 'all-or-nothing' check, which could cause problems
-    if not paper.keywords:
+    try:
+        assert paper.keywords
+    except (AssertionError, AttributeError):
         paper.keywords = keyword_process(db, data)
 
-    # NOTE: this is an 'all-or-nothing' check, which could cause problems
-    if not paper.authors:
+    try:
+        assert paper.authors
+        assert len(paper.authors) == paper.total_author
+    except (AssertionError, AttributeError):
+        paper.authors = []
         authors_list = author_process(db, data)
-        if authors_list:
-            for auth in authors_list:
-                # using the SQLAlchemy's Association Object
-                paper_author = Paper_Author(author_no=auth[0])
-                paper_author.author = auth[1]
-                paper.authors.append(paper_author)
+        for author in authors_list:
+            # Using the SQLAlchemy's Association Object to add paper's authors.
+            paper_author = Paper_Author(author_no=author[0])
+            paper_author.author = author[1]
+            paper.authors.append(paper_author)
 
     return paper
 
