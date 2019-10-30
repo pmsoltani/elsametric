@@ -1,3 +1,9 @@
+import io
+import csv
+from pathlib import Path
+from typing import Iterator
+
+
 def country_names(name: str) -> str:
     """Changes the name of some countries to pre-defined values
 
@@ -98,7 +104,29 @@ def data_inspector(data: dict) -> list:
     return issues
 
 
-def key_get(data: dict, key: str, many: bool = False, default=None):
+def get_row(file_path: Path, encoding: str = 'utf-8-sig',
+            delimiter: str = ',') -> Iterator[dict]:
+    """Yields a row from a .csv file
+
+    This simple function is used to yield a .csv file in 'file_path',
+    row-by-row, so as not to consume too much memory.
+
+    Parameters:
+        file_path (Path): the path to the .csv file
+        encoding (str): encoding to be used when reading the .csv file
+        delimiter (str): the delimiter used in the .csv file
+
+    Yields:
+        row: a row of the .csv file as a dictionary
+    """
+
+    with io.open(file_path, 'r', encoding=encoding) as csv_file:
+        reader = csv.DictReader(csv_file, delimiter=delimiter)
+        for row in reader:
+            yield row
+
+
+def get_key(data: dict, key: str, many: bool = False, default=None):
     """Retrieves the value of a certain key inside a dictionary
 
     The function is designed to traverse a dictionary and retrieve the

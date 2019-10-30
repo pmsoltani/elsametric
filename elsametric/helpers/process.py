@@ -3,16 +3,18 @@ import csv
 import json
 import datetime
 from pathlib import Path
-from typing import Iterator, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
-from .helpers import country_names
-from .helpers import data_inspector
-from .helpers import key_get
-from .helpers import nullify
-from .helpers import strip
-
+from .helpers import (
+    country_names,
+    data_inspector,
+    get_key,
+    get_row,
+    nullify,
+    strip
+)
 from ..models.associations import Paper_Author
 from ..models.author import Author
 from ..models.author_profile import Author_Profile
@@ -25,28 +27,6 @@ from ..models.paper import Paper
 from ..models.source import Source
 from ..models.source_metric import Source_Metric
 from ..models.subject import Subject
-
-
-def get_row(file_path: Path, encoding: str = 'utf-8-sig',
-            delimiter: str = ',') -> Iterator[dict]:
-    """Yields a row from a .csv file
-
-    This simple function is used to yield a .csv file in 'file_path',
-    row-by-row, so as not to consume too much memory.
-
-    Parameters:
-        file_path (Path): the path to the .csv file
-        encoding (str): encoding to be used when reading the .csv file
-        delimiter (str): the delimiter used in the .csv file
-
-    Yields:
-        row: a row of the .csv file as a dictionary
-    """
-
-    with io.open(file_path, 'r', encoding=encoding) as csv_file:
-        reader = csv.DictReader(csv_file, delimiter=delimiter)
-        for row in reader:
-            yield row
 
 
 def file_process(db: Session, file_path: Path, retrieval_time: str,
@@ -209,37 +189,37 @@ def paper_process(db: Session, data: dict, retrieval_time: str) -> Paper:
         # the Scopus database twice, with different Scopus IDs. In order
         # to make sure that the paper doesn't exist in our database, we
         # can double check with DOI
-        doi = key_get(data, 'prism:doi')
+        doi = get_key(data, 'prism:doi')
         if doi:
             paper = db.query(Paper) \
                 .filter(Paper.doi == doi) \
                 .first()
     if not paper:
-        # The default argument for the 'key_get' function is because of the
+        # The default argument for the 'get_key' function is because of the
         # database's 'not null' constraint on that column(s).
         paper = Paper(
             id_scp=paper_id_scp,
-            eid=key_get(data, 'eid', default=f'2-s2.0-{paper_id_scp}'),
+            eid=get_key(data, 'eid', default=f'2-s2.0-{paper_id_scp}'),
             title=strip(
-                key_get(data, 'dc:title', default='NOT AVAILABLE'),
+                get_key(data, 'dc:title', default='NOT AVAILABLE'),
                 accepted_chars='', max_len=512
             ),  # yeah... some paper titles are even longer than 512 chars!
-            type=key_get(data, 'subtype', default='na'),
-            type_description=key_get(data, 'subtypeDescription'),
-            abstract=key_get(data, 'dc:description'),
-            total_author=key_get(data, 'author-count'),
-            open_access=int(key_get(data, 'openaccess', default=0)),
-            cited_cnt=key_get(data, 'citedby-count'),
+            type=get_key(data, 'subtype', default='na'),
+            type_description=get_key(data, 'subtypeDescription'),
+            abstract=get_key(data, 'dc:description'),
+            total_author=get_key(data, 'author-count'),
+            open_access=int(get_key(data, 'openaccess', default=0)),
+            cited_cnt=get_key(data, 'citedby-count'),
             url=paper_url,
-            article_no=key_get(data, 'article-number'),
-            doi=key_get(data, 'prism:doi'),
+            article_no=get_key(data, 'article-number'),
+            doi=get_key(data, 'prism:doi'),
             volume=strip(
-                key_get(data, 'prism:volume'),
+                get_key(data, 'prism:volume'),
                 accepted_chars='', max_len=45
             ),
-            issue=key_get(data, 'prism:issueIdentifier'),
-            date=key_get(data, 'prism:coverDate'),
-            page_range=key_get(data, 'prism:pageRange'),
+            issue=get_key(data, 'prism:issueIdentifier'),
+            date=get_key(data, 'prism:coverDate'),
+            page_range=get_key(data, 'prism:pageRange'),
             retrieval_time=retrieval_time,
         )
 
@@ -290,7 +270,7 @@ def keyword_process(db: Session,
     """
 
     keywords_list = []
-    raw_keywords = key_get(data, 'authkeywords')
+    raw_keywords = get_key(data, 'authkeywords')
     if raw_keywords:
         # Some papers have the same keywords repeated more than once,
         # which can cause problem, since the database has a unique constraint.
@@ -333,7 +313,7 @@ def source_process(db: Session, data: dict) -> Optional[Source]:
     """
 
     source = None
-    source_id_scp = key_get(data, 'source-id')
+    source_id_scp = get_key(data, 'source-id')
     if not source_id_scp:  # data doesn't have Scopus Source ID: can't go on
         return source
 
@@ -342,17 +322,17 @@ def source_process(db: Session, data: dict) -> Optional[Source]:
         .filter(Source.id_scp == source_id_scp) \
         .first()
     if not source:  # source not in database, let's create one
-        # The default argument for the 'key_get' function is because of the
+        # The default argument for the 'get_key' function is because of the
         # database's 'not null' constraint on that column(s).
         # Strip issn, e_issn, and isbn from any non-alphanumeric chars.
         source = Source(
             id_scp=source_id_scp,
-            title=key_get(
+            title=get_key(
                 data, 'prism:publicationName', default='NOT AVAILABLE'),
-            type=key_get(data, 'prism:aggregationType'),
-            issn=strip(key_get(data, 'prism:issn'), max_len=8),
-            e_issn=strip(key_get(data, 'prism:eIssn'), max_len=8),
-            isbn=strip(key_get(data, 'prism:isbn'), max_len=13),
+            type=get_key(data, 'prism:aggregationType'),
+            issn=strip(get_key(data, 'prism:issn'), max_len=8),
+            e_issn=strip(get_key(data, 'prism:eIssn'), max_len=8),
+            isbn=strip(get_key(data, 'prism:isbn'), max_len=13),
         )
     return source
 
@@ -382,16 +362,16 @@ def fund_process(db: Session, data: dict) -> Optional[Fund]:
         Fund: a 'Fund' object to be added to a 'Paper' object
     """
 
-    fund_id_scp = key_get(data, 'fund-no')
+    fund_id_scp = get_key(data, 'fund-no')
     if fund_id_scp == 'undefined':
         fund_id_scp = None
-    agency = key_get(data, 'fund-sponsor')
+    agency = get_key(data, 'fund-sponsor')
 
     fund = None
     if (not fund_id_scp) and (not agency):
         return fund
 
-    agency_acronym = key_get(data, 'fund-acr')
+    agency_acronym = get_key(data, 'fund-acr')
 
     if fund_id_scp and agency:
         fund = db.query(Fund) \
@@ -463,7 +443,7 @@ def author_process(db: Session, data: dict) -> List[list]:
     author_url = 'https://www.scopus.com/authid/detail.uri?authorId='
 
     for auth in data['author']:
-        author_id_scp = key_get(auth, 'authid')
+        author_id_scp = get_key(auth, 'authid')
         if not author_id_scp:  # Scopus Author ID not found: go to next author
             continue
         author_id_scp = int(author_id_scp)
@@ -485,9 +465,9 @@ def author_process(db: Session, data: dict) -> List[list]:
         if not author:  # author not in database, let's create one
             author = Author(
                 id_scp=author_id_scp,
-                first=key_get(auth, 'given-name'),
-                last=key_get(auth, 'surname'),
-                initials=key_get(auth, 'initials')
+                first=get_key(auth, 'given-name'),
+                last=get_key(auth, 'surname'),
+                initials=get_key(auth, 'initials')
             )
             # add the first profile for this author
             author_profile = Author_Profile(
@@ -497,7 +477,7 @@ def author_process(db: Session, data: dict) -> List[list]:
             author.profiles.append(author_profile)
 
         # get a list of all institution ids for the author in the paper
-        inst_ids = key_get(auth, 'afid', many=True)
+        inst_ids = get_key(auth, 'afid', many=True)
         if inst_ids:
             for inst_id in inst_ids:
                 # Since all of the institutions mentioned in a paper are
@@ -589,16 +569,16 @@ def institution_process(
                 # so they should have only an 'Undefined' department.
                 department = institution.departments[0]
             else:  # institution not in 'new_institutions' list, creating one
-                # The default argument for the 'key_get' function is because
+                # The default argument for the 'get_key' function is because
                 # of the database's 'not null' constraint on that column(s).
                 institution = Institution(
                     id_scp=institution_id_scp,
-                    name=key_get(affil, 'affilname',
+                    name=get_key(affil, 'affilname',
                                  default='NOT AVAILABLE'),
-                    city=key_get(affil, 'affiliation-city'),
+                    city=get_key(affil, 'affiliation-city'),
                 )
                 country_name = country_names(
-                    key_get(affil, 'affiliation-country'))
+                    get_key(affil, 'affiliation-country'))
                 if country_name:
                     country = db.query(Country) \
                         .filter(Country.name == country_name) \
@@ -843,13 +823,13 @@ def ext_source_metric_process(db: Session, file_path: Path, file_year: int,
             .filter(Source.id_scp == source_id_scp) \
             .first()
         if not source:  # source not in database, let's create it
-            publisher = key_get(row, 'publisher')
+            publisher = get_key(row, 'publisher')
             source = Source(
                 id_scp=source_id_scp,
-                title=key_get(row, 'title', default='NOT AVAILABLE'),
-                type=key_get(row, 'type'),
-                issn=strip(key_get(row, 'issn'), max_len=8),
-                e_issn=strip(key_get(row, 'e_issn'), max_len=8),
+                title=get_key(row, 'title', default='NOT AVAILABLE'),
+                type=get_key(row, 'type'),
+                issn=strip(get_key(row, 'issn'), max_len=8),
+                e_issn=strip(get_key(row, 'e_issn'), max_len=8),
                 publisher=publisher
             )
 
@@ -864,7 +844,7 @@ def ext_source_metric_process(db: Session, file_path: Path, file_year: int,
                     source.country = query.country
 
         if not source.publisher:
-            source.publisher = key_get(row, 'publisher')
+            source.publisher = get_key(row, 'publisher')
 
         if row['asjc']:
             asjc = int(row['asjc'])
@@ -953,10 +933,10 @@ def ext_scimago_process(
         if not source:
             source = Source(
                 id_scp=source_id_scp,
-                title=key_get(row, 'Title', default='NOT AVAILABLE'),
-                type=key_get(row, 'Type'),
+                title=get_key(row, 'Title', default='NOT AVAILABLE'),
+                type=get_key(row, 'Type'),
                 issn=None, e_issn=None, isbn=None,
-                publisher=key_get(row, 'Publisher'),
+                publisher=get_key(row, 'Publisher'),
             )
 
             # some minor modifications to keep the database clean
@@ -968,7 +948,7 @@ def ext_scimago_process(
         # doing some repairs to sources already in the database, like
         # add missing publisher and country data
         if not source.publisher:
-            source.publisher = key_get(row, 'Publisher')
+            source.publisher = get_key(row, 'Publisher')
 
         if not source.country:
             country_name = country_names(row['Country'])
@@ -1108,24 +1088,24 @@ def ext_faculty_process(
             continue
 
         # adding faculty details
-        faculty.id_gsc = key_get(row, 'Google Scholar ID')
-        faculty.id_institution = key_get(row, 'Institution ID')
-        faculty.first_pref = key_get(row, 'First En') or \
+        faculty.id_gsc = get_key(row, 'Google Scholar ID')
+        faculty.id_institution = get_key(row, 'Institution ID')
+        faculty.first_pref = get_key(row, 'First En') or \
             faculty.first_pref
-        faculty.middle_pref = key_get(row, 'Middle En') or \
+        faculty.middle_pref = get_key(row, 'Middle En') or \
             faculty.middle_pref
-        faculty.last_pref = key_get(row, 'Last En') or faculty.last_pref
-        faculty.initials_pref = key_get(row, 'Initials En') or \
+        faculty.last_pref = get_key(row, 'Last En') or faculty.last_pref
+        faculty.initials_pref = get_key(row, 'Initials En') or \
             faculty.initials_pref
-        faculty.first_fa = key_get(row, 'First Fa')
-        faculty.last_fa = key_get(row, 'Last Fa')
-        sex = key_get(row, 'Sex')
+        faculty.first_fa = get_key(row, 'First Fa')
+        faculty.last_fa = get_key(row, 'Last Fa')
+        sex = get_key(row, 'Sex')
         if sex in ['M', 'F']:
             faculty.sex = sex.lower()
         faculty.type = 'Faculty'
-        faculty.rank = key_get(row, 'Rank')
+        faculty.rank = get_key(row, 'Rank')
 
-        retrieval_time_gsc = key_get(
+        retrieval_time_gsc = get_key(
             row, 'Google Scholar Retrieval Time')
 
         if retrieval_time_gsc:
@@ -1134,8 +1114,8 @@ def ext_faculty_process(
                 int(retrieval_time_gsc))
 
             faculty.retrieval_time_gsc = retrieval_time_gsc
-            faculty.h_index_gsc = key_get(row, 'Google Scholar h-index')
-            faculty.i10_index_gsc = key_get(
+            faculty.h_index_gsc = get_key(row, 'Google Scholar h-index')
+            faculty.i10_index_gsc = get_key(
                 row, 'Google Scholar i10-index')
 
         # adding faculty profiles
