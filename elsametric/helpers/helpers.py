@@ -16,9 +16,10 @@ def country_names(name: str) -> str:
         'Zweden': 'Sweden',
         'Czech Republic': 'Czechia',
     }
-    if name in countries:
+    try:
         return countries[name]
-    return name
+    except KeyError:
+        return name
 
 
 def data_inspector(data: dict) -> list:
