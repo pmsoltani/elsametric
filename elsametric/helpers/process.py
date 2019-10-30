@@ -82,49 +82,56 @@ def file_process(db: Session, file_path: Path, retrieval_time: str,
 
     with io.open(file_path, 'r', encoding=encoding) as raw_file:
         data = json.load(raw_file)
-        data = data['search-results']['entry']
 
-        for cnt, entry in enumerate(data):
-            issues = data_inspector(entry)
-            if issues:
-                bad_papers.append(
-                    {'#': cnt, 'issues': [issue for issue in issues]})
+    data = data['search-results']['entry']
+    for cnt, entry in enumerate(data):
+        issues = data_inspector(entry)
+        if issues:
+            # Before doing anything, submit the issues to be logged.
+            bad_papers.append({'#': cnt, 'issues': [*issues]})
 
-                if 'dc:identifier' in issues:
-                    # Paper has no Scopus ID, this is a serious problem!
-                    # The only way around it is to use 'eid' (if available):
-                    # eid = 2-s2.0-{Scopus ID}
-                    if 'eid' in issues:  # 'eid' also not found: can't go on
-                        continue
-
-                    # replace '2-s2.0-' with 'SCOPUS_ID:' to form Scopus ID
-                    entry['dc:identifier'] = entry['eid'] \
-                        .replace('2-s2.0-', 'SCOPUS_ID:')
-                    issues.remove('dc:identifier')  # issue dealt with
-
-                bad_papers[-1]['id_scp'] = entry['dc:identifier']
-
-                for minor_issue in minor_issues:
-                    # minor issues won't cause any problem for program's flow
-                    if minor_issue in issues:
-                        issues.remove(minor_issue)
-
-                if issues:  # any remaining issues are major: can't go on
+            if 'dc:identifier' in issues:
+                # Paper has no Scopus ID, this is a serious problem!
+                # The only way around it is to use 'eid' (if available):
+                # eid = 2-s2.0-{Scopus ID}
+                if 'eid' in issues:  # 'eid' also not found: can't go on
                     continue
 
-            # At this point, we have no issues. Meaning that either there were
-            # no issues to begin with, or the program can deal with them.
-            try:
-                papers_list.append(
-                    paper_process(db, entry, retrieval_time))
+                try:
+                    # possible AttributeError, ValueError
+                    paper_id_scp = int(entry['eid'].replace('2-s2.0-', ''))
 
-            except Exception as err:  # uh oh
-                problems = {
-                    'file': file_path,
-                    '#': cnt, 'id_scp': entry['dc:identifier'],
-                    'error_type': type(err), 'error_msg': err,
-                }
-                return (problems, [])  # no need to return the 'papers_list'
+                    # Form the 'dc:identifier' key from paper_id_scp
+                    entry['dc:identifier'] = f'SCOPUS_ID:{paper_id_scp}'
+                    issues.remove('dc:identifier')  # Issue dealt with.
+                except (AttributeError, ValueError):
+                    # Could not create 'dc:identifier' from 'eid'
+                    continue
+
+            bad_papers[-1]['id_scp'] = entry['dc:identifier']
+
+            # Minor issues won't cause any problem for program's flow. Let's
+            # filter them out.
+            issues = [i for i in issues if i not in minor_issues]
+            if issues:  # Any remaining issues are major: can't go on.
+                continue
+
+        # At this point, we have no major issues. The program should be able to
+        # process the data. If any exceptions occured, we'll catch them below:
+        try:
+            papers_list.append(paper_process(db, entry, retrieval_time))
+        except Exception as e:
+            # Since 'paper_process' uses functions of its own, the type of
+            # the exception cannot be easily determined.
+            try:
+                # possible IndexError
+                assert bad_papers[-1]['id_scp'] == entry['dc:identifier']
+            except (IndexError, AssertionError):  # This is the first bad_paper
+                bad_papers.append(
+                    {'#': cnt, 'id_scp': entry['dc:identifier']})
+            finally:
+                bad_papers[-1] = {
+                    **bad_papers[-1], 'error_type': type(e), 'error_msg': e}
 
     problems = {}
     if bad_papers:
