@@ -288,29 +288,34 @@ def keyword_process(db: Session,
     """
 
     keywords_list = []
-    raw_keywords = get_key(data, 'authkeywords')
+    raw_keywords: str = get_key(data, 'authkeywords')
     if raw_keywords:
-        # Some papers have the same keywords repeated more than once,
-        # which can cause problem, since the database has a unique constraint.
-        unique_keys_set = set()
+        # Some papers have repeated keywords, which can cause a problem, since
+        # the database has a unique constraint on the 'keyword' column.
+        unique_keys_set = set()  # just a check variable
         keywords = []
-        for key in raw_keywords.split(separator):
-            key = key.strip()
-            if not key:
+        for raw_keyword in raw_keywords.split(separator):
+            try:
+                raw_keyword = raw_keyword.strip()
+                assert raw_keyword
+                assert raw_keyword.lower() not in unique_keys_set
+                unique_keys_set.add(raw_keyword.lower())
+                keywords.append(raw_keyword)
+            except AssertionError:  # Key is repeated in the paper.
                 continue
 
-            if key.lower() not in unique_keys_set:
-                unique_keys_set.add(key.lower())
-                keywords.append(key)
-
-        # at this point, all keywords are stripped and unique within the paper
-        for key in keywords:
-            keyword = db.query(Keyword) \
-                .filter(Keyword.keyword == key) \
+        # At this point, all keywords are stripped and unique within the paper.
+        for raw_keyword in keywords:
+            keyword: Optional[Keyword] = db.query(Keyword) \
+                .filter(Keyword.keyword == raw_keyword) \
                 .first()
-            if not keyword:  # keyword not in database, let's add it
-                keyword = Keyword(keyword=key)
-            keywords_list.append(keyword)
+            try:
+                assert keyword
+            except AssertionError:  # Keyword not in database, let's add it.
+                keyword = Keyword(keyword=raw_keyword)
+            finally:
+                keywords_list.append(keyword)
+
     return keywords_list
 
 
