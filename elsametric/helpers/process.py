@@ -266,12 +266,23 @@ def paper_process(db: Session, data: dict, retrieval_time: str) -> Paper:
         paper.keywords = keyword_process(db, data)
 
     try:
-        assert paper.authors
-        assert len(paper.authors) == paper.total_author
-    except (AssertionError, AttributeError):
-        paper.authors = []
+        assert len(paper.authors) == paper.total_author, 'len'
+    except (AssertionError, AttributeError, TypeError) as e:
+        try:
+            all_authors = [
+                paper_author.author for paper_author in paper.authors]
+            all_author_id_scps = [author.id_scp for author in all_authors]
+        except Exception as e:
+            print('@paper_process', type(e), e)
+            all_author_id_scps = []
+
         authors_list = author_process(db, data)
+        if len(authors_list) != paper.total_author:
+            paper.total_author = len(authors_list)
+
         for author in authors_list:
+            if author[1].id_scp in all_author_id_scps:
+                continue
             # Using the SQLAlchemy's Association Object to add paper's authors.
             paper_author = Paper_Author(author_no=author[0])
             paper_author.author = author[1]
@@ -462,64 +473,64 @@ def author_process(db: Session, data: dict) -> List[list]:
     """
 
     authors_list = []
-    if not data['author']:  # data doesn't have any author info: can't go on
+    if not data['author']:  # Data doesn't have any author info: can't go on.
         return authors_list
 
     author_ids = []
-    new_institutions = []
+    new_institutions = set()
     author_url = 'https://www.scopus.com/authid/detail.uri?authorId='
 
     for auth in data['author']:
-        author_id_scp = get_key(auth, 'authid')
-        if not author_id_scp:  # Scopus Author ID not found: go to next author
+        try:
+            author_id_scp = int(get_key(auth, 'authid'))
+        except TypeError:  # Scopus Author ID not found: go to next author.
             continue
-        author_id_scp = int(author_id_scp)
 
         # In some cases, the name of an author is repeated more than once
         # in the paper data dictionary. The 'author_ids' variable is used
         # to make a unique list of authors for each paper. Note that this
-        # would cause the 'total_author' attribute of the paper to be wrong.
+        # might cause the 'total_author' attribute of the paper to be wrong.
 
-        # TODO: think of a way of correcting the Paper.total_author attribute
         if author_id_scp in author_ids:
             continue
         author_ids.append(author_id_scp)
 
-        author_no = int(auth['@seq'])  # position of author in the paper
-        author = db.query(Author) \
+        try:
+            author_no = int(auth['@seq'])  # Position of author in the paper
+        except TypeError:  # The 'author_no' column cannot have null values.
+            author_no = 0
+
+        author: Optional[Author] = db.query(Author) \
             .filter(Author.id_scp == author_id_scp) \
             .first()
-        if not author:  # author not in database, let's create one
+        if not author:  # 'author' not in database, let's create one.
             author = Author(
                 id_scp=author_id_scp,
                 first=get_key(auth, 'given-name'),
                 last=get_key(auth, 'surname'),
                 initials=get_key(auth, 'initials')
             )
-            # add the first profile for this author
+            # Add the first profile for this author.
             author_profile = Author_Profile(
                 address=author_url + str(author_id_scp),
                 type='Scopus Profile',
             )
             author.profiles.append(author_profile)
 
-        # get a list of all institution ids for the author in the paper
+        # Get a list of all Institution IDs for the author in the paper
         inst_ids = get_key(auth, 'afid', many=True)
-        if inst_ids:
-            for inst_id in inst_ids:
-                # Since all of the institutions mentioned in a paper are
-                # added to the database together, we must have a list of
-                # to-be-added institutions so that we don't try to add
-                # the same institution to the database twice. The variable
-                # 'new_institutions' is used to acheive this.
-                (institution, department) = institution_process(
-                    db, data, int(inst_id), new_institutions)
+        for inst_id in inst_ids:
+            # Since all institutions mentioned in a paper are added to the DB
+            # together, we must have a list of to-be-added institutions so that
+            # we don't try to add the same institution to the database twice.
+            # The set 'new_institutions' is used to acheive this.
+            institution, department = institution_process(
+                db, data, int(inst_id), new_institutions)
 
-                if department:
-                    author.departments.append(department)
-                if institution:
-                    if institution not in new_institutions:
-                        new_institutions.append(institution)
+            if department:
+                author.departments.append(department)
+            if institution:
+                new_institutions.add(institution)
 
         authors_list.append([author_no, author])
     return authors_list
@@ -527,7 +538,7 @@ def author_process(db: Session, data: dict) -> List[list]:
 
 def institution_process(
         db: Session, data: dict, inst_id: int,
-        new_institutions: list) -> Tuple[
+        new_institutions: set) -> Tuple[
             Optional[Institution], Optional[Department]]:
     """Returns a tuple of (Institution, Department) objects
 
@@ -537,7 +548,7 @@ def institution_process(
 
     The function loops through the affiliation data of the paper and if
     it finds a matching Scopus ID, it will try to find the institution
-    in (1) the database, (2) the new_institutions list, or (3) create
+    in (1) the database, (2) the 'new_institutions' set, or (3) create
     it.
 
     For new institutions, the function creates and appends a Department
@@ -564,44 +575,47 @@ def institution_process(
 
     institution = None
     department = None
-    if not data['affiliation']:  # no institution info available: can't go on
+    if not data['affiliation']:  # No institution info available: can't go on.
         return institution, department
 
-    # from the list of all institutions in a paper, select the one relating to
+    # From the list of all institutions in a paper, select the one relating to
     # the current author (using Affiliation ID)
     for affil in data['affiliation']:
-        institution_id_scp = int(affil['afid'])
-        if inst_id != institution_id_scp:
+        try:
+            # possible TypeError
+            institution_id_scp = int(get_key(affil, 'afid'))
+            if inst_id != institution_id_scp:
+                raise ValueError
+        except (TypeError, ValueError):
             continue
 
-        institution = db.query(Institution) \
+        institution: Optional[Institution] = db.query(Institution) \
             .filter(Institution.id_scp == institution_id_scp) \
             .first()
-        if institution:  # institution found in database
+        if institution:  # 'institution' found in database.
             # It should already have an 'Undefined' department.
             department = db.query(Department) \
                 .with_parent(institution, Institution.departments) \
                 .filter(Department.name == 'Undefined') \
                 .first()
-        else:  # institution not in database
-            # Before creating a new institution, search for it in the
-            # 'new_institutions' list, which contain institutions that are
-            # going to be added to the database (but not added yet).
+        else:  # 'institution' not in database.
+            # Before creating a new institution, search for it in the set of
+            # 'new_institutions', which contains institutions that are going
+            # to be added to the database (but not added yet).
             institution = next(
                 filter(lambda inst: inst.id_scp == inst_id, new_institutions),
                 None
             )
-            if institution:  # institution found in 'new_institutions' list
-                # Institutions in 'new_institutions' list are just created,
+            if institution:  # 'institution' found in 'new_institutions' set
+                # Institutions in 'new_institutions' set are just created,
                 # so they should have only an 'Undefined' department.
                 department = institution.departments[0]
-            else:  # institution not in 'new_institutions' list, creating one
-                # The default argument for the 'get_key' function is because
-                # of the database's 'not null' constraint on that column(s).
+            else:  # 'institution' not in 'new_institutions' set: create it.
+                # The 'default' argument for the 'get_key' function is
+                # because of DB's 'not null' constraint on certain columns.
                 institution = Institution(
                     id_scp=institution_id_scp,
-                    name=get_key(affil, 'affilname',
-                                 default='NOT AVAILABLE'),
+                    name=get_key(affil, 'affilname', default='NOT AVAILABLE'),
                     city=get_key(affil, 'affiliation-city'),
                 )
                 country_name = country_names(
@@ -612,7 +626,7 @@ def institution_process(
                         .first()
                     institution.country = country  # either found or None
         if not department:
-            # Either an institution already in 'new_institutions' list or
+            # Either an institution already in 'new_institutions' set or
             # the database doesn't have an 'Undefined' department, or we are
             # yet to create an 'Undefined' department for a newly created
             # institution (which is more likely the case):
