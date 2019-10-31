@@ -188,6 +188,11 @@ def paper_process(db: Session, data: dict, retrieval_time: str) -> Paper:
     # does have a Scopus ID, otherwise we couldn't go on.
     # Scopus ID format: 'SCOPUS_ID:123456789'. We need what's after colon.
     paper_id_scp = int(data['dc:identifier'].split(':')[1])
+    paper_title = strip(
+        get_key(data, 'dc:title', default='NOT AVAILABLE'),
+        accepted_chars='',
+        max_len=512
+    )  # Yeah... some paper titles are even longer than 512 chars!
     paper: Optional[Paper] = db.query(Paper) \
         .filter(Paper.id_scp == paper_id_scp) \
         .first()
@@ -196,22 +201,33 @@ def paper_process(db: Session, data: dict, retrieval_time: str) -> Paper:
         # the Scopus database twice, with different Scopus IDs. In order
         # to make sure that the paper doesn't exist in our database, we
         # can double check with DOI:
-        doi = get_key(data, 'prism:doi')
-        if doi:
+        paper_doi = get_key(data, 'prism:doi')
+        if paper_doi:
             paper = db.query(Paper) \
-                .filter(Paper.doi == doi) \
+                .filter(Paper.doi == paper_doi) \
                 .first()
+            try:
+                # There is at least one case that two different papers in the
+                # Scopus database had the same DOI (but different Scopus IDs:
+                # 84887280754 & 84887287423, as of Oct. 31, 2019), which led
+                # the algorithm to come to this point).
+                assert paper.title == paper_title
+            except AssertionError:  # Different papers with the same DOI
+                # Since the current paper is not the same as the one in the
+                # database, we need to create it and so we have to set it to
+                # None first.
+                paper = None
+                paper_doi = None
+            except AttributeError:  # 'Paper' not found in db. Let's add one.
+                pass
+
     if not paper:  # Paper not in database, let's create one.
         # The 'default' argument for the 'get_key' function is because of the
         # database's 'not null' constraint on certain columns.
         paper = Paper(
             id_scp=paper_id_scp,
             eid=get_key(data, 'eid', default=f'2-s2.0-{paper_id_scp}'),
-            title=strip(
-                get_key(data, 'dc:title', default='NOT AVAILABLE'),
-                accepted_chars='',
-                max_len=512
-            ),  # Yeah... some paper titles are even longer than 512 chars!
+            title=paper_title,
             type=get_key(data, 'subtype', default='na'),
             type_description=get_key(
                 data, 'subtypeDescription', default='NOT AVAILABLE'),
@@ -221,7 +237,7 @@ def paper_process(db: Session, data: dict, retrieval_time: str) -> Paper:
             cited_cnt=get_key(data, 'citedby-count'),
             url=paper_url,
             article_no=get_key(data, 'article-number'),
-            doi=get_key(data, 'prism:doi'),
+            doi=paper_doi,
             volume=strip(
                 get_key(data, 'prism:volume'),
                 accepted_chars='',
