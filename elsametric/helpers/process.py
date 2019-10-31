@@ -336,12 +336,12 @@ def source_process(db: Session, data: dict) -> Optional[Source]:
     """
 
     source = None
-    source_id_scp = get_key(data, 'source-id')
-    if not source_id_scp:  # data doesn't have Scopus Source ID: can't go on
+    try:
+        source_id_scp = int(get_key(data, 'source-id'))  # possible TypeError
+    except TypeError:  # Data doesn't have Scopus Source ID: can't go on.
         return source
 
-    source_id_scp = int(source_id_scp)
-    source = db.query(Source) \
+    source:Optional[Source] = db.query(Source) \
         .filter(Source.id_scp == source_id_scp) \
         .first()
     if not source:  # source not in database, let's create one
