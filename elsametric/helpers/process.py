@@ -335,18 +335,20 @@ def source_process(db: Session, data: dict) -> Optional[Source]:
         Source: a 'Source' object to be added to a 'Paper' object
     """
 
-    source = None
+    source: Optional[Source] = None
     try:
         source_id_scp = int(get_key(data, 'source-id'))  # possible TypeError
     except TypeError:  # Data doesn't have Scopus Source ID: can't go on.
         return source
 
-    source:Optional[Source] = db.query(Source) \
+    source = db.query(Source) \
         .filter(Source.id_scp == source_id_scp) \
         .first()
-    if not source:  # source not in database, let's create one
-        # The default argument for the 'get_key' function is because of the
-        # database's 'not null' constraint on that column(s).
+    try:
+        assert source
+    except AssertionError:  # 'source' not in database, let's create one.
+        # The 'default' argument for the 'get_key' function is because of the
+        # database's 'not null' constraint on certain columns.
         # Strip issn, e_issn, and isbn from any non-alphanumeric chars.
         source = Source(
             id_scp=source_id_scp,
@@ -385,44 +387,30 @@ def fund_process(db: Session, data: dict) -> Optional[Fund]:
         Fund: a 'Fund' object to be added to a 'Paper' object
     """
 
+    fund: Optional[Fund] = None
+
     fund_id_scp = get_key(data, 'fund-no')
-    if fund_id_scp == 'undefined':
-        fund_id_scp = None
-    agency = get_key(data, 'fund-sponsor')
-
-    fund = None
-    if (not fund_id_scp) and (not agency):
-        return fund
-
+    agency = get_key(data, 'fund-sponsor', default='NOT AVAILABLE')
     agency_acronym = get_key(data, 'fund-acr')
+    if fund_id_scp == 'undefined':
+        fund_id_scp = 'NOT AVAILABLE'
+    # DBMSs' Unique Constraints accept rows with one column being null and the
+    # other have repeated values. So we must change None to 'NOT AVAILABLE'.
 
-    if fund_id_scp and agency:
+    try:
+        assert fund_id_scp != 'NOT AVAILABLE' or agency != 'NOT AVAILABLE'
         fund = db.query(Fund) \
             .filter(Fund.id_scp == fund_id_scp, Fund.agency == agency) \
             .first()
-    elif fund_id_scp:
-        fund = db.query(Fund) \
-            .filter(Fund.id_scp == fund_id_scp) \
-            .first()
-    elif agency:
-        fund = db.query(Fund) \
-            .filter(Fund.agency == agency) \
-            .first()
-    else:
-        pass
+    except AssertionError:
+        # Both fund_id_scp & agency are 'NOT AVAILABLE'. Can't go on.
+        return fund
 
-    if not fund:
-        # MySQL's Unique Constraints accept rows with one column being null
-        # and the other have repeated values. So we must change None to
-        # 'NOT AVAILABLE'. Note that only one of these would change.
-        if not fund_id_scp:
-            fund_id_scp = 'NOT AVAILABLE'
-        if not agency:
-            agency = 'NOT AVAILABLE'
+    try:
+        assert fund
+    except AssertionError:  # 'fund' not found in the database, let's add one.
         fund = Fund(
-            id_scp=fund_id_scp,
-            agency=agency, agency_acronym=agency_acronym
-        )
+            id_scp=fund_id_scp, agency=agency, agency_acronym=agency_acronym)
 
     return fund
 
