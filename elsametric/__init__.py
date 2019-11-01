@@ -15,7 +15,8 @@ config = config['database']
 TOKEN_BYTES = config['token_bytes']
 
 DIALECT = config['startup']['dialect']
-assert DIALECT in ('mysql', 'postgresql')
+if DIALECT not in ('mysql', 'postgresql'):
+    raise ValueError('Invalid configuration for "dialect"')
 
 DB_DRIVER = config['startup'][DIALECT]['driver']
 DB_USER = config['startup'][DIALECT]['user']
