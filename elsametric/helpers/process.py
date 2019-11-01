@@ -636,10 +636,10 @@ def ext_country_process(
     for row in rows:
         nullify(row)
         country_name = country_names(row['name']).strip()
-        country:Optional[Country] = db.query(Country) \
+        country: Optional[Country] = db.query(Country) \
             .filter(Country.name == country_name) \
             .first()
-        if not country:  # country not in database, let's create it
+        if not country:  # 'country' not in database, let's create it.
             country = Country(
                 name=country_name,
                 domain=row['domain'].strip(),
@@ -687,14 +687,16 @@ def ext_subject_process(
     rows = get_row(file_path, encoding)
     for row in rows:
         nullify(row)
-        asjc = row['asjc']
-        subject = db.query(Subject) \
+        asjc = row['asjc'].strip()
+        subject: Optional[Subject] = db.query(Subject) \
             .filter(Subject.asjc == asjc) \
             .first()
-        if not subject:  # subject not in database, let's create it
+        if not subject:  # 'subject' not in database, let's create it.
             subject = Subject(
                 asjc=asjc,
-                top=row['top'], middle=row['middle'], low=row['low']
+                top=row['top'].strip(),
+                middle=row['middle'].strip(),
+                low=row['low'].strip()
             )
             subjects_list.append(subject)
     return subjects_list
