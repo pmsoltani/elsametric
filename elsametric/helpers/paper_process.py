@@ -1,32 +1,27 @@
-import io
-import csv
-import json
-import datetime
-from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from .helpers import (
-    country_names,
-    data_inspector,
-    get_key,
-    get_row,
-    nullify,
-    strip
+from . import (
+    Author,
+    Author_Profile,
+    Country,
+    Department,
+    Fund,
+    Institution,
+    Keyword,
+    Paper,
+    Paper_Author,
+    Source,
+    Source_Metric,
+    Subject
 )
-from ..models.associations import Paper_Author
-from ..models.author import Author
-from ..models.author_profile import Author_Profile
-from ..models.country import Country
-from ..models.department import Department
-from ..models.fund import Fund
-from ..models.institution import Institution
-from ..models.keyword_ import Keyword
-from ..models.paper import Paper
-from ..models.source import Source
-from ..models.source_metric import Source_Metric
-from ..models.subject import Subject
+
+from .helpers import get_key, nullify, strip
+from .author_process import author_process
+from .fund_process import fund_process
+from .keyword_process import keyword_process
+from .source_process import source_process
 
 
 def paper_process(db: Session, data: dict, retrieval_time: str) -> Paper:
@@ -60,7 +55,6 @@ def paper_process(db: Session, data: dict, retrieval_time: str) -> Paper:
         Paper: a 'Paper' object to be added to the database
     """
 
-    print(data['dc:identifier'])
     nullify(data, null_types=(None, '', ' ', '-', '#N/A', 'undefined'))
 
     # There are several links included in the paper's JSON file, we only

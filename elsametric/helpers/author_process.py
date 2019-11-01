@@ -1,32 +1,24 @@
-import io
-import csv
-import json
-import datetime
-from pathlib import Path
 from typing import List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
-from .helpers import (
-    country_names,
-    data_inspector,
-    get_key,
-    get_row,
-    nullify,
-    strip
+from . import (
+    Author,
+    Author_Profile,
+    Country,
+    Department,
+    Fund,
+    Institution,
+    Keyword,
+    Paper,
+    Paper_Author,
+    Source,
+    Source_Metric,
+    Subject
 )
-from ..models.associations import Paper_Author
-from ..models.author import Author
-from ..models.author_profile import Author_Profile
-from ..models.country import Country
-from ..models.department import Department
-from ..models.fund import Fund
-from ..models.institution import Institution
-from ..models.keyword_ import Keyword
-from ..models.paper import Paper
-from ..models.source import Source
-from ..models.source_metric import Source_Metric
-from ..models.subject import Subject
+
+from .helpers import get_key
+from .institution_process import institution_process
 
 
 def author_process(db: Session, data: dict) -> List[Tuple[int, Author]]:
@@ -64,6 +56,7 @@ def author_process(db: Session, data: dict) -> List[Tuple[int, Author]]:
         return authors_list
 
     author_ids = []
+    new_institutions = set()
     author_base_url = 'https://www.scopus.com/authid/detail.uri?authorId='
 
     for auth in data['author']:
@@ -103,7 +96,6 @@ def author_process(db: Session, data: dict) -> List[Tuple[int, Author]]:
             author.profiles.append(author_profile)
 
         # Get a list of all Institution IDs for the author in the paper
-        new_institutions = set()
         inst_ids = get_key(auth, 'afid', many=True, default=[])
         for inst_id in inst_ids:
             # Since all institutions mentioned in a paper are added to the DB
