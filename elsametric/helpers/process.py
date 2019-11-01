@@ -130,8 +130,9 @@ def ext_subject_process(
     return subjects_list
 
 
-def ext_source_process(db: Session, file_path: Path, src_type: str = '',
-                       encoding: str = 'utf-8-sig') -> List[Source]:
+def ext_source_process(
+        db: Session, file_path: Path, src_type: Optional[str] = None,
+        encoding: str = 'utf-8-sig') -> List[Source]:
     """Imports a list of sources to database
 
     Reads a .csv file and creates 'Source' objects which represent
@@ -190,38 +191,35 @@ def ext_source_process(db: Session, file_path: Path, src_type: str = '',
         if source:  # 'source' found in database, skipping.
             continue
 
-        # source not in database, let's create it
-        if src_type != 'Conference Proceeding':
-            source = Source(
-                id_scp=source_id_scp, title=row['title'],
-                type=row['type'], issn=row['issn'],
-                e_issn=row['e_issn'], publisher=row['publisher'])
-            # adding country info to the source
-            country_name = country_names(row['country'])
-            if country_name:
-                country = db.query(Country) \
-                    .filter(Country.name == country_name) \
-                    .first()
-                source.country = country  # country either found or None
-        else:
-            # NOTE: The Scopus data for conference proceedings doesn't
-            # include country info.
-            source = Source(
-                id_scp=source_id_scp, title=row['title'],
-                type=src_type, issn=row['issn'],
-            )
+        # 'source' not in database, let's create it:
+        source = Source(
+            id_scp=source_id_scp,
+            title=get_key(row, 'title', default='NOT AVAILABLE'),
+            type=get_key(row, 'type') or src_type,
+            issn=get_key(row, 'issn'),
+            e_issn=get_key(row, 'e_issn'),
+            publisher=get_key(row, 'publisher')
+        )
+        # Adding country info to the source:
+        country_name = country_names(get_key(row, 'country'))
+        if country_name:
+            country = db.query(Country) \
+                .filter(Country.name == country_name) \
+                .first()
+            source.country = country  # 'country' either found or None.
 
-        # adding subject info to the source
-        if row['asjc']:
-            for asjc in row['asjc'].split(';'):
-                try:
-                    # possible ValueError, KeyError
-                    subject = subjects[int(asjc)]
-                    if subject not in source.subjects:
-                        # There may be repeated subjects for one source.
-                        source.subjects.append(subject)
-                except (ValueError, KeyError):
-                    continue
+        # Adding subject info to the source:
+        raw_asjc_codes = get_key(row, 'asjc', default='')  # '' if not found.
+        # Creating a set of unique asjc codes:
+        asjc_codes = {code.strip()
+                      for code in raw_asjc_codes.split(';') if code.strip()}
+        for code in asjc_codes:
+            try:
+                # possible ValueError, KeyError
+                subject = subjects[int(code)]
+                source.subjects.append(subject)
+            except (ValueError, KeyError):
+                continue
 
         sources_list.append(source)
     return sources_list
@@ -237,58 +235,61 @@ def ext_source_metric_process(db: Session, file_path: Path, file_year: int,
     subjects = {subject.asjc: subject for subject in subjects}
 
     metric_types = {
-        'citescore': 'CiteScore', 'percentile': 'Percentile',
-        'citations': 'Citations', 'documents': 'Documents',
-        'percent_cited': 'Percent Cited', 'snip': 'SNIP', 'sjr': 'SJR'}
+        'citescore': 'CiteScore',
+        'percentile': 'Percentile',
+        'snip': 'SNIP',
+        'sjr': 'SJR',
+        'citations': 'Citations',
+        'documents': 'Documents',
+        'percent_cited': 'Percent Cited',
+    }
 
     rows = get_row(file_path, encoding)
     for row in rows:
-        if not row['id_scp']:
+        nullify(row)
+        try:
+            source_id_scp = int(row['id_scp'])  # possible TypeError
+        except TypeError:
             continue
 
-        nullify(row)
-        source_id_scp = row['id_scp']
-        source = db.query(Source) \
+        source: Optional[Source] = db.query(Source) \
             .filter(Source.id_scp == source_id_scp) \
             .first()
-        if not source:  # source not in database, let's create it
-            publisher = get_key(row, 'publisher')
+
+        source_publisher = get_key(row, 'publisher')
+        if not source:  # 'source' not in database, let's create it.
             source = Source(
                 id_scp=source_id_scp,
                 title=get_key(row, 'title', default='NOT AVAILABLE'),
                 type=get_key(row, 'type'),
                 issn=strip(get_key(row, 'issn'), max_len=8),
                 e_issn=strip(get_key(row, 'e_issn'), max_len=8),
-                publisher=publisher
             )
 
-            if publisher:
-                # trying to find country using publisher of other sources
-                query = db.query(Source) \
+        # Setting additional source info if it does not exist already.
+        source.publisher = source.publisher or source_publisher
+
+        if source_publisher and not source.country:
+            # Try to find country using publisher data of other sources:
+            try:
+                country: Optional[Country] = db.query(Source) \
                     .filter(
-                        Source.publisher == publisher,
+                        Source.publisher == source_publisher,
                         Source.country != None) \
-                    .first()
-                if query:
-                    source.country = query.country
+                    .first().country  # possible AttributeError
+                source.country = country
+            except AttributeError:  # 'country' not found.
+                pass
 
-        if not source.publisher:
-            source.publisher = get_key(row, 'publisher')
-
-        if row['asjc']:
+        if row['asjc'] and not source.subjects:
             asjc = int(row['asjc'])
-            if asjc not in [subj.asjc for subj in source.subjects]:
-                try:
-                    source.subjects.append(subjects[asjc])
-                except KeyError:
-                    # The asjc code not wasn't found in the database,
-                    # which is unusual & unlikely.
-                    # Rolling back the change made to 'source.subjects':
-                    if source.subjects == []:
-                        source.subjects = None
+            try:
+                source.subjects.append(subjects[asjc])
+            except KeyError:  # 'asjc' not found in the database (unlikely).
+                pass
 
-        # processing metrics
-        # creating a dict out of metrics already attached to the source
+        # Processing metrics
+        # Creating a dict out of metrics already attached to the source:
         source_metrics = {}
         for metric in source.metrics:
             if metric.year == file_year:
@@ -299,15 +300,12 @@ def ext_source_metric_process(db: Session, file_path: Path, file_year: int,
                 metric_value = float(row[metric])
             except (KeyError, TypeError, ValueError):  # value not available
                 continue
-            # using pre-defined names for metrics
+            # Using pre-defined names for metrics:
             metric = metric_types[metric]
             if metric not in source_metrics:
                 source.metrics.append(
                     Source_Metric(
                         type=metric, value=metric_value, year=file_year))
-            else:
-                if source_metrics[metric].value < metric_value:
-                    source_metrics[metric].value = metric_value
 
         sources_list.append(source)
     return sources_list
