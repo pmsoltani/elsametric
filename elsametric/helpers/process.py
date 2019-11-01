@@ -636,12 +636,13 @@ def ext_country_process(
     for row in rows:
         nullify(row)
         country_name = country_names(row['name']).strip()
-        country = db.query(Country) \
+        country:Optional[Country] = db.query(Country) \
             .filter(Country.name == country_name) \
             .first()
         if not country:  # country not in database, let's create it
             country = Country(
-                name=country_name, domain=row['domain'].strip(),
+                name=country_name,
+                domain=row['domain'].strip(),
                 region=row['region'].strip(),
                 sub_region=row['sub_region'].strip()
             )
