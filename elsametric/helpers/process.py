@@ -125,13 +125,17 @@ def file_process(db: Session, file_path: Path, retrieval_time: str,
             # the exception cannot be easily determined.
             try:
                 # possible IndexError
-                assert bad_papers[-1]['id_scp'] == entry['dc:identifier']
-            except (IndexError, AssertionError):  # This is the first bad_paper
+                if bad_papers[-1]['id_scp'] != entry['dc:identifier']:
+                    raise ValueError
+            except (IndexError, ValueError):  # This is the first bad_paper
                 bad_papers.append(
                     {'#': cnt, 'id_scp': entry['dc:identifier']})
             finally:
                 bad_papers[-1] = {
-                    **bad_papers[-1], 'error_type': type(e), 'error_msg': e}
+                    **bad_papers[-1],
+                    'error_type': type(e),
+                    'error_msg': str(e)
+                }
 
     problems = {}
     if bad_papers:
@@ -206,20 +210,14 @@ def paper_process(db: Session, data: dict, retrieval_time: str) -> Paper:
             paper = db.query(Paper) \
                 .filter(Paper.doi == paper_doi) \
                 .first()
-            try:
-                # There is at least one case that two different papers in the
-                # Scopus database had the same DOI (but different Scopus IDs:
-                # 84887280754 & 84887287423, as of Oct. 31, 2019), which led
-                # the algorithm to come to this point).
-                assert paper.title == paper_title
-            except AssertionError:  # Different papers with the same DOI
-                # Since the current paper is not the same as the one in the
-                # database, we need to create it and so we have to set it to
-                # None first.
-                paper = None
-                paper_doi = None
-            except AttributeError:  # 'Paper' not found in db. Let's add one.
-                pass
+
+            # There is at least one case that two different papers in the
+            # Scopus database had the same DOI (but different Scopus IDs:
+            # 84887280754 & 84887287423, as of Oct. 31, 2019), which led
+            # the algorithm to come to this point).
+            if paper and paper.title != paper_title:
+                paper = None  # So that we can create it in the next 'if'
+                paper_doi = None  # Avoid violating DB's unique constraint
 
     if not paper:  # Paper not in database, let's create one.
         # The 'default' argument for the 'get_key' function is because of the
@@ -239,54 +237,27 @@ def paper_process(db: Session, data: dict, retrieval_time: str) -> Paper:
             article_no=get_key(data, 'article-number'),
             doi=paper_doi,
             volume=strip(
-                get_key(data, 'prism:volume'),
-                accepted_chars='',
-                max_len=45
-            ),
+                get_key(data, 'prism:volume'), accepted_chars='', max_len=45),
             issue=get_key(data, 'prism:issueIdentifier'),
             date=get_key(data, 'prism:coverDate'),
             page_range=get_key(data, 'prism:pageRange'),
             retrieval_time=retrieval_time,
         )
 
-    # Checking for additional data:
-    try:
-        assert paper.source
-    except (AssertionError, AttributeError):
-        paper.source = source_process(db, data)
+    # Setting additional data
+    paper.source = paper.source or source_process(db, data)
+    paper.fund = paper.fund or fund_process(db, data)
+    paper.keywords = paper.keywords or keyword_process(db, data)
 
-    try:
-        assert paper.fund
-    except (AssertionError, AttributeError):
-        paper.fund = fund_process(db, data)
-
-    try:
-        assert paper.keywords
-    except (AssertionError, AttributeError):
-        paper.keywords = keyword_process(db, data)
-
-    try:
-        assert len(paper.authors) == paper.total_author, 'len'
-    except (AssertionError, AttributeError, TypeError) as e:
-        try:
-            all_authors = [
-                paper_author.author for paper_author in paper.authors]
-            all_author_id_scps = [author.id_scp for author in all_authors]
-        except Exception as e:
-            print('@paper_process', type(e), e)
-            all_author_id_scps = []
-
+    if not paper.authors:
         authors_list = author_process(db, data)
-        if len(authors_list) != paper.total_author:
-            paper.total_author = len(authors_list)
-
         for author in authors_list:
-            if author[1].id_scp in all_author_id_scps:
-                continue
             # Using the SQLAlchemy's Association Object to add paper's authors.
             paper_author = Paper_Author(author_no=author[0])
             paper_author.author = author[1]
             paper.authors.append(paper_author)
+    # The reported count of authors from Scopus can't be trusted: set it here.
+    paper.total_author = len(paper.authors)
 
     return paper
 
@@ -322,26 +293,19 @@ def keyword_process(db: Session,
         unique_keys_set = set()  # just a check variable
         keywords = []
         for raw_keyword in raw_keywords.split(separator):
-            try:
-                raw_keyword = raw_keyword.strip()
-                assert raw_keyword
-                assert raw_keyword.lower() not in unique_keys_set
+            raw_keyword = raw_keyword.strip()
+            if raw_keyword and raw_keyword.lower() not in unique_keys_set:
                 unique_keys_set.add(raw_keyword.lower())
                 keywords.append(raw_keyword)
-            except AssertionError:  # Key is repeated in the paper.
-                continue
 
         # At this point, all keywords are stripped and unique within the paper.
         for raw_keyword in keywords:
             keyword: Optional[Keyword] = db.query(Keyword) \
                 .filter(Keyword.keyword == raw_keyword) \
                 .first()
-            try:
-                assert keyword
-            except AssertionError:  # Keyword not in database, let's add it.
+            if not keyword:  # Keyword not in database, let's add it.
                 keyword = Keyword(keyword=raw_keyword)
-            finally:
-                keywords_list.append(keyword)
+            keywords_list.append(keyword)
 
     return keywords_list
 
@@ -371,9 +335,7 @@ def source_process(db: Session, data: dict) -> Optional[Source]:
     source = db.query(Source) \
         .filter(Source.id_scp == source_id_scp) \
         .first()
-    try:
-        assert source
-    except AssertionError:  # 'source' not in database, let's create one.
+    if not source:  # 'source' not in database, let's create it.
         # The 'default' argument for the 'get_key' function is because of the
         # database's 'not null' constraint on certain columns.
         # Strip issn, e_issn, and isbn from any non-alphanumeric chars.
@@ -424,25 +386,22 @@ def fund_process(db: Session, data: dict) -> Optional[Fund]:
     # DBMSs' Unique Constraints accept rows with one column being null and the
     # other have repeated values. So we must change None to 'NOT AVAILABLE'.
 
-    try:
-        assert fund_id_scp != 'NOT AVAILABLE' or agency != 'NOT AVAILABLE'
-        fund = db.query(Fund) \
-            .filter(Fund.id_scp == fund_id_scp, Fund.agency == agency) \
-            .first()
-    except AssertionError:
-        # Both fund_id_scp & agency are 'NOT AVAILABLE'. Can't go on.
+    if (fund_id_scp == 'NOT AVAILABLE') and (agency == 'NOT AVAILABLE'):
+        # Both 'fund_id_scp' & 'agency' are 'NOT AVAILABLE'. Can't go on.
         return fund
 
-    try:
-        assert fund
-    except AssertionError:  # 'fund' not found in the database, let's add one.
+    fund = db.query(Fund) \
+        .filter(Fund.id_scp == fund_id_scp, Fund.agency == agency) \
+        .first()
+
+    if not fund:
         fund = Fund(
             id_scp=fund_id_scp, agency=agency, agency_acronym=agency_acronym)
 
     return fund
 
 
-def author_process(db: Session, data: dict) -> List[list]:
+def author_process(db: Session, data: dict) -> List[Tuple[int, Author]]:
     """Returns a list of Author objects to be added to a Paper object
 
     Receives a dictionary containing information about a paper and
@@ -477,8 +436,7 @@ def author_process(db: Session, data: dict) -> List[list]:
         return authors_list
 
     author_ids = []
-    new_institutions = set()
-    author_url = 'https://www.scopus.com/authid/detail.uri?authorId='
+    author_base_url = 'https://www.scopus.com/authid/detail.uri?authorId='
 
     for auth in data['author']:
         try:
@@ -490,7 +448,6 @@ def author_process(db: Session, data: dict) -> List[list]:
         # in the paper data dictionary. The 'author_ids' variable is used
         # to make a unique list of authors for each paper. Note that this
         # might cause the 'total_author' attribute of the paper to be wrong.
-
         if author_id_scp in author_ids:
             continue
         author_ids.append(author_id_scp)
@@ -512,13 +469,14 @@ def author_process(db: Session, data: dict) -> List[list]:
             )
             # Add the first profile for this author.
             author_profile = Author_Profile(
-                address=author_url + str(author_id_scp),
+                address=f'{author_base_url}{author_id_scp}',
                 type='Scopus Profile',
             )
             author.profiles.append(author_profile)
 
         # Get a list of all Institution IDs for the author in the paper
-        inst_ids = get_key(auth, 'afid', many=True)
+        new_institutions = set()
+        inst_ids = get_key(auth, 'afid', many=True, default=[])
         for inst_id in inst_ids:
             # Since all institutions mentioned in a paper are added to the DB
             # together, we must have a list of to-be-added institutions so that
@@ -532,7 +490,7 @@ def author_process(db: Session, data: dict) -> List[list]:
             if institution:
                 new_institutions.add(institution)
 
-        authors_list.append([author_no, author])
+        authors_list.append((author_no, author))
     return authors_list
 
 
@@ -594,7 +552,7 @@ def institution_process(
             .first()
         if institution:  # 'institution' found in database.
             # It should already have an 'Undefined' department.
-            department = db.query(Department) \
+            department: Optional[Department] = db.query(Department) \
                 .with_parent(institution, Institution.departments) \
                 .filter(Department.name == 'Undefined') \
                 .first()
