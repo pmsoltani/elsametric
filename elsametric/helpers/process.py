@@ -130,7 +130,7 @@ def ext_subject_process(
     return subjects_list
 
 
-def ext_source_process(
+def ext_source_process_gen(
         db: Session, file_path: Path, src_type: Optional[str] = None,
         encoding: str = 'utf-8-sig') -> List[Source]:
     """Imports a list of sources to database
@@ -170,8 +170,6 @@ def ext_source_process(
     Returns:
         list: a list of 'Source' objects to be added to the database
     """
-
-    sources_list = []
 
     subjects: List[Subject] = db.query(Subject).all()
     # Turn 'subjects' which is a list of 'Subject' objects, into a dict:
@@ -221,13 +219,11 @@ def ext_source_process(
             except (ValueError, KeyError):
                 continue
 
-        sources_list.append(source)
-    return sources_list
+        yield source
 
 
-def ext_source_metric_process(db: Session, file_path: Path, file_year: int,
+def ext_source_metric_process_gen(db: Session, file_path: Path, file_year: int,
                               encoding: str = 'utf-8-sig') -> List[Source]:
-    sources_list = []
 
     subjects = db.query(Subject).all()
     # Turn 'subjects' which is a list of 'Subject' objects, into a dict:
@@ -307,134 +303,7 @@ def ext_source_metric_process(db: Session, file_path: Path, file_year: int,
                     Source_Metric(
                         type=metric, value=metric_value, year=file_year))
 
-        sources_list.append(source)
-    return sources_list
-
-
-def ext_scimago_process(
-        db: Session, file_path: Path, file_year: int,
-        encoding: str = 'utf-8-sig', delimiter: str = ';') -> List[Source]:
-    """Adds source metrics to database
-
-    DEPRECATED FUNCTION: use 'ext_source_metric_process' function.
-
-    Reads a .csv file and creates/updates 'Source' objects. The returned
-    list of objects will have source metrics data in them, which will be
-    added to the 'source_metric' table of the database. Sources already
-    in the database will be checked for missing data, such as publisher,
-    country, and subjects. If there are metrics available for multiple
-    years, the data for each year should be in a separate file and it is
-    best to be fed to the function from the most recent year.
-
-    Parameters:
-        db: a Session instance of SQLAlchemy session factory to
-        file_path (Path): the path to a .csv file containing a list of
-            sources along with metric details
-        file_year (int): an integer to indicate the year that the metric
-            was evaluated for the source
-        chunk_size (int): used to break the .csv files into several
-            chunks, since they are very large,
-        batch_no (int): the number of the chunk to be processed
-        encoding (str): encoding to be used when reading the .csv file
-        delimiter (str): Scimago .csv files use semicolon as delimiter
-
-    Returns:
-        list: a list of 'Source' objects which now have metrics, to be
-            added to the database
-    """
-
-    sources_list = []
-    metric_types = [
-        'Rank', 'SJR', 'SJR Best Quartile', 'H index',
-        f'Total Docs. ({file_year})', 'Total Docs. (3years)', 'Total Refs.',
-        'Total Cites (3years)', 'Citable Docs. (3years)',
-        'Cites / Doc. (2years)', 'Ref. / Doc.', 'Categories',
-    ]
-    rows = get_row(file_path, encoding, delimiter)
-    for row in rows:
-        nullify(row)
-        source_id_scp = row['Sourceid']
-        source = db.query(Source) \
-            .filter(Source.id_scp == source_id_scp) \
-            .first()
-        if not source:
-            source = Source(
-                id_scp=source_id_scp,
-                title=get_key(row, 'Title', default='NOT AVAILABLE'),
-                type=get_key(row, 'Type'),
-                issn=None, e_issn=None, isbn=None,
-                publisher=get_key(row, 'Publisher'),
-            )
-
-            # some minor modifications to keep the database clean
-            if source.type == 'conference and proceedings':
-                source.type = 'Conference Proceeding'
-            if source.type:
-                source.type = source.type.title()
-
-        # doing some repairs to sources already in the database, like
-        # add missing publisher and country data
-        if not source.publisher:
-            source.publisher = get_key(row, 'Publisher')
-
-        if not source.country:
-            country_name = country_names(row['Country'])
-            if country_name:
-                country = db.query(Country) \
-                    .filter(Country.name == country_name) \
-                    .first()
-                source.country = country  # country either found or None
-
-        if not source.subjects:
-            if row['Categories']:
-                # example of row['Categories']
-                # Economics and Econometrics (Q1); Finance (Q1)
-                for low in row['Categories'].split(';'):
-                    if not low:
-                        continue
-                    low = low.strip()
-                    if low[-4:] in ['(Q1)', '(Q2)', '(Q3)', '(Q4)']:
-                        low = low[:-4].strip()  # removing the '(Qs)'
-                    subject = db.query(Subject) \
-                        .filter(Subject.low == low) \
-                        .first()
-                    if subject:
-                        source.subjects.append(subject)
-
-        if not source.metrics:
-            total_docs = 0  # used to calculate the CiteScore
-            total_cites = 0  # used to calculate the CiteScore
-            for item in metric_types[:-1]:
-                if row[item]:
-                    if item in ['SJR', 'Cites / Doc. (2years)', 'Ref. / Doc.']:
-                        # unfortunately, the decimal points in .csv files by
-                        # Scimago are actually commas
-                        row[item] = float(row[item].replace(',', '.'))
-                    if item == 'SJR Best Quartile':
-                        # the database cannot hold values like:
-                        # Q1 & Q2, so we must remove the 'Q'
-                        row[item] = row[item][-1]
-
-                    source_metric = Source_Metric(
-                        type=item, value=row[item], year=file_year)
-                    if item == 'Total Docs. (3years)':
-                        total_docs = int(row[item])
-                    if item == 'Total Cites (3years)':
-                        total_cites = int(row[item])
-                    if item == f'Total Docs. ({file_year})':
-                        source_metric.type = 'Total Docs. (Current Year)'
-                    source.metrics.append(source_metric)
-
-            if total_docs and total_cites:  # calculating CiteScore
-                source_metric = Source_Metric(
-                    type='CiteScore',
-                    value=total_cites / total_docs,
-                    year=file_year
-                )
-                source.metrics.append(source_metric)
-
-        sources_list.append(source)
-    return sources_list
+        yield source
 
 
 def ext_faculty_process(
