@@ -1,18 +1,20 @@
 import json
 import io
 from pathlib import Path
-from time import time, strftime, gmtime
+from time import gmtime, strftime, time
 from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from elsametric.models.base import engine, SessionLocal, Base
-from elsametric.helpers.process import file_process
-from elsametric.helpers.process import ext_country_process
-from elsametric.helpers.process import ext_subject_process
-from elsametric.helpers.process import ext_source_process
-from elsametric.helpers.process import ext_source_metric_process
-from elsametric.helpers.process import ext_faculty_process
+from elsametric.models.base import Base, engine, SessionLocal
+from elsametric.helpers.process import (
+    ext_country_process,
+    ext_subject_process,
+    ext_source_process,
+    ext_source_metric_process,
+    ext_faculty_process,
+    file_process,
+)
 
 
 # ==============================================================================
@@ -75,16 +77,16 @@ finally:
 
 # sources: journals
 try:
-    db = SessionLocal()
     if config['journals']['process']:
         print('@ journals')
 
-        sources_list = ext_source_process(
-            db, DATA_PATH / config['journals']['path'],
-            src_type='Journal')
-        if sources_list:
-            db.add_all(sources_list)
-        db.commit()
+        db = SessionLocal()
+        sources = ext_source_process(
+            db, DATA_PATH / config['journals']['path'], src_type='Journal')
+        for source in sources:
+            db.add(source)
+            db.commit()
+            db.close()
 
         print(f'Op. Time: {strftime("%H:%M:%S", gmtime(time() - t0))}')
 finally:
@@ -93,16 +95,17 @@ finally:
 
 # sources: conference proceedings
 try:
-    db = SessionLocal()
     if config['conferences']['process']:
         print('@ conference proceedings')
 
-        sources_list = ext_source_process(
+        db = SessionLocal()
+        sources = ext_source_process(
             db, DATA_PATH / config['conferences']['path'],
             src_type='Conference Proceeding')
-        if sources_list:
-            db.add_all(sources_list)
-        db.commit()
+        for source in sources:
+            db.add(source)
+            db.commit()
+            db.close()
 
         print(f'Op. Time: {strftime("%H:%M:%S", gmtime(time() - t0))}')
 finally:
@@ -114,12 +117,15 @@ for item in config['metrics']:
     if not item['process']:
         continue
     try:
-        db = SessionLocal()
-        print(f'@ metrics: {item["path"]}')
+        print(f'@ metrics using gen: {item["path"]}')
 
-        sources_list = ext_source_metric_process(
+        db = SessionLocal()
+        sources = ext_source_metric_process(
             db, DATA_PATH / item['path'], item['year'])
-        db.commit()
+        for source in sources:
+            db.add(source)
+            db.commit()
+            db.close()
 
         print(f'Op. Time: {strftime("%H:%M:%S", gmtime(time() - t0))}')
     finally:

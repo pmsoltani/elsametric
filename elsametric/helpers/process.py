@@ -130,7 +130,7 @@ def ext_subject_process(
     return subjects_list
 
 
-def ext_source_process_gen(
+def ext_source_process(
         db: Session, file_path: Path, src_type: Optional[str] = None,
         encoding: str = 'utf-8-sig') -> List[Source]:
     """Imports a list of sources to database
@@ -222,7 +222,7 @@ def ext_source_process_gen(
         yield source
 
 
-def ext_source_metric_process_gen(db: Session, file_path: Path, file_year: int,
+def ext_source_metric_process(db: Session, file_path: Path, file_year: int,
                               encoding: str = 'utf-8-sig') -> List[Source]:
 
     subjects = db.query(Subject).all()
