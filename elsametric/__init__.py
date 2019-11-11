@@ -3,26 +3,26 @@
 
 import io
 import json
-from pathlib import Path
+
+from environs import Env
 
 from sqlalchemy_utils.functions import database_exists, create_database
 
-with io.open(Path.cwd() / 'config.json', 'r') as config_file:
-    config = json.load(config_file)
+env = Env()
+env.read_env()
 
-config = config['database']
+with env.prefixed('DB_'):
+    TOKEN_BYTES = env.int('TOKEN_BYTES')
+    DIALECT = env('DIALECT')
+    if DIALECT.lower() not in ('mysql', 'postgresql'):
+        raise ValueError('Invalid configuration for "DIALECT"')
 
-TOKEN_BYTES = config['token_bytes']
-
-DIALECT = config['startup']['dialect']
-if DIALECT not in ('mysql', 'postgresql'):
-    raise ValueError('Invalid configuration for "dialect"')
-
-DB_DRIVER = config['startup'][DIALECT]['driver']
-DB_USER = config['startup'][DIALECT]['user']
-DB_PASS = config['startup'][DIALECT]['pass']
-DB_HOST = config['startup'][DIALECT]['host']
-DB_NAME = config['startup'][DIALECT]['schema']
+    with env.prefixed(f'{DIALECT.upper()}_'):
+        DB_DRIVER = env('DRIVER')
+        DB_USER = env('USER')
+        DB_PASS = env('PASS')
+        DB_HOST = env('HOST')
+        DB_NAME = env('SCHEMA')
 
 ENGINE_URI = f'{DIALECT}+{DB_DRIVER}://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}'
 
