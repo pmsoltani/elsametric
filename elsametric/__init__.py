@@ -3,13 +3,15 @@
 
 import io
 import json
+from pathlib import Path
 
 from environs import Env
 
 from sqlalchemy_utils.functions import database_exists, create_database
 
 env = Env()
-env.read_env()
+env.read_env(path=Path.cwd())
+# 'path' argument is needed for when elsametric is called from another module.
 
 with env.prefixed('DB_'):
     TOKEN_BYTES = env.int('TOKEN_BYTES')

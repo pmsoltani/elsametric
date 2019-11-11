@@ -12,7 +12,7 @@ setuptools.setup(
     name='elsametric',
     # license='',
     description='Designs a DB to store academic publications data.',
-    version='v0.1.1',
+    version='v0.1.2',
     # long_description=README,
     url='https://github.com/pmsoltani/elsametric',
     packages=setuptools.find_packages(),
